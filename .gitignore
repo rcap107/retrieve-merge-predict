@@ -1,7 +1,8 @@
 # Repository-specific
 data/*
-
-
+data/
+.vscode
+.idea
 
 
 # Byte-compiled / optimized / DLL files
