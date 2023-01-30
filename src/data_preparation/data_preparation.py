@@ -10,7 +10,7 @@ import pandas as pd
 from typing import Union, Iterable, Dict
 import shutil
 import os
-
+from d3m.container.utils import save_container
 
 REST_API_PATH = "https://auctus.vida-nyu.org/api/v1"
 
@@ -51,9 +51,10 @@ def query_datamart(dataset_paths: Path, query_limit: int, query_timeout: Union[i
     # Connecting to the API
     client = datamart_rest.RESTDatamart(REST_API_PATH)
 
-    for v_path in tqdm(dataset_paths):
-        ds_name = v_path.stem
-        target_dataset_learning_data = Path("data")/v_path/f"{ds_name}_dataset"/Path("tables/learningData.csv")
+    data_path = Path("data/benchmark-datasets")
+    for ds_name in tqdm(os.listdir(data_path)[:1]):
+        ds_path = Path(data_path,f"{ds_name}")
+        target_dataset_learning_data = Path(ds_path, f"{ds_name}_dataset", Path("tables/learningData.csv"))
         assert target_dataset_learning_data.exists()
 
         # Loading the D3M representation
@@ -62,10 +63,28 @@ def query_datamart(dataset_paths: Path, query_limit: int, query_timeout: Union[i
         try:
             cursor = client.search_with_data(query={}, supplied_data=full_container)
             results = cursor.get_next_page(limit=query_limit, timeout=query_timeout)
-            results_by_dataset[v_path] = results
+            results_by_dataset[ds_name] = results
+            
+            for res in tqdm(results, leave=False):
+                res_mdata = res.get_json_metadata()
+                res_id = res_mdata["id"]
+                try:
+                    res_dw = res.download(supplied_data=None)
+                    # res_mdata = res_dw.to_json_structure()
+                    res_path = Path(ds_path, f"{ds_name}_candidates", res_id)
+                    try:
+                        save_container(res_dw, res_path)
+                    except FileExistsError:
+                        shutil.rmtree(res_path)
+                        save_container(res_dw, res_path)
+                except ValueError as ve:
+                    tqdm.write(f"Problem with dataset {res_id}")
+                    # print(f"Problem with dataset {res_id}")
+                    continue
+                                
         except Exception as e:    
-            print(f"Server error for {v_path}")
-            failed_datasets.append(v_path)
+            print(f"Server error for {ds_name}")
+            failed_datasets.append(ds_name)
     
     return results_by_dataset
 
