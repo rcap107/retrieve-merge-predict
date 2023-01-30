@@ -2,7 +2,7 @@
 """
 
 import argparse
-from data_preparation.data_preparation import reading_dataset_paths, query_datamart
+from src.data_preparation import reading_dataset_paths, query_datamart
 from pathlib import Path
 
 def parse_args(dummy=True):
