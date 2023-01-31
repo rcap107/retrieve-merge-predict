@@ -2,7 +2,7 @@
 """
 
 import argparse
-from src.data_preparation import reading_dataset_paths, query_datamart
+from src.data_preparation.data_preparation import reading_dataset_paths, query_datamart
 from pathlib import Path
 
 def parse_args(dummy=True):
@@ -20,7 +20,7 @@ def parse_args(dummy=True):
     if dummy:
         args = parser.parse_args(args=[
         "data/target_datasets_small.txt",
-        "--query_limit", "5"])
+        "--query_limit", "20"])
     else:
         args = parser.parse_args()
     return args
@@ -30,5 +30,6 @@ if __name__ == "__main__":
 
     dataset_list = reading_dataset_paths(Path(args.dataset_file))
     
-    query_results = query_datamart(dataset_list, args.query_limit, args.query_timeout)
+    query_results = query_datamart(dataset_list, args.query_limit, args.query_timeout, debug=True)
+    
     
