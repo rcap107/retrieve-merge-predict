@@ -13,6 +13,11 @@ import os
 from d3m.container.utils import save_container
 import zipfile
 import io
+import logging
+
+logging.basicConfig(format='%(asctime)s %(message)s', filemode="a", filename="data/logging.txt", level=logging.DEBUG)
+
+
 
 REST_API_PATH = "https://auctus.vida-nyu.org/api/v1"
 
@@ -47,16 +52,6 @@ def reading_dataset_paths(VALID_PATH):
 
 
 def fallback_download(dataset_id, dest_path, dataset_metadata):
-    # response = requests.post(
-    #     'https://auctus.vida-nyu.org/api/v1/search',
-    #     files={
-    #         'query': json.dumps({'keywords': dataset_id}).encode('utf-8'),
-    #     },
-    # )
-    # response.raise_for_status()
-    # for result in response.json()['results']:
-    #     print(result['score'], result['name'], result['id'])
-
     response = requests.get(
         f"https://auctus.vida-nyu.org/api/v1/download/{dataset_id}",
         files={"format": "d3m"},
@@ -65,6 +60,7 @@ def fallback_download(dataset_id, dest_path, dataset_metadata):
 
     if response.status_code == 200:
         try:
+            # The dummy is needed because zip needs some kind of file pointer to extract, which we don't have. 
             dummy = io.BytesIO(response.content)
             zf = zipfile.ZipFile(dummy)
             zf.extractall(dest_path)
@@ -73,7 +69,7 @@ def fallback_download(dataset_id, dest_path, dataset_metadata):
 
             return dataset_id
         except Exception as e:
-            raise e
+            # raise e
             return None
     elif response.status_code == 404:
         return None
@@ -121,9 +117,9 @@ def query_datamart(
     datasets_to_check = os.listdir(data_path)[:limit]
 
     list_datasets = []
-    for ds_name in tqdm(
-        datasets_to_check, total=len(datasets_to_check), position=0, leave=False
-    ):
+    print("="*60)
+    for idx, ds_name in enumerate(datasets_to_check):
+        print(f"{idx+1}/{len(datasets_to_check)} - {ds_name}")
         ds_path = Path(data_path, f"{ds_name}")
         target_dataset_learning_data = Path(
             ds_path, f"{ds_name}_dataset", Path("tables/learningData.csv")
@@ -134,7 +130,7 @@ def query_datamart(
         full_container = container.Dataset.load(
             target_dataset_learning_data.absolute().as_uri()
         )
-
+        logging.info(f"Reading {ds_name}")
         ds_instance = Dataset(ds_name)
         try:
             # Probing Auctus with the full container
@@ -143,31 +139,52 @@ def query_datamart(
             results = cursor.get_next_page(limit=query_limit, timeout=query_timeout)
             results_by_dataset[ds_name] = results
             # Download each candidate in a different folder
-            for res in tqdm(results, total=len(results), position=1, leave=False):
+            for id2, res in enumerate(results):
                 res_mdata = res.get_json_metadata()
                 res_id = res_mdata["id"]
-                print(res_id)
                 res_path = Path(ds_path, f"{ds_name}_candidates", res_id)
+                
+                logging.info(f"{ds_name}  - Downloading {res_id}")
+                print(f"{res_id}", end="\r", flush=True)
                 try:
                     res_dw = res.download(supplied_data=None)
                     # res_mdata = res_dw.to_json_structure()
                     try:
                         save_container(res_dw, res_path)
+                        logging.debug(f"{ds_name} - {res_id} - Writing")
                     except FileExistsError:
                         shutil.rmtree(res_path)
                         save_container(res_dw, res_path)
+                        logging.debug(f"{ds_name} - {res_id} - Overwriting")
+                    finally:
+                        print(f"{res_id} - Standard", end="\r", flush=True)
+                        logging.info(f"{ds_name}  - {res_id} - Standard")
                 except ValueError as ve:
                     # Some datasets raise exceptions, I force the download by using the REST API. It will be a problem for later. 
-                    print("Downloader failed: using fallback method.")
+                    print(f"{res_id} - Fallback", end="\r", flush=True)
+
                     if fallback_download(res_id, res_path, res_mdata) != res_id:
                         print("Fallback method failed. ")
                         ds_instance.add_failed(res_id)
-
+                        logging.error(f"{ds_name}  - {res_id} - Failed with fallback")
+                    else:
+                        logging.info(f"{ds_name}  - {res_id} - Fallback")
+                        logging.warning(f"{ds_name}  - {res_id} - Fallback")
+                        
+                except Exception as ge:
+                    print(f"Uncaught exception for dataset {ds_name} and candidate {res_id}")
+                    logging.error(f"{ds_name}  - {res_id} - {ge}")
+                print()
         except Exception as e:
             # progress_overall.write(f"Server error for {ds_name}")
             failed_datasets.append(ds_instance)
             ds_instance.set_failed()
+            logging.error(f"{ds_name}  - Failed querying")
+
         list_datasets.append(ds_instance)
+        logging.info(f"{ds_name} - Complete")
+        
+        print("="*60)
     return results_by_dataset, list_datasets
 
 
