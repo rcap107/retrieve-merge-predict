@@ -1,22 +1,27 @@
-from d3m import container
+import datetime
+import io
+import json
+import logging
+import os
+import shutil
+import zipfile
+from pathlib import Path
+from typing import Dict, Iterable, Union
+
 import datamart
 import datamart_rest
-import datetime
-from pathlib import Path
-import requests
-import json
-from tqdm import tqdm
 import pandas as pd
-from typing import Union, Iterable, Dict
-import shutil
-import os
+import requests
+from d3m import container
 from d3m.container.utils import save_container
-import zipfile
-import io
-import logging
+from tqdm import tqdm
 
-logging.basicConfig(format='%(asctime)s %(message)s', filemode="a", filename="data/logging.txt", level=logging.DEBUG)
-
+logging.basicConfig(
+    format="%(asctime)s %(message)s",
+    filemode="a",
+    filename="data/logging.txt",
+    level=logging.DEBUG,
+)
 
 
 REST_API_PATH = "https://auctus.vida-nyu.org/api/v1"
@@ -42,13 +47,14 @@ def build_dir_tree(candidate_paths: Iterable[Path]):
     return destination_paths
 
 
-def reading_dataset_paths(VALID_PATH):
+def read_dataset_paths(dataset_list_path):
     valid_paths = []
-    with open(VALID_PATH, "r") as fp:
+    with open(dataset_list_path, "r") as fp:
         n_paths = int(fp.readline().strip())
         for idx, row in enumerate(fp):
             valid_paths.append(Path(row.strip()))
-    return valid_paths
+    stems = [pth.stem for pth in valid_paths]
+    return valid_paths, stems
 
 
 def fallback_download(dataset_id, dest_path, dataset_metadata):
@@ -60,7 +66,7 @@ def fallback_download(dataset_id, dest_path, dataset_metadata):
 
     if response.status_code == 200:
         try:
-            # The dummy is needed because zip needs some kind of file pointer to extract, which we don't have. 
+            # The dummy is needed because zip needs some kind of file pointer to extract, which we don't have.
             dummy = io.BytesIO(response.content)
             zf = zipfile.ZipFile(dummy)
             zf.extractall(dest_path)
@@ -97,7 +103,10 @@ class Dataset:
 
 
 def query_datamart(
-    dataset_paths: Path, query_limit: int, query_timeout: Union[int, None], debug=False
+    dataset_list_path: Path,
+    query_limit: int,
+    query_timeout: Union[int, None],
+    debug=False,
 ):
 
     if debug:
@@ -113,16 +122,19 @@ def query_datamart(
     # Connecting to the API
     client = datamart_rest.RESTDatamart(REST_API_PATH)
 
+    _, list_ds_names = read_dataset_paths(dataset_list_path=dataset_list_path)
+
     data_path = Path("data/benchmark-datasets")
-    datasets_to_check = os.listdir(data_path)[:limit]
 
     list_datasets = []
-    print("="*60)
-    for idx, ds_name in enumerate(datasets_to_check):
-        print(f"{idx+1}/{len(datasets_to_check)} - {ds_name}")
-        ds_path = Path(data_path, f"{ds_name}")
+    print("=" * 60)
+    for idx, ds_name in enumerate(list_ds_names):
+        print(f"{idx+1}/{len(list_ds_names)} - {ds_name}")
         target_dataset_learning_data = Path(
-            ds_path, f"{ds_name}_dataset", Path("tables/learningData.csv")
+            data_path,
+            f"{ds_name}",
+            f"{ds_name}_dataset",
+            Path("tables/learningData.csv"),
         )
         assert target_dataset_learning_data.exists()
 
@@ -143,7 +155,7 @@ def query_datamart(
                 res_mdata = res.get_json_metadata()
                 res_id = res_mdata["id"]
                 res_path = Path(ds_path, f"{ds_name}_candidates", res_id)
-                
+
                 logging.info(f"{ds_name}  - Downloading {res_id}")
                 print(f"{res_id}", end="\r", flush=True)
                 try:
@@ -160,7 +172,7 @@ def query_datamart(
                         print(f"{res_id} - Standard", end="\r", flush=True)
                         logging.info(f"{ds_name}  - {res_id} - Standard")
                 except ValueError as ve:
-                    # Some datasets raise exceptions, I force the download by using the REST API. It will be a problem for later. 
+                    # Some datasets raise exceptions, I force the download by using the REST API. It will be a problem for later.
                     print(f"{res_id} - Fallback", end="\r", flush=True)
 
                     if fallback_download(res_id, res_path, res_mdata) != res_id:
@@ -170,9 +182,11 @@ def query_datamart(
                     else:
                         logging.info(f"{ds_name}  - {res_id} - Fallback")
                         logging.warning(f"{ds_name}  - {res_id} - Fallback")
-                        
+
                 except Exception as ge:
-                    print(f"Uncaught exception for dataset {ds_name} and candidate {res_id}")
+                    print(
+                        f"Uncaught exception for dataset {ds_name} and candidate {res_id}"
+                    )
                     logging.error(f"{ds_name}  - {res_id} - {ge}")
                 print()
         except Exception as e:
@@ -183,8 +197,8 @@ def query_datamart(
 
         list_datasets.append(ds_instance)
         logging.info(f"{ds_name} - Complete")
-        
-        print("="*60)
+
+        print("=" * 60)
     return results_by_dataset, list_datasets
 
 

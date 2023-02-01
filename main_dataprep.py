@@ -2,7 +2,7 @@
 """
 
 import argparse
-from src.data_preparation.data_preparation import reading_dataset_paths, query_datamart
+from src.data_preparation.data_preparation import read_dataset_paths, query_datamart
 from pathlib import Path
 
 def parse_args(dummy=True):
@@ -14,8 +14,8 @@ def parse_args(dummy=True):
                         help="Limit over the number of queried results.")
     parser.add_argument("--query_timeout", action="store",  default=None,
                         help="Timeout for the querying operation (by dataset).")
-    # parser.add_argument("dataset_file", action="store", 
-    #                     help="Path to the file that contains the list of datasets to query for.")
+    parser.add_argument("--debug", action="store_true", 
+                        help="If set, run only the first benchmark dataset rather than all those in the folder.")
     
     if dummy:
         args = parser.parse_args(args=[
@@ -27,9 +27,5 @@ def parse_args(dummy=True):
 
 if __name__ == "__main__":
     args = parse_args(dummy=True)
-
-    dataset_list = reading_dataset_paths(Path(args.dataset_file))
     
-    query_results = query_datamart(dataset_list, args.query_limit, args.query_timeout, debug=True)
-    
-    
+    query_results = query_datamart(Path(args.dataset_file), args.query_limit, args.query_timeout, debug=False)
