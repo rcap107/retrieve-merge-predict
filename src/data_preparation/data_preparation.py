@@ -8,6 +8,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict, Iterable, Union
 
+
 import datamart
 import datamart_rest
 import pandas as pd
@@ -101,6 +102,30 @@ class Dataset:
             "failed_candidates": self.failed_candidates,
         }
 
+class CandidateDataset:
+    def __init__(self, dataset_id, target_id, dataset_path):
+        self.dataset_id = dataset_id
+        self.target_id = target_id
+        self.path = dataset_path
+        self.metadata = []
+        self.dl_mode = None
+        
+    def add_to_metadata(self, new_mdata):
+        self.metadata.append(new_mdata)
+        
+    def set_dl_mode(self, dl_mode):
+        self.dl_mode = dl_mode
+    
+    def to_dict(self):
+        return {
+            "dataset_id": self.dataset_id,
+            "target_id": self.target_id,
+            "dl_mode": self.dl_mode,
+            "metadata": self.metadata
+        }
+        
+    def save_to_json(self):
+        json.dump(self.to_dict(), open(Path(self.path, f"{self.dataset_id}_metadata.json"), "w"), indent=2)
 
 def query_datamart(
     dataset_list_path: Path,
@@ -130,6 +155,7 @@ def query_datamart(
     print("=" * 60)
     for idx, ds_name in enumerate(list_ds_names):
         print(f"{idx+1}/{len(list_ds_names)} - {ds_name}")
+        ds_path = Path(data_path, f"{ds_name}")
         target_dataset_learning_data = Path(
             data_path,
             f"{ds_name}",
@@ -144,6 +170,7 @@ def query_datamart(
         )
         logging.info(f"Reading {ds_name}")
         ds_instance = Dataset(ds_name)
+        dict_candidate_datasets = {}
         try:
             # Probing Auctus with the full container
             cursor = client.search_with_data(query={}, supplied_data=full_container)
@@ -154,12 +181,20 @@ def query_datamart(
             for id2, res in enumerate(results):
                 res_mdata = res.get_json_metadata()
                 res_id = res_mdata["id"]
+                res_aug = res_mdata["augmentation"]
                 res_path = Path(ds_path, f"{ds_name}_candidates", res_id)
+                if res_id not in dict_candidate_datasets:
+                    dict_candidate_datasets[res_id] = CandidateDataset(res_id, ds_name, res_path)
+                    dict_candidate_datasets[res_id].add_to_metadata(res_aug)
+                else:
+                    dict_candidate_datasets[res_id].add_to_metadata(res_aug)
+
 
                 logging.info(f"{ds_name}  - Downloading {res_id}")
                 print(f"{res_id}", end="\r", flush=True)
                 try:
                     res_dw = res.download(supplied_data=None)
+                    dict_candidate_datasets[res_id].set_dl_mode("standard")
                     # res_mdata = res_dw.to_json_structure()
                     try:
                         save_container(res_dw, res_path)
@@ -180,6 +215,7 @@ def query_datamart(
                         ds_instance.add_failed(res_id)
                         logging.error(f"{ds_name}  - {res_id} - Failed with fallback")
                     else:
+                        dict_candidate_datasets[res_id].set_dl_mode("fallback")
                         logging.info(f"{ds_name}  - {res_id} - Fallback")
                         logging.warning(f"{ds_name}  - {res_id} - Fallback")
 
@@ -189,6 +225,10 @@ def query_datamart(
                     )
                     logging.error(f"{ds_name}  - {res_id} - {ge}")
                 print()
+            
+            for cand_id, candidate in dict_candidate_datasets.items():
+                candidate.save_to_json()
+            
         except Exception as e:
             # progress_overall.write(f"Server error for {ds_name}")
             failed_datasets.append(ds_instance)
@@ -201,12 +241,3 @@ def query_datamart(
         print("=" * 60)
     return results_by_dataset, list_datasets
 
-
-def download_candidates(query_results: Dict):
-    for dataset_name, ds_results in query_results.items():
-        if len(ds_results) > 0:
-            print(f"Dataset {dataset_name} does not have candidates. Skipping")
-            continue
-
-        for single_result in ds_results:
-            pass
