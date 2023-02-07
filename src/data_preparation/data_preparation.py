@@ -8,7 +8,6 @@ import zipfile
 from pathlib import Path
 from typing import Dict, Iterable, Union
 
-
 import datamart
 import datamart_rest
 import pandas as pd
@@ -28,14 +27,14 @@ logging.basicConfig(
 REST_API_PATH = "https://auctus.vida-nyu.org/api/v1"
 
 
-def build_dir_tree(candidate_paths: Iterable[Path]):
+def build_dir_tree(dataset_list_path: Path, base_path=Path("data/benchmark-datasets/")):
     """Function for creating the directory tree for all target tables.
 
     Args:
         candidate_paths (Iterable[Path]): List of paths to candidate tables in the full repository.
     """
-    base_path = Path("data/benchmark-datasets/")
     os.makedirs(base_path, exist_ok=True)
+    candidate_paths, stems = read_dataset_paths(dataset_list_path)
     destination_paths = []
     for pth in candidate_paths:
         ds_name = pth.stem
@@ -48,7 +47,7 @@ def build_dir_tree(candidate_paths: Iterable[Path]):
     return destination_paths
 
 
-def read_dataset_paths(dataset_list_path):
+def read_dataset_paths(dataset_list_path: Path):
     valid_paths = []
     with open(dataset_list_path, "r") as fp:
         n_paths = int(fp.readline().strip())
@@ -102,6 +101,7 @@ class Dataset:
             "failed_candidates": self.failed_candidates,
         }
 
+
 class CandidateDataset:
     def __init__(self, dataset_id, target_id, dataset_path):
         self.dataset_id = dataset_id
@@ -109,29 +109,35 @@ class CandidateDataset:
         self.path = dataset_path
         self.metadata = []
         self.dl_mode = None
-        
+
     def add_to_metadata(self, new_mdata):
         self.metadata.append(new_mdata)
-        
+
     def set_dl_mode(self, dl_mode):
         self.dl_mode = dl_mode
-    
+
     def to_dict(self):
         return {
             "dataset_id": self.dataset_id,
             "target_id": self.target_id,
             "dl_mode": self.dl_mode,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
-        
+
     def save_to_json(self):
-        json.dump(self.to_dict(), open(Path(self.path, f"{self.dataset_id}_metadata.json"), "w"), indent=2)
+        json.dump(
+            self.to_dict(),
+            open(Path(self.path, f"{self.dataset_id}_metadata.json"), "w"),
+            indent=2,
+        )
+
 
 def query_datamart(
     dataset_list_path: Path,
     query_limit: int,
     query_timeout: Union[int, None],
     debug=False,
+    download_folder=Path("data/benchmark-datasets")
 ):
 
     if debug:
@@ -149,9 +155,12 @@ def query_datamart(
 
     _, list_ds_names = read_dataset_paths(dataset_list_path=dataset_list_path)
 
-    data_path = Path("data/benchmark-datasets")
+    data_path = Path(download_folder)
+    
+    assert data_path.exists()
 
     list_datasets = []
+    list_failed_datasets = []
     print("=" * 60)
     for idx, ds_name in enumerate(list_ds_names):
         print(f"{idx+1}/{len(list_ds_names)} - {ds_name}")
@@ -162,13 +171,16 @@ def query_datamart(
             f"{ds_name}_dataset",
             Path("tables/learningData.csv"),
         )
-        assert target_dataset_learning_data.exists()
+        if not target_dataset_learning_data.exists():
+            logging.error(f"ERROR - {ds_name} - Dataset not found")
+            list_failed_datasets.append(ds_name)
+            continue
 
         # Loading the D3M representation
         full_container = container.Dataset.load(
             target_dataset_learning_data.absolute().as_uri()
         )
-        logging.info(f"Reading {ds_name}")
+        logging.info(f"INFO - Reading {ds_name}")
         ds_instance = Dataset(ds_name)
         dict_candidate_datasets = {}
         try:
@@ -184,13 +196,14 @@ def query_datamart(
                 res_aug = res_mdata["augmentation"]
                 res_path = Path(ds_path, f"{ds_name}_candidates", res_id)
                 if res_id not in dict_candidate_datasets:
-                    dict_candidate_datasets[res_id] = CandidateDataset(res_id, ds_name, res_path)
+                    dict_candidate_datasets[res_id] = CandidateDataset(
+                        res_id, ds_name, res_path
+                    )
                     dict_candidate_datasets[res_id].add_to_metadata(res_aug)
                 else:
                     dict_candidate_datasets[res_id].add_to_metadata(res_aug)
 
-
-                logging.info(f"{ds_name}  - Downloading {res_id}")
+                logging.info(f"INFO - {ds_name}  - Downloading {res_id}")
                 print(f"{res_id}", end="\r", flush=True)
                 try:
                     res_dw = res.download(supplied_data=None)
@@ -198,14 +211,14 @@ def query_datamart(
                     # res_mdata = res_dw.to_json_structure()
                     try:
                         save_container(res_dw, res_path)
-                        logging.debug(f"{ds_name} - {res_id} - Writing")
+                        logging.debug(f"DEBUG - {ds_name} - {res_id} - Writing")
                     except FileExistsError:
                         shutil.rmtree(res_path)
                         save_container(res_dw, res_path)
-                        logging.debug(f"{ds_name} - {res_id} - Overwriting")
+                        logging.debug(f"DEBUG - {ds_name} - {res_id} - Overwriting")
                     finally:
                         print(f"{res_id} - Standard", end="\r", flush=True)
-                        logging.info(f"{ds_name}  - {res_id} - Standard")
+                        logging.info(f"INFO - {ds_name}  - {res_id} - Standard")
                 except ValueError as ve:
                     # Some datasets raise exceptions, I force the download by using the REST API. It will be a problem for later.
                     print(f"{res_id} - Fallback", end="\r", flush=True)
@@ -213,31 +226,30 @@ def query_datamart(
                     if fallback_download(res_id, res_path, res_mdata) != res_id:
                         print("Fallback method failed. ")
                         ds_instance.add_failed(res_id)
-                        logging.error(f"{ds_name}  - {res_id} - Failed with fallback")
+                        logging.error(f"ERROR - {ds_name}  - {res_id} - Failed with fallback")
                     else:
                         dict_candidate_datasets[res_id].set_dl_mode("fallback")
-                        logging.info(f"{ds_name}  - {res_id} - Fallback")
-                        logging.warning(f"{ds_name}  - {res_id} - Fallback")
+                        # logging.info(f"INFO - {ds_name}  - {res_id} - Fallback")
+                        logging.warning(f"INFO - {ds_name}  - {res_id} - Fallback")
 
                 except Exception as ge:
                     print(
                         f"Uncaught exception for dataset {ds_name} and candidate {res_id}"
                     )
-                    logging.error(f"{ds_name}  - {res_id} - {ge}")
+                    logging.error(f"ERROR - {ds_name}  - {res_id} - {ge}")
                 print()
-            
+
             for cand_id, candidate in dict_candidate_datasets.items():
                 candidate.save_to_json()
-            
+
         except Exception as e:
             # progress_overall.write(f"Server error for {ds_name}")
             failed_datasets.append(ds_instance)
             ds_instance.set_failed()
-            logging.error(f"{ds_name}  - Failed querying")
+            logging.error(f"ERROR - {ds_name}  - Failed querying")
 
         list_datasets.append(ds_instance)
-        logging.info(f"{ds_name} - Complete")
+        logging.info(f"INFO - {ds_name} - Complete")
 
         print("=" * 60)
     return results_by_dataset, list_datasets
-
