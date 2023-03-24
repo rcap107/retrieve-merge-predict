@@ -61,5 +61,5 @@ if __name__ == "__main__":
 
     query_results = query_datamart(
         Path(args.dataset_file), args.query_limit, args.query_timeout, debug=False,
-        download_folder=args.download_folder
+        data_folder=args.download_folder, only_metadata=True
     )
