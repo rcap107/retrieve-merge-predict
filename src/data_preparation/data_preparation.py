@@ -1,4 +1,3 @@
-import datetime
 import io
 import json
 import logging
@@ -6,15 +5,12 @@ import os
 import shutil
 import zipfile
 from pathlib import Path
-from typing import Dict, Iterable, Union
+from typing import Union
 
-import datamart
 import datamart_rest
-import pandas as pd
 import requests
 from d3m import container
 from d3m.container.utils import save_container
-from tqdm import tqdm
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
@@ -34,7 +30,7 @@ def build_dir_tree(dataset_list_path: Path, base_path=Path("data/benchmark-datas
         candidate_paths (Iterable[Path]): List of paths to candidate tables in the full repository.
     """
     os.makedirs(base_path, exist_ok=True)
-    candidate_paths, stems = read_dataset_paths(dataset_list_path)
+    candidate_paths, _ = read_dataset_paths(dataset_list_path)
     destination_paths = []
     for pth in candidate_paths:
         ds_name = pth.stem
@@ -58,6 +54,17 @@ def read_dataset_paths(dataset_list_path: Path):
 
 
 def fallback_download(dataset_id, dest_path, dataset_metadata):
+    """Function for forcing the download of the dataset in case the high-level
+    function raises an exception.
+
+    Args:
+        dataset_id (str): ID of the dataset to download.
+        dest_path (Path): Destination path where to save the dataset.
+        dataset_metadata (dict): Metadata of the dataset.
+
+    Returns:
+        Union[str, None]: If successful, returns `dataset_id`. If not, returns None.
+    """
     response = requests.get(
         f"https://auctus.vida-nyu.org/api/v1/download/{dataset_id}",
         files={"format": "d3m"},
@@ -82,28 +89,56 @@ def fallback_download(dataset_id, dest_path, dataset_metadata):
 
 
 class Dataset:
-    def __init__(self, df_id) -> None:
-        self.id = df_id
+    def __init__(self, df_name, df_path) -> None:
+        self.path = df_path
+        self.name = df_name
         self.passed = True
         self.failed_candidates = []
+        self.candidate_datasets = {}
 
     def set_failed(self):
         self.passed = False
         return
+
+    def add_candidate(self, response_candidate):
+        res_mdata = response_candidate.get_json_metadata()
+        res_id = res_mdata["id"]
+        res_aug = res_mdata["augmentation"]
+        res_path = Path(self.path, f"{self.name}_candidates", res_id)
+
+        if res_id not in self.candidate_datasets:
+            self.candidate_datasets[res_id] = CandidateDataset(
+                res_id, self.name, res_path
+            )
+            self.candidate_datasets[res_id].add_to_metadata(res_aug)
+        else:
+            self.candidate_datasets[res_id].add_to_metadata(res_aug)
+        return res_id
 
     def add_failed(self, failed_id):
         self.failed_candidates.append(failed_id)
 
     def to_dict(self):
         return {
-            "id": self.id,
+            "name": self.name,
             "passed": self.passed,
             "failed_candidates": self.failed_candidates,
+            "candidate_datasets": {
+                res_id: cand.to_dict()
+                for res_id, cand in self.candidate_datasets.items()
+            },
         }
+
+    def save_to_json(self):
+        json.dump(
+            self.to_dict(),
+            open(Path(self.path, f"{self.name}_candidates", f"queryResults.json"), "w"),
+            indent=2,
+        )
 
 
 class CandidateDataset:
-    def __init__(self, dataset_id, target_id, dataset_path):
+    def __init__(self, dataset_id, target_id, dataset_path, method=None):
         self.dataset_id = dataset_id
         self.target_id = target_id
         self.path = dataset_path
@@ -132,82 +167,47 @@ class CandidateDataset:
         )
 
 
-def query_datamart(
-    dataset_list_path: Path,
-    query_limit: int,
-    query_timeout: Union[int, None],
-    debug=False,
-    download_folder=Path("data/benchmark-datasets")
-):
+def prepare_container(ds_name, ds_path):
+    # ds_path = Path(download_folder_path, f"{ds_name}")
+    if not ds_path.exists():
+        logging.error(f"ERROR - {ds_name} - Dataset not found")
+        return None
 
-    if debug:
-        limit = 1
     else:
-        limit = -1
-
-    # All dataset results by dataset
-    results_by_dataset = {}
-    # Datasets for which querying fails (for any reason)
-    failed_datasets = []
-
-    # Connecting to the API
-    client = datamart_rest.RESTDatamart(REST_API_PATH)
-
-    _, list_ds_names = read_dataset_paths(dataset_list_path=dataset_list_path)
-
-    data_path = Path(download_folder)
-    
-    assert data_path.exists()
-
-    list_datasets = []
-    list_failed_datasets = []
-    print("=" * 60)
-    for idx, ds_name in enumerate(list_ds_names):
-        print(f"{idx+1}/{len(list_ds_names)} - {ds_name}")
-        ds_path = Path(data_path, f"{ds_name}")
-        target_dataset_learning_data = Path(
-            data_path,
-            f"{ds_name}",
-            f"{ds_name}_dataset",
-            Path("tables/learningData.csv"),
-        )
-        if not target_dataset_learning_data.exists():
-            logging.error(f"ERROR - {ds_name} - Dataset not found")
-            list_failed_datasets.append(ds_name)
-            continue
-
         # Loading the D3M representation
-        full_container = container.Dataset.load(
-            target_dataset_learning_data.absolute().as_uri()
-        )
+        full_container = container.Dataset.load(ds_path.absolute().as_uri())
         logging.info(f"INFO - Reading {ds_name}")
-        ds_instance = Dataset(ds_name)
-        dict_candidate_datasets = {}
-        try:
-            # Probing Auctus with the full container
-            cursor = client.search_with_data(query={}, supplied_data=full_container)
-            # Fetching results
-            results = cursor.get_next_page(limit=query_limit, timeout=query_timeout)
-            results_by_dataset[ds_name] = results
-            # Download each candidate in a different folder
-            for id2, res in enumerate(results):
-                res_mdata = res.get_json_metadata()
-                res_id = res_mdata["id"]
-                res_aug = res_mdata["augmentation"]
-                res_path = Path(ds_path, f"{ds_name}_candidates", res_id)
-                if res_id not in dict_candidate_datasets:
-                    dict_candidate_datasets[res_id] = CandidateDataset(
-                        res_id, ds_name, res_path
-                    )
-                    dict_candidate_datasets[res_id].add_to_metadata(res_aug)
-                else:
-                    dict_candidate_datasets[res_id].add_to_metadata(res_aug)
+        return full_container
 
+
+def query_single_dataset(
+    client,
+    ds_name,
+    ds_path,
+    container: container.Dataset,
+    query_limit=20,
+    query_timeout=60,
+    only_metadata=False,
+):
+    ds_instance = Dataset(ds_name, ds_path)
+
+    try:
+        # Probing Auctus with the full container
+        cursor = client.search_with_data(query={}, supplied_data=container)
+        # Fetching results
+        results = cursor.get_next_page(limit=query_limit, timeout=query_timeout)
+
+        for id_res, res in enumerate(results):
+            res_id = ds_instance.add_candidate(res)
+
+            if not only_metadata:
+                #TODO: debug whatever problem 
+                raise NotImplementedError("Needs fixing")
                 logging.info(f"INFO - {ds_name}  - Downloading {res_id}")
                 print(f"{res_id}", end="\r", flush=True)
                 try:
                     res_dw = res.download(supplied_data=None)
-                    dict_candidate_datasets[res_id].set_dl_mode("standard")
+                    ds_instance.candidate_datasets[res_id].set_dl_mode("standard")
                     # res_mdata = res_dw.to_json_structure()
                     try:
                         save_container(res_dw, res_path)
@@ -226,9 +226,11 @@ def query_datamart(
                     if fallback_download(res_id, res_path, res_mdata) != res_id:
                         print("Fallback method failed. ")
                         ds_instance.add_failed(res_id)
-                        logging.error(f"ERROR - {ds_name}  - {res_id} - Failed with fallback")
+                        logging.error(
+                            f"ERROR - {ds_name}  - {res_id} - Failed with fallback"
+                        )
                     else:
-                        dict_candidate_datasets[res_id].set_dl_mode("fallback")
+                        ds_instance.candidate_datasets[res_id].set_dl_mode("fallback")
                         # logging.info(f"INFO - {ds_name}  - {res_id} - Fallback")
                         logging.warning(f"INFO - {ds_name}  - {res_id} - Fallback")
 
@@ -239,15 +241,65 @@ def query_datamart(
                     logging.error(f"ERROR - {ds_name}  - {res_id} - {ge}")
                 print()
 
-            for cand_id, candidate in dict_candidate_datasets.items():
-                candidate.save_to_json()
+        ds_instance.save_to_json()
 
-        except Exception as e:
-            # progress_overall.write(f"Server error for {ds_name}")
-            failed_datasets.append(ds_instance)
-            ds_instance.set_failed()
-            logging.error(f"ERROR - {ds_name}  - Failed querying")
+        # for cand_id, candidate in ds_instance.candidate_datasets.items():
+        #     candidate.save_to_json()
 
+    except Exception as e:
+        # progress_overall.write(f"Server error for {ds_name}")
+        ds_instance.set_failed()
+        logging.error(f"ERROR - {ds_name}  - Failed querying")
+    return ds_instance
+
+
+def query_datamart(
+    dataset_list_path: Path,
+    query_limit: int,
+    query_timeout: Union[int, None],
+    debug=False,
+    data_folder=Path("data/benchmark-datasets"),
+    only_metadata=True,
+):
+
+    if debug:
+        limit = 1
+    else:
+        limit = -1
+
+    # All dataset results by dataset
+    results_by_dataset = {}
+    # Datasets for which querying fails (for any reason)
+    failed_datasets = []
+
+    # Connecting to the API
+    client = datamart_rest.RESTDatamart(REST_API_PATH)
+
+    list_ds_paths, list_ds_names = read_dataset_paths(
+        dataset_list_path=dataset_list_path
+    )
+
+    download_folder_path = Path(data_folder)
+
+    assert download_folder_path.exists()
+
+    list_datasets = []
+    list_failed_datasets = []
+    print("=" * 60)
+    for idx, (_, ds_name) in enumerate(zip(list_ds_paths, list_ds_names)):
+        print(f"{idx+1}/{len(list_ds_names)} - {ds_name}")
+        ds_path = Path(data_folder, ds_name)
+        target_dataset_learning_data = Path(
+            ds_path, f"{ds_name}_dataset", "tables", "learningData.csv"
+        )
+        full_container = prepare_container(ds_name, target_dataset_learning_data)
+        if full_container is None:
+            list_failed_datasets.append(ds_name)
+
+        ds_instance = query_single_dataset(
+            client, ds_name, ds_path, full_container, only_metadata=only_metadata,
+            query_limit=query_limit, query_timeout=query_timeout
+        )
         list_datasets.append(ds_instance)
         logging.info(f"INFO - {ds_name} - Complete")
 
