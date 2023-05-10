@@ -1,0 +1,5 @@
+protobuf=3.20.3
+lazo-index-service=0.7.0
+polars=0.17.11
+pandas=2.0.1
+numpy=1.24.3
