@@ -9,6 +9,8 @@ from typing import Union
 import hashlib
 import polars as pl
 import pandas as pd
+import zlib
+import polars as pl
 
 
 logging.basicConfig(
@@ -29,10 +31,101 @@ def read_dataset_paths(dataset_list_path: Path):
     return valid_paths, stems
 
 
+class RawDataset:
+    def __init__(
+        self, full_df_path, source_dl, metadata_dir
+    ) -> None:
+
+        self.path = Path(full_df_path).resolve()
+        
+        if not self.path.exists():
+            raise IOError(f"File {self.path} not found.")
+        
+        self.df = self.read_dataset_file()
+        self.md5hash = "abcd"
+        # self.md5hash = self.prepare_hash()
+        self.df_name = self.path.stem
+        self.source_dl = source_dl
+        self.path_metadata = Path(metadata_dir, self.md5hash + ".json")
+
+        self.metadata_dict = {
+            "full_path": str(self.path),
+            "md5hash": self.md5hash,
+            "df_name": self.df_name,
+            "source_dl": source_dl,
+            "license": "",
+            "path_metadata": str(self.path_metadata.resolve())
+        }
+
+
+    def read_dataset_file(self):
+        if self.path.suffix == ".csv":
+            #TODO Add parameters for the `pl.read_csv` function
+            return pl.read_csv(self.path)
+        elif self.path.suffix == ".parquet":
+            #TODO Add parameters for the `pl.read_parquet` function
+            return pl.read_parquet(self.path)
+        else:
+            raise IOError(f"Extension {self.path.suffix} not supported.")
+
+    def checksum_polars_dataframe(self, seed=1012):
+        return zlib.crc32(self.df.write_ipc(file=None).getvalue())
+
+
+    def _hash(self, fp, block_size=2**20):
+        md5 = hashlib.md5()
+        while True:
+            data = fp.read(block_size)
+            if not data:
+                break
+            md5.update(data)
+        return md5.hexdigest()
+
+    def _hash_sha(self, fp, block_size=2**20):
+        sha = hashlib.sha256()
+        while True:
+            data = fp.read(block_size)
+            if not data:
+                break
+            sha.update(data)
+        return sha.hexdigest()
+
+
+    def prepare_hash(self, version):
+        if version == "write_json":
+            with  io.BytesIO(self.df.write_json().encode()) as dummy:
+                digest = self._hash_sha(dummy)
+        elif version == "write_ipc":
+            with  io.BytesIO(self.df.write_ipc(file=None).getvalue()) as dummy:
+                digest = self._hash_sha(dummy)
+        elif version == "zlib":
+            digest = self.checksum_polars_dataframe()
+        else:
+            raise ValueError
+        return digest
+
+
+    def save_metadata_to_json(self):
+        json.dump(self.metadata_dict, open(self.path_metadata, "w"), indent=2)
+
+    def prepare_metadata(self):
+        pass
+
+    def save_to_json(self):
+        pass
+        
+    def save_to_csv(self):
+        pass
+    
+    def save_to_parquet(self):
+        pass
+
+
 class Dataset:
     def __init__(
-        self, df_name, df_path, source_dl, source_og=None, dataset_license=None
+        self, path_df_metadata
     ) -> None:
+        raise NotImplementedError
         self.path = Path(df_path)
         
         if not self.path.exists():
@@ -42,7 +135,7 @@ class Dataset:
         self.table = self.read_dataset_file()
         self.source_df = source_dl
         self.source_og = source_og
-        self.license = dataset_license
+        self.dataset_license = dataset_license
         self.path_metadata = None
 
         self.md5hash = None
@@ -73,10 +166,7 @@ class Dataset:
         pass
 
     def save_to_json(self):
-        json.dump(
-            self.to_dict(),
-            indent=2,
-        )
+        pass
         
     def save_to_csv(self):
         pass
@@ -87,9 +177,9 @@ class Dataset:
 
 class CandidateDataset(Dataset):
     def __init__(
-        self, df_name, df_path, source_dl, source_og=None, license=None
+        self, df_name, df_path, source_dl, source_og=None, dataset_license=None
     ) -> None:
-        super().__init__(df_name, df_path, source_dl, source_og, license)
+        super().__init__(df_name, df_path, source_dl, source_og, dataset_license)
         self.candidate_for = None
 
 
@@ -100,12 +190,12 @@ class SourceDataset(Dataset):
         df_path,
         source_dl,
         source_og=None,
-        license=None,
+        dataset_license=None,
         task=None,
         target_column=None,
         metric=None,
     ) -> None:
-        super().__init__(df_name, df_path, source_dl, source_og, license)
+        super().__init__(df_name, df_path, source_dl, source_og, dataset_license)
         self.task = task
         self.target_column = target_column
         self.metric = metric
@@ -136,8 +226,8 @@ class SourceDataset(Dataset):
             self.candidates[candidate_dataset.id].append(new_cand_rel)
 
 class IntegratedDataset(Dataset):
-    def __init__(self, df_name, df_path, source_dl, source_id, augmentation_list, source_og=None, license=None) -> None:
-        super().__init__(df_name, df_path, source_dl, source_og, license)
+    def __init__(self, df_name, df_path, source_dl, source_id, augmentation_list, source_og=None, dataset_license=None) -> None:
+        super().__init__(df_name, df_path, source_dl, source_og, dataset_license)
         self.source_id = source_id
         self.augmentation_list = augmentation_list
         

@@ -8,21 +8,22 @@ from datasketch import MinHash, MinHashLSHEnsemble
 
 
 class MinHashIndex:
-    def __init__(self, df_dict=None, thresholds=[20], 
-                 num_perm=128, num_part=32) -> None:
-        """Index class based on `MinHashLSHEnsemble`. It can take as input a  
+    def __init__(
+        self, df_dict=None, thresholds=[20], num_perm=128, num_part=32
+    ) -> None:
+        """Index class based on `MinHashLSHEnsemble`. It can take as input a
         dictionary {tab_name:  pl.DataFrame} and indexes all columns found in each
-        table. 
-        
+        table.
+
         Since by default the LSHEnsemble queries based on a single threshold defined
         at creation time, this index builds accepts a list of thresholds and creates
-        an ensemble for each. 
-        
+        an ensemble for each.
+
         If no value is provided for `df_dict`, the index can be initialized one table at a time by using the function
-        `add_table`. 
-        
+        `add_table`.
+
         Ensembles do not support online updates, so after loading all tables in the index it is necessary
-        to invoke the function `create_ensembles`. Querying without this step will raise an exception. 
+        to invoke the function `create_ensembles`. Querying without this step will raise an exception.
 
         Args:
             df_dict (dictionary, optional): Data structure that contains all tables to add to the index.
@@ -37,19 +38,18 @@ class MinHashIndex:
         self.initialized = False
         self.ensembles = {}
         self.minhashes = {}
-        
+
         if df_dict is not None:
-            self.create_minhashes_from_dict(df_dict)
+            self.add_tables_from_dict(df_dict)
         else:
             print("No data dictionary provided. The index needs manual generation.")
-            
 
     def single_tab_minhashes(self, df: pl.DataFrame, tab_name) -> dict:
         """Generate the minhashes for a single dataframe.
 
         Args:
             df (pl.DataFrame): The input dataframe.
-            tab_name (str): The name of the table, used for indexing. 
+            tab_name (str): The name of the table, used for indexing.
 
         Returns:
             minhashes (dict): The minhashes generated for the given table.
@@ -64,7 +64,7 @@ class MinHashIndex:
             minhashes[key] = (m, len(uniques))
         return minhashes
 
-    def create_minhashes_from_dict(self, df_dict):
+    def add_tables_from_dict(self, df_dict):
         """Given a dictionary of pl.DataFrames, generate minhashes for each dataframe.
 
         Args:
@@ -74,14 +74,13 @@ class MinHashIndex:
         for tab_name, df in df_dict.items():
             print(tab_name)
             t_dict.update(self.single_tab_minhashes(df, tab_name))
-        
+
         self.minhashes.update(t_dict)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
-    
 
-    def add_table(self, df: pl.DataFrame, tab_name):
-        """Add a single table to the minhash dictionary. 
-        
+    def add_single_table(self, df: pl.DataFrame, tab_name):
+        """Add a single table to the minhash dictionary.
+
 
         Args:
             df (pl.DataFrame): _description_
@@ -93,50 +92,67 @@ class MinHashIndex:
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
 
     def create_ensembles(self):
-        """Utility function to create the ensembles once all tables have been loaded in the index. 
-        """
+        """Utility function to create the ensembles once all tables have been loaded in the index."""
         for t in self.thresholds:
-            ens = MinHashLSHEnsemble(threshold=t/100, num_perm=self.num_perm, num_part=self.num_part)
+            ens = MinHashLSHEnsemble(
+                threshold=t / 100, num_perm=self.num_perm, num_part=self.num_part
+            )
             ens.index(self.hash_index)
             self.ensembles[t] = ens
         print("Initialization complete. ")
         self.initialized = True
 
-    def query_ensembles(self, query):
-        """Query the index with a list of values and return a dictionary that contains all columns 
-        that satisfy the query for each threshold. 
+    @staticmethod
+    def prepare_result(query_result, threshold):
+        r = []
+        for result in query_result:
+            t, c = result.split("__")
+            tup = (t,c, threshold)
+            r.append(tup)
+        return r
+
+    def query_index(self, query, threshold=None):
+        """Query the index with a list of values and return a dictionary that contains all columns
+        that satisfy the query for each threshold.
 
         Args:
-            query (Iterable): List of values to query for. 
+            query (Iterable): List of values to query for.
 
         Raises:
-            RuntimeError: Raise RunTimeError if initialization was not completed. 
+            RuntimeError: Raise RunTimeError if initialization was not completed.
 
         Returns:
             dict: Dictionary that contains the query results.
         """
         if self.initialized:
             query = list(set(query))
+
             m_query = MinHash(num_perm=self.num_perm)
             for q in query:
                 m_query.update(q.encode("utf8"))
-            
-            query_results = {}
-            
-            for threshold, ens in self.ensembles.items():
+
+            # TODO: turn this into a list with format (table, column, threshold)
+            query_results = []
+
+            if threshold is not None:
+                if threshold not in self.thresholds:
+                    raise ValueError(f"Invalid threshold {threshold}.")
+                ens = self.ensembles[threshold]
                 res = list(ens.query(m_query, len(query)))
-                query_results[threshold] = res
-            
+                query_results += self.prepare_result(res, threshold)
+            else:
+                for threshold, ens in self.ensembles.items():
+                    res = list(ens.query(m_query, len(query)))
+                    query_results += self.prepare_result(res, threshold)
+                
             return query_results
         else:
             raise RuntimeError("Ensembles are not initialized.")
-            
-                
+
     def save_to_file(self, output_path):
-        """Save the index to file in the given `output_path` as a pickle. 
+        """Save the index to file in the given `output_path` as a pickle.
 
         Args:
-            output_path (str): Output path. 
+            output_path (str): Output path.
         """
         pickle.dump(self, open(output_path, "wb"))
-        
