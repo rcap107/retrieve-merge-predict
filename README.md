@@ -15,5 +15,14 @@ real-life data analysis operations and table augmentations.
 `main_dataprep.py` is used to prepare the candidate set given a list of datasets. 
 
 
+# Dir structure
+`src` is the root folder for all the code. 
+- `src/data_preparation` contains all the code used to prepare the data to be used. 
+- `src/candidate_discovery` contains the wrappers used for the candidate discovery part (join discovery and table union discovery).
+- `src/table_integration` contains the wrappers to integrate the source table with the candidates produced in the candidate discovery part.
+- `src/evaluation` contains the code needed to evaluate the performance on the integrated table. 
+
+
+
 ## Logging
 - [mlflow](https://mlflow.org)
