@@ -20,6 +20,22 @@ logging.basicConfig(
     level=logging.DEBUG,
 )
 
+class FakeFileHasher():
+    # by https://github.com/ogrisel
+    def __init__(self):
+        self._hash = hashlib.sha256()
+    def read(self, *ignored, **ignored_again):
+        raise RuntimeError(f"{self.__class__.__name__} does not support reading.")
+    def seek(self, *ignored):
+        raise RuntimeError(f"{self.__class__.__name__} does not support seeking.")
+    def write(self, some_bytes):
+        self._hash.update(some_bytes)
+        return len(some_bytes)
+    def flush(self):
+        pass
+    def hexdigest(self):
+        return self._hash.hexdigest()
+
 
 def read_dataset_paths(dataset_list_path: Path):
     valid_paths = []
@@ -41,16 +57,15 @@ class RawDataset:
         if not self.path.exists():
             raise IOError(f"File {self.path} not found.")
         
-        self.df = self.read_dataset_file()
-        self.md5hash = "abcd"
-        # self.md5hash = self.prepare_hash()
+        # self.df = self.read_dataset_file()
+        self.hash = self.prepare_path_digest()
         self.df_name = self.path.stem
         self.source_dl = source_dl
-        self.path_metadata = Path(metadata_dir, self.md5hash + ".json")
+        self.path_metadata = Path(metadata_dir, self.hash + ".json")
 
         self.metadata_dict = {
             "full_path": str(self.path),
-            "md5hash": self.md5hash,
+            "hash": self.hash,
             "df_name": self.df_name,
             "source_dl": source_dl,
             "license": "",
@@ -68,41 +83,11 @@ class RawDataset:
         else:
             raise IOError(f"Extension {self.path.suffix} not supported.")
 
-    def checksum_polars_dataframe(self, seed=1012):
-        return zlib.crc32(self.df.write_ipc(file=None).getvalue())
-
-
-    def _hash(self, fp, block_size=2**20):
-        md5 = hashlib.md5()
-        while True:
-            data = fp.read(block_size)
-            if not data:
-                break
-            md5.update(data)
-        return md5.hexdigest()
-
-    def _hash_sha(self, fp, block_size=2**20):
+    def prepare_path_digest(self):
         sha = hashlib.sha256()
-        while True:
-            data = fp.read(block_size)
-            if not data:
-                break
-            sha.update(data)
+        sha.update(str(self.path).encode())
         return sha.hexdigest()
 
-
-    def prepare_hash(self, version):
-        if version == "write_json":
-            with  io.BytesIO(self.df.write_json().encode()) as dummy:
-                digest = self._hash_sha(dummy)
-        elif version == "write_ipc":
-            with  io.BytesIO(self.df.write_ipc(file=None).getvalue()) as dummy:
-                digest = self._hash_sha(dummy)
-        elif version == "zlib":
-            digest = self.checksum_polars_dataframe()
-        else:
-            raise ValueError
-        return digest
 
 
     def save_metadata_to_json(self):
@@ -123,9 +108,10 @@ class RawDataset:
 
 class Dataset:
     def __init__(
-        self, path_df_metadata
+        self, path_metadata
     ) -> None:
-        raise NotImplementedError
+        
+        self.path_metadata = Path(path_metadata)
         self.path = Path(df_path)
         
         if not self.path.exists():
@@ -139,7 +125,14 @@ class Dataset:
         self.path_metadata = None
 
         self.md5hash = None
-
+        
+    def read_metadata(self):
+        if self.path_metadata.exists():
+            self.metadata_dict = json.load(self.path_metadata)
+        else:
+            raise IOError(f"File {self.path_metadata} not found.")
+        
+        
     def read_dataset_file(self):
         if self.path.suffix == ".csv":
             #TODO Add parameters for the `pl.read_csv` function
@@ -159,14 +152,19 @@ class Dataset:
             md5.update(data)
         return md5.hexdigest()
 
+    def prepare_dataset_digest(self):
+        ffh = FakeFileHasher()
+        self.df.write_ipc(ffh)
+        return ffh.hexdigest()
+
+
     def save_metadata_to_json(self):
         pass
 
     def prepare_metadata(self):
         pass
 
-    def save_to_json(self):
-        pass
+
         
     def save_to_csv(self):
         pass
