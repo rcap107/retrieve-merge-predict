@@ -24,6 +24,17 @@ def execute_join(
             )
 
     elif left_on is not None and right_on is not None:
+        
+        if not all(
+                [c in left_table.columns for c in left_on]
+            ):
+            raise KeyError("Not all columns in left_on are found in left_table.")
+        
+        if not all (
+                [c in right_table.columns for c in right_on]
+            ):
+            raise KeyError("Not all columns in right_on are found in right_table.")
+
         joined_table = (
             left_table.lazy()
             .join(right_table.lazy(), left_on=left_on, right_on=right_on, how=how)
