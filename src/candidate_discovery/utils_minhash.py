@@ -5,8 +5,9 @@ from typing import Iterable, List, Union
 import pandas as pd
 import polars as pl
 from datasketch import MinHash, MinHashLSHEnsemble
-from operator import itemgetter 
+from operator import itemgetter
 import json
+
 
 class MinHashIndex:
     def __init__(
@@ -21,8 +22,8 @@ class MinHashIndex:
 
         Ensembles do not support online updates, so after loading all tables in the index it is necessary
         to invoke the function `create_ensembles`. Querying without this step will raise an exception.
-        
-        If `oneshot` is set to True, the index will be initialized within this function. 
+
+        If `oneshot` is set to True, the index will be initialized within this function.
         If `oneshot` is set to False, the index creation will not be wrapped up until the user manually
         invokes `create_ensembles`: this allows to update the indices with tables that were not added
         while scanning `data_dir`.
@@ -46,9 +47,9 @@ class MinHashIndex:
         self.data_dir = Path(data_dir)
         if not self.data_dir.exists():
             raise IOError("Invalid data directory")
-        
+
         self.add_tables_from_path(self.data_dir)
-        
+
         if oneshot:
             # If oneshot, wrap up the generation of the index here. If not, create_ensemble will have to be called later
             self.create_ensembles()
@@ -74,8 +75,8 @@ class MinHashIndex:
         return minhashes
 
     def add_tables_from_path(self, data_path):
-        """Add tables to the index reading metadata from the given `data_path`. 
-        `data_path` should contain json files that include the metadata of the file.  
+        """Add tables to the index reading metadata from the given `data_path`.
+        `data_path` should contain json files that include the metadata of the file.
 
         Args:
             data_path (Path): Path to the directory to scan for metadata.
@@ -87,7 +88,6 @@ class MinHashIndex:
             ds_hash = mdata_dict["hash"]
             df = pl.read_parquet(mdata_dict["full_path"])
             self.add_single_table(df, ds_hash)
-        
 
     def add_tables_from_dict(self, df_dict):
         """Given a dictionary of pl.DataFrames, generate minhashes for each dataframe.
@@ -168,7 +168,7 @@ class MinHashIndex:
                 if any([th not in self.ensembles for th in threshold]):
                     raise ValueError(f"Invalid thresholds in the provided list.")
                 else:
-                    for th in threshold:                        
+                    for th in threshold:
                         ens = self.ensembles[th]
                         res = list(ens.query(m_query, len(query)))
                         query_results += self.prepare_result(res, threshold)
