@@ -3,6 +3,7 @@ import pickle
 from pathlib import Path
 from typing import Iterable, List, Union
 
+import pandas as pd
 import polars as pl
 from datasketch import MinHash, MinHashLSHEnsemble
 
@@ -58,7 +59,7 @@ class MinHashIndex:
         for col in df.columns:
             key = tab_name + "__" + col
             m = MinHash(num_perm=self.num_perm)
-            uniques = df[col].drop_nulls().unique()
+            uniques = df[col].drop_nulls().unique().cast(str)
             for u in uniques:
                 m.update(u.encode("utf8"))
             minhashes[key] = (m, len(uniques))
@@ -72,7 +73,7 @@ class MinHashIndex:
         """
         t_dict = {}
         for tab_name, df in df_dict.items():
-            print(tab_name)
+            # print(tab_name)
             t_dict.update(self.single_tab_minhashes(df, tab_name))
 
         self.minhashes.update(t_dict)
@@ -86,37 +87,42 @@ class MinHashIndex:
             df (pl.DataFrame): _description_
             tab_name (_type_): _description_
         """
-        print(tab_name)
+        # print(tab_name)
         t_dict = self.single_tab_minhashes(df, tab_name)
         self.minhashes.update(t_dict)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
 
     def create_ensembles(self):
         """Utility function to create the ensembles once all tables have been loaded in the index."""
-        for t in self.thresholds:
-            ens = MinHashLSHEnsemble(
-                threshold=t / 100, num_perm=self.num_perm, num_part=self.num_part
-            )
-            ens.index(self.hash_index)
-            self.ensembles[t] = ens
-        print("Initialization complete. ")
-        self.initialized = True
+        if not self.initialized:
+            for t in self.thresholds:
+                ens = MinHashLSHEnsemble(
+                    threshold=t / 100, num_perm=self.num_perm, num_part=self.num_part
+                )
+                ens.index(self.hash_index)
+                self.ensembles[t] = ens
+            print("Initialization complete. ")
+            self.initialized = True
+        else:
+            print("Ensembles are already initialized. Skipping.")
 
     @staticmethod
     def prepare_result(query_result, threshold):
         r = []
         for result in query_result:
             t, c = result.split("__")
-            tup = (t,c, threshold)
+            tup = (t, c, threshold)
             r.append(tup)
         return r
 
-    def query_index(self, query, threshold=None):
+    def query_index(self, query, threshold=None, to_dataframe=False):
         """Query the index with a list of values and return a dictionary that contains all columns
         that satisfy the query for each threshold.
 
         Args:
             query (Iterable): List of values to query for.
+            threshold (Iterable): List of thresholds to be used when querying.
+            to_dataframe (bool): If True, convert the output into a Polars dataframe.
 
         Raises:
             RuntimeError: Raise RunTimeError if initialization was not completed.
@@ -141,18 +147,29 @@ class MinHashIndex:
                 res = list(ens.query(m_query, len(query)))
                 query_results += self.prepare_result(res, threshold)
             else:
-                for threshold, ens in self.ensembles.items():
-                    res = list(ens.query(m_query, len(query)))
-                    query_results += self.prepare_result(res, threshold)
-                
+                if any([th not in self.ensembles for th in threshold]):
+                    raise ValueError(f"Invalid thresholds in the provided list.")
+                else:
+                    for threshold, ens in self.ensembles.items():
+                        res = list(ens.query(m_query, len(query)))
+                        query_results += self.prepare_result(res, threshold)
+
+            if to_dataframe:
+                query_results = pl.from_records(
+                    query_results, schema=["hash", "column", "threshold"]
+                )
+
             return query_results
         else:
             raise RuntimeError("Ensembles are not initialized.")
 
-    def save_to_file(self, output_path):
-        """Save the index to file in the given `output_path` as a pickle.
+    def save_ensembles_to_pickle(self, output_path):
+        """Save the ensembles to file in the given `output_path` as a pickle.
 
         Args:
             output_path (str): Output path.
         """
-        pickle.dump(self, open(output_path, "wb"))
+        pickle.dump(self.ensembles, open(output_path, "wb"))
+
+
+# %%
