@@ -3,6 +3,8 @@ data/*
 data/
 .vscode
 .idea
+*.pickle
+*.speedscope.json
 
 
 # Byte-compiled / optimized / DLL files
