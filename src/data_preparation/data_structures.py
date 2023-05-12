@@ -63,7 +63,7 @@ class RawDataset:
         self.source_dl = source_dl
         self.path_metadata = Path(metadata_dir, self.hash + ".json")
 
-        self.metadata_dict = {
+        self.info = {
             "full_path": str(self.path),
             "hash": self.hash,
             "df_name": self.df_name,
@@ -91,7 +91,7 @@ class RawDataset:
 
 
     def save_metadata_to_json(self):
-        json.dump(self.metadata_dict, open(self.path_metadata, "w"), indent=2)
+        json.dump(self.info, open(self.path_metadata, "w"), indent=2)
 
     def prepare_metadata(self):
         pass
@@ -229,42 +229,76 @@ class IntegratedDataset(Dataset):
         self.source_id = source_id
         self.augmentation_list = augmentation_list
         
-class CandidateRelationship:
+class CandidateJoin:
     def __init__(
         self,
-        source_table,
-        candidate_table,
-        rel_type=None,
+        source_table_metadata,
+        candidate_table_metadata,
+        how=None,
         left_on=None,
         right_on=None,
-        similarity_score=None,
+        on=None, 
+        similarity_score=None
     ) -> None:
-        self.source_id = source_table
-        self.candidate_table = candidate_table
+        source_info = source_table_metadata.info
+        candidate_info = candidate_table_metadata.info
+        
+        self.source_table = source_info.hash
+        self.candidate_table = candidate_info.hash
+        self.source_metadata = source_info
+        self.candidate_metadata = candidate_info
+
         self.similarity_score = similarity_score
 
-        self.rel_type = rel_type
-        if rel_type not in ["join", "union"]:
-            raise ValueError(f"Relation type {rel_type} not recognized.")
-        else:
-            self.left_on, self.right_on = left_on, right_on
-
+        if how not in ["left", "right", "inner", "outer"]:
+            raise ValueError(f"Join strategy {how} not recognized.")
+        self.how = how
+        
+        self.left_on = self._convert_to_list(left_on)
+        self.right_on = self._convert_to_list(right_on)
+        self.on = self._convert_to_list(on)
+        
         self.candidate_id = self.generate_candidate_id()
+
+    def _convert_to_list(self, val):
+        if isinstance(val, list):
+            return val
+        elif isinstance(val, str):
+            return [val]
+        elif val is None:
+            return None
+        else:
+            raise TypeError
+
+    def get_chosen_path(self, case):
+        if case == "source":
+            return self.source_metadata["full_path"]
+        elif case == "candidate":
+            return self.candidate_metadata["full_path"]
+        else:
+            raise ValueError
 
     def generate_candidate_id(self):
         """Generate a unique id for this candidate relationship. The same pair of tables can have multiple candidate
         relationships, so this function takes the source table, candidate table, left/right columns and combines them
         to produce a unique id.
         """
+        join_string = [
+                    self.source_table,
+                    self.candidate_table,
+                    self.how + "_j",
+                ]
+
+        if self.left_on is not None and self.right_on is not None:
+            join_string += ["_".join(self.left_on)]
+            join_string += ["_".join(self.right_on)]
+        elif self.on is not None:
+            join_string += ["_".join(self.on)]
+
         id_str = "_".join(
-            [
-                self.source_id,
-                self.candidate_table,
-                self.rel_type,
-                self.left_on,
-                self.right_on,
-            ]
+            join_string
         ).encode()
+        
         md5 = hashlib.md5()
         md5.update(id_str)
         return md5.hexdigest()

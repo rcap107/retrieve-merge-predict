@@ -1,4 +1,3 @@
-# %%
 import pickle
 from pathlib import Path
 from typing import Iterable, List, Union
@@ -6,32 +5,36 @@ from typing import Iterable, List, Union
 import pandas as pd
 import polars as pl
 from datasketch import MinHash, MinHashLSHEnsemble
-
+from operator import itemgetter 
+import json
 
 class MinHashIndex:
     def __init__(
-        self, df_dict=None, thresholds=[20], num_perm=128, num_part=32
+        self, data_dir, thresholds=[20], num_perm=128, num_part=32, oneshot=True
     ) -> None:
-        """Index class based on `MinHashLSHEnsemble`. It can take as input a
-        dictionary {tab_name:  pl.DataFrame} and indexes all columns found in each
-        table.
+        """Index class based on `MinHashLSHEnsemble`. By default, it scans for metadata files
+        in the provided `data_dir` and adds all them to the index.
 
         Since by default the LSHEnsemble queries based on a single threshold defined
         at creation time, this index builds accepts a list of thresholds and creates
         an ensemble for each.
 
-        If no value is provided for `df_dict`, the index can be initialized one table at a time by using the function
-        `add_table`.
-
         Ensembles do not support online updates, so after loading all tables in the index it is necessary
         to invoke the function `create_ensembles`. Querying without this step will raise an exception.
+        
+        If `oneshot` is set to True, the index will be initialized within this function. 
+        If `oneshot` is set to False, the index creation will not be wrapped up until the user manually
+        invokes `create_ensembles`: this allows to update the indices with tables that were not added
+        while scanning `data_dir`.
 
         Args:
-            df_dict (dictionary, optional): Data structure that contains all tables to add to the index.
+            data_dir (str): Path to the dir that contains the metadata of the target tables.
             thresholds (list, optional): List of thresholds to be used by the ensemble. Defaults to [20].
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
+            oneshot (bool, optional): If False, index will have to be finalized by the user. Defaults to True.
         """
+        self.index_name = "minhash"
         self.hash_index = []
         self.num_perm = num_perm
         self.num_part = num_part
@@ -40,12 +43,17 @@ class MinHashIndex:
         self.ensembles = {}
         self.minhashes = {}
 
-        if df_dict is not None:
-            self.add_tables_from_dict(df_dict)
-        else:
-            print("No data dictionary provided. The index needs manual generation.")
+        self.data_dir = Path(data_dir)
+        if not self.data_dir.exists():
+            raise IOError("Invalid data directory")
+        
+        self.add_tables_from_path(self.data_dir)
+        
+        if oneshot:
+            # If oneshot, wrap up the generation of the index here. If not, create_ensemble will have to be called later
+            self.create_ensembles()
 
-    def single_tab_minhashes(self, df: pl.DataFrame, tab_name) -> dict:
+    def _index_single_table(self, df: pl.DataFrame, tab_name) -> dict:
         """Generate the minhashes for a single dataframe.
 
         Args:
@@ -65,6 +73,22 @@ class MinHashIndex:
             minhashes[key] = (m, len(uniques))
         return minhashes
 
+    def add_tables_from_path(self, data_path):
+        """Add tables to the index reading metadata from the given `data_path`. 
+        `data_path` should contain json files that include the metadata of the file.  
+
+        Args:
+            data_path (Path): Path to the directory to scan for metadata.
+        """
+        total_files = sum(1 for f in data_path.glob("*.json"))
+
+        for path in data_path.glob("*.json"):
+            mdata_dict = json.load(open(path, "r"))
+            ds_hash = mdata_dict["hash"]
+            df = pl.read_parquet(mdata_dict["full_path"])
+            self.add_single_table(df, ds_hash)
+        
+
     def add_tables_from_dict(self, df_dict):
         """Given a dictionary of pl.DataFrames, generate minhashes for each dataframe.
 
@@ -74,7 +98,7 @@ class MinHashIndex:
         t_dict = {}
         for tab_name, df in df_dict.items():
             # print(tab_name)
-            t_dict.update(self.single_tab_minhashes(df, tab_name))
+            t_dict.update(self._index_single_table(df, tab_name))
 
         self.minhashes.update(t_dict)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
@@ -88,7 +112,7 @@ class MinHashIndex:
             tab_name (_type_): _description_
         """
         # print(tab_name)
-        t_dict = self.single_tab_minhashes(df, tab_name)
+        t_dict = self._index_single_table(df, tab_name)
         self.minhashes.update(t_dict)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
 
@@ -141,18 +165,17 @@ class MinHashIndex:
             query_results = []
 
             if threshold is not None:
-                if threshold not in self.thresholds:
-                    raise ValueError(f"Invalid threshold {threshold}.")
-                ens = self.ensembles[threshold]
-                res = list(ens.query(m_query, len(query)))
-                query_results += self.prepare_result(res, threshold)
-            else:
                 if any([th not in self.ensembles for th in threshold]):
                     raise ValueError(f"Invalid thresholds in the provided list.")
                 else:
-                    for threshold, ens in self.ensembles.items():
+                    for th in threshold:                        
+                        ens = self.ensembles[th]
                         res = list(ens.query(m_query, len(query)))
                         query_results += self.prepare_result(res, threshold)
+            else:
+                for threshold, ens in self.ensembles.items():
+                    res = list(ens.query(m_query, len(query)))
+                    query_results += self.prepare_result(res, threshold)
 
             if to_dataframe:
                 query_results = pl.from_records(

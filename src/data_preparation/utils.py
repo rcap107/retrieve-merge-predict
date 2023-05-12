@@ -27,11 +27,12 @@ class MetadataIndex:
             IOError: Raise IOError if the provided metadata dir does not exist, or isn't a directory.
             ValueError: Raise ValueError if both `metadata_dir` and `index_path` are None.
         """
-        metadata_dir = Path(metadata_dir)
 
         if index_path is not None:
+            index_path = Path(index_path)
             self.index = self.load_index(index_path)
         elif metadata_dir is not None:
+            metadata_dir = Path(metadata_dir)
             if (not metadata_dir.exists()) or (not metadata_dir.is_dir()):
                 raise IOError(f"Metadata path invalid.")
             self.index = self.create_index(metadata_dir)
