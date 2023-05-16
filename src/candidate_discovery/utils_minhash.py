@@ -44,7 +44,7 @@ class MinHashIndex:
         self.hash_index = []
         self.num_perm = num_perm
         self.num_part = num_part
-        self.thresholds = thresholds
+        self.thresholds = sorted(thresholds)
         self.initialized = False
         self.ensembles = {}
 
@@ -148,11 +148,11 @@ class MinHashIndex:
 
     @staticmethod
     def prepare_result(query_result, threshold):
-        r = []
+        r = {}
         for result in query_result:
             t, c = result.split("__")
-            tup = (t, c, threshold)
-            r.append(tup)
+            
+            r[t,c] = threshold
         return r
 
     def query_index(self, query, threshold=None, to_dataframe=False):
@@ -178,25 +178,30 @@ class MinHashIndex:
                 m_query.update(q.encode("utf8"))
 
             # TODO: turn this into a list with format (table, column, threshold)
-            query_results = []
+            query_dict = {}
 
             if threshold is not None:
                 if any([th not in self.ensembles for th in threshold]):
                     raise ValueError(f"Invalid thresholds in the provided list.")
                 else:
-                    for th in threshold:
+                    for th in sorted(threshold):
                         ens = self.ensembles[th]
                         res = list(ens.query(m_query, len(query)))
-                        query_results += self.prepare_result(res, threshold)
+                        query_dict.update(self.prepare_result(res, threshold))
             else:
                 for threshold, ens in self.ensembles.items():
                     res = list(ens.query(m_query, len(query)))
-                    query_results += self.prepare_result(res, threshold)
+                    query_dict.update(self.prepare_result(res, threshold))
+
 
             if to_dataframe:
                 query_results = pl.from_records(
-                    query_results, schema=["hash", "column", "threshold"]
+                    query_dict, schema=["hash", "column", "threshold"]
                 )
+            else:
+                query_results = []
+                for k, v in query_dict.items():
+                    query_results.append((k[0], k[1], v))
 
             return query_results
         else:
@@ -223,14 +228,25 @@ class MinHashIndex:
         with open(output_path, "wb") as fp:
             pickle.dump(out_dict, fp)
 
-    def load_index(self, index_file):
-        if Path(index_file).exists():
-            with open(index_file, "rb") as fp:
-                in_dict = pickle.load(index_file)
-                self.hash_index = in_dict["hash_index"]
-                self.num_perm = in_dict["num_perm"]
-                self.num_part = in_dict["numpart"]
-                self.thresholds = in_dict["thresholds"]
-                self.ensembles = in_dict["ensembles"]    
+    def load_index(self, index_file=None, index_dict=None):
+        if index_file is not None:
+            if Path(index_file).exists():
+                with open(index_file, "rb") as fp:
+                    index_dict = pickle.load(fp)
+                    self.hash_index = index_dict["hash_index"]
+                    self.num_perm = index_dict["num_perm"]
+                    self.num_part = index_dict["num_part"]
+                    self.thresholds = index_dict["thresholds"]
+                    self.ensembles = index_dict["ensembles"]
+                    self.initialized = True 
+            else:
+                raise FileNotFoundError(f"File `{index_file}` not found.")
+        elif index_dict is not None:
+            self.hash_index = index_dict["hash_index"]
+            self.num_perm = index_dict["num_perm"]
+            self.num_part = index_dict["num_part"]
+            self.thresholds = index_dict["thresholds"]
+            self.ensembles = index_dict["ensembles"]
+            self.initialized = True
         else:
-            raise FileNotFoundError(f"File `{index_file}` not found.")
+            raise ValueError("Either `index_file` or `index_dict` must be provided.")

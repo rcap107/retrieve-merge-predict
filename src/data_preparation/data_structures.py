@@ -240,13 +240,11 @@ class CandidateJoin:
         on=None, 
         similarity_score=None
     ) -> None:
-        source_info = source_table_metadata.info
-        candidate_info = candidate_table_metadata.info
         
-        self.source_table = source_info.hash
-        self.candidate_table = candidate_info.hash
-        self.source_metadata = source_info
-        self.candidate_metadata = candidate_info
+        self.source_table = source_table_metadata["hash"]
+        self.candidate_table = candidate_table_metadata["hash"]
+        self.source_metadata = source_table_metadata
+        self.candidate_metadata = candidate_table_metadata
 
         self.similarity_score = similarity_score
 
@@ -257,10 +255,14 @@ class CandidateJoin:
         self.left_on = self._convert_to_list(left_on)
         self.right_on = self._convert_to_list(right_on)
         self.on = self._convert_to_list(on)
+
+        if self.on is not None and all([self.left_on is None, self.right_on is None]):
+            self.left_on = self.right_on = [self.on]
         
         self.candidate_id = self.generate_candidate_id()
 
-    def _convert_to_list(self, val):
+    @staticmethod
+    def _convert_to_list(val):
         if isinstance(val, list):
             return val
         elif isinstance(val, str):

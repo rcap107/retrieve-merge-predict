@@ -15,7 +15,7 @@ class LazoIndex:
 
     def __init__(
         self,
-        data_dir,
+        data_dir=None,
         partition_size=50_000,
         host="localhost",
         port=15449,
@@ -24,20 +24,20 @@ class LazoIndex:
         """Initialize the LazoIndex class.
 
         Args:
-            df_dict (dict, optional): Dictionary containing all the tables to be indexed.
-            If the dictionary is too big to fit in memory, tables can be added to the index
-            one at a time. Defaults to None.
+            data_dir (str, optional): If provided, create and initialize the index scanning the
+            given `data_dir`. 
             partition_size (int, optional): Due to how protobuf works, column domains will be
             partitioned in lists of size `partition_size`. Defaults to 50_000.
             host (str, optional): Lazo server host address. Defaults to "localhost".
             port (int, optional): Lazo server port. Defaults to 15449.
+            index_file (str, optional): Path to pre-computed index config.
         """
         self.index_name = "lazo"
 
         if index_file is not None:
             self.load_index(index_file)
 
-        if index_file is None:
+        else:
             self.host = host
             self.port = port
             self.partition_size = partition_size

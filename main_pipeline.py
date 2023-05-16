@@ -127,8 +127,17 @@ def load_indices(index_dir):
 
     for index_path in index_dir.glob("**/*.pickle"):
         with open(index_path, "rb") as fp:
-            index = pickle.load(fp)
-            iname = index.index_name
+            input_dict = pickle.load(fp)
+            iname = input_dict["index_name"]
+            if iname == "minhash":
+                index = MinHashIndex()
+                index.load_index(index_dict=input_dict)
+            elif iname == "lazo":
+                index = LazoIndex()
+                index.load_index(index_path)
+            else:
+                raise ValueError(f"Unknown index {iname}.")
+                
             index_dict[iname] = index
 
     return index_dict
@@ -160,7 +169,7 @@ def generate_candidates(
         hash_, column, similarity = res
         mdata_cand = metadata_index.query_by_hash(hash_)
         cjoin = CandidateJoin(
-            source_table_metadata=mdata_source,
+            source_table_metadata=mdata_source.info,
             candidate_table_metadata=mdata_cand,
             how="left",
             left_on=query_column,
@@ -193,13 +202,13 @@ def querying(
     query_results = {}
     for index_name, index in indices.items():
         print(f"Querying index {index_name}.")
-        res = index.query_index(query)
-        query_results[index.index_name] = res
+        index_res = index.query_index(query)
+        query_results[index.index_name] = index_res
 
     candidates_by_index = {}
-    for index, res in query_results.items():
+    for index, index_res in query_results.items():
         candidates = generate_candidates(
-            index, mdata_index, mdata_source, source_column
+            index_res, mdata_index, mdata_source, source_column
         )
         candidates_by_index[index] = candidates
 
@@ -239,7 +248,7 @@ if __name__ == "__main__":
     mdata_index_fname = "debug_metadata_index.pickle"
     index_dir = "data/metadata/indices"
 
-    precomputed_indices = False  # if true, load indices from disk
+    precomputed_indices = True  # if true, load indices from disk
 
     print("Preparing metadata")
     metadata_index = prepare_metadata(
@@ -261,11 +270,6 @@ if __name__ == "__main__":
         print("Loading indices.")
         indices = load_indices(index_dir)
 
-    mdata_source = None
-    source_column = None
-
-    query = []
-
     # Query index
     print("Querying.")
     query_data_path = Path("data/yago3-dl/wordnet")
@@ -280,8 +284,11 @@ if __name__ == "__main__":
     query = df[query_column].sample(50000).drop_nulls()
 
     query_results, candidates_by_index = querying(
-        mdata_source, source_column, query, indices, metadata_index
+        query_metadata, query_column, query, indices, metadata_index
     )
+
+    with open("generated_candidates.pickle", "wb") as fp:
+        pickle.dump(candidates_by_index, fp)
 
     print("Profiling results.")
     # profile_candidates()
