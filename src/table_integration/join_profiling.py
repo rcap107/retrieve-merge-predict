@@ -40,8 +40,8 @@ def execute_dummy_join(
     return joined_table
 
 
-def get_unique_keys(left_table, left_on):
-    uk = find_unique_keys(left_table, left_on)
+def get_unique_keys(table, columns):
+    uk = find_unique_keys(table, columns)
     if uk is not None:
         return len(uk)
     else:
@@ -57,14 +57,11 @@ def find_unique_keys(df, key_cols):
         df (Union[pd.DataFrame, pl.DataFrame]): Dataframe to estimate key cardinality on.
         key_cols (list): List of key columns.
 
-    Raises:
-        ValueError: Raised if the engine is different from either `pandas` or `polars`.
-
     Returns:
         _type_: List of unique keys.
     """
     try:
-        unique_keys = df.select(pl.col(key_cols)).groupby(key_cols).count()
+        unique_keys = df[key_cols].unique()
     except pl.DuplicateError:
         unique_keys = None
 
@@ -113,6 +110,69 @@ def merge_table(
         .join(right_table[right_on].lazy(), left_on=left_on, right_on=right_on, how=how)
     )
     return merged.collect()
+
+
+def measure_containment(
+    unique_source: pl.DataFrame,
+    unique_cand: pl.DataFrame,
+    left_on,
+    right_on
+):
+    # s1 = set(unique_source[left_on].to_series().to_list())
+    # s2 = set(unique_cand[right_on].to_series().to_list())
+    # return len(s1.intersection(s2))/len(unique_source)
+    intersection=unique_source.join(unique_cand, left_on=left_on, right_on=right_on, how="inner")
+    return len(intersection) / len(unique_source)
+
+
+def measure_cardinality_proportion(
+    source_table: pl.DataFrame,
+    candidate_table: pl.DataFrame,
+):
+    cardinality_source = len(source_table)
+    cardinality_cand = len(candidate_table)
+
+    c1 = cardinality_source / cardinality_cand
+    
+    return c1
+
+
+def measure_join_quality(
+    source_table,
+    candidate_table,
+    left_on,
+    right_on,
+    constants={
+        "C_H": 0.75,
+        "C_G": 0.5,
+        "C_M": 0.25,
+        "C_L": 0.1,
+        "K_H": 0.25,
+        "K_G": 0.125,
+        "K_M": 1 / 12,
+    }
+):
+    unique_source = find_unique_keys(source_table, left_on)
+    unique_cand = find_unique_keys(candidate_table, right_on)
+    containment = measure_containment(unique_source, unique_cand, left_on, right_on)
+    card_prop = measure_cardinality_proportion(
+        source_table, candidate_table
+    )
+
+    if containment >= constants["C_H"] and card_prop >= constants["K_H"]:
+        return 4
+
+    elif containment >= constants["C_G"] and card_prop >= constants["K_G"]:
+        return 3
+
+    elif containment >= constants["C_M"] and card_prop >= constants["K_M"]:
+        return 2
+
+    elif containment >= constants["C_P"]:
+        return 1
+
+    else:
+        return 0
 
 
 def profile_joins(
