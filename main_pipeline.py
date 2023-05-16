@@ -23,13 +23,16 @@ def prepare_metadata(data_dir, source_data_lake, mdata_out_dir, mdata_index_fnam
     metadata_index = MetadataIndex(mdata_out_dir)
     metadata_index.save_index(mdata_index_fname)
 
+    return metadata_index
 
-def prepare_default_configs(data_dir):
+
+def prepare_default_configs(data_dir, selected_indices=None):
     """Prepare default configurations for various indexing methods and provide the
     data directory that contains the metadata of the tables to be indexed.
 
     Args:
         data_dir (str): Path to the directory that contains the metadata.
+        selected_indices (str): If provided, prepare and run only the selected indices. 
 
     Raises:
         IOError: Raise IOError if `data_dir` is incorrect.
@@ -51,7 +54,14 @@ def prepare_default_configs(data_dir):
                 "oneshot": True,
             },
         }
-        return configs
+        if selected_indices is not None:
+            return {
+                index_name: config
+                for index_name, config in configs.items()
+                if index_name in selected_indices
+            }
+        else:
+            return configs
     else:
         raise IOError(f"Invalid path {data_dir}")
 
@@ -89,12 +99,11 @@ def save_indices(index_dict, index_dir):
         index_dir (str): Path where the dictionaries will be saved.
     """
     if Path(index_dir).exists():
-        for index in index_dict:
-            index_name = index.index_name
+        for index_name, index in index_dict.items():
+            print(f"Saving index {index_name}")
             filename = f"{index_name}_index.pickle"
             fpath = Path(index_dir, filename)
-            with open(fpath, "wb") as fp:
-                pickle.dump(index, fp)
+            index.save_index(fpath)
     else:
         raise ValueError(f"Invalid `index_dir` {index_dir}")
 
@@ -182,7 +191,8 @@ def querying(
         (dict, dict): Returns the result of the queries on each index and the candidate joins for all results.
     """
     query_results = {}
-    for index in indices:
+    for index_name, index in indices.items():
+        print(f"Querying index {index_name}.")
         res = index.query_index(query)
         query_results[index.index_name] = res
 
@@ -225,52 +235,82 @@ def execute_joins():
 if __name__ == "__main__":
     data_dir = Path("data/yago3-dl/wordnet/subtabs/yago_seltab_wordnet_movie")
     source_data_lake = "yago3-dl"
-    output_dir = "data/metadata/debug"
+    metadata_dir = "data/metadata/debug"
     mdata_index_fname = "debug_metadata_index.pickle"
     index_dir = "data/metadata/indices"
 
-    prepare_indices = True
+    precomputed_indices = False  # if true, load indices from disk
 
-    prepare_metadata(
+    print("Preparing metadata")
+    metadata_index = prepare_metadata(
         data_dir,
         source_data_lake=source_data_lake,
-        mdata_out_dir=output_dir,
+        mdata_out_dir=metadata_dir,
         mdata_index_fname=mdata_index_fname,
     )
 
-    if prepare_indices:
-        index_configurations = prepare_default_configs()
+    selected_indices = ["minhash"]
+
+    if not precomputed_indices:
+        index_configurations = prepare_default_configs(metadata_dir, selected_indices)
+        print("Preparing indices.")
         indices = prepare_indices(index_configurations)
-        save_indices()
+        print("Saving indices.")
+        save_indices(indices, index_dir)
     else:
-        indices = load_indices()
+        print("Loading indices.")
+        indices = load_indices(index_dir)
 
-    query_results, candidates_by_index = querying()
+    mdata_source = None
+    source_column = None
 
-    profile_candidates()
+    query = []
 
+    # Query index
+    print("Querying.")
+    query_data_path = Path("data/yago3-dl/wordnet")
+    query_metadata_path = Path("data/metadata/queries")
+    tab_name = "yago_seltab_wordnet_movie"
+    tab_path = Path(query_data_path, f"{tab_name}.parquet")
+    df = pl.read_parquet(tab_path)
+
+    print(f"Querying from dataset {tab_path}")
+    query_metadata = RawDataset(tab_path.resolve(), "queries", query_metadata_path)
+    query_column = "isLocatedIn"
+    query = df[query_column].sample(50000).drop_nulls()
+
+    query_results, candidates_by_index = querying(
+        mdata_source, source_column, query, indices, metadata_index
+    )
+
+    print("Profiling results.")
+    # profile_candidates()
+
+
+# # %%
+
+# # %%
+# # Load prepared indices
+# mh_index = pickle.load(open("mh_index.pickle", "rb"))
+# metadata_index = MetadataIndex(index_path="debug_metadata_index.pickle")
+# # %%
+# # Query index
+# data_path = Path("data/yago3-dl/wordnet")
+# metadata_path = Path("data/metadata/debug")
+
+# tab_name = "yago_seltab_wordnet_movie"
+# tab_path = Path(data_path, f"{tab_name}.parquet")
+# df = pl.read_parquet(tab_path)
+# query_column = "isLocatedIn"
+# query = df[query_column].sample(50000).drop_nulls()
+
+# mh_result = mh_index.query_index(query)
+
+# # %%
+# mdata_source = RawDataset(tab_path, "yago3-dl", metadata_path)
+
+
+# # %%
 
 # %%
-
-# %%
-# Load prepared indices
-mh_index = pickle.load(open("mh_index.pickle", "rb"))
-metadata_index = MetadataIndex(index_path="debug_metadata_index.pickle")
-# %%
-# Query index
-data_path = Path("data/yago3-dl/wordnet")
-metadata_path = Path("data/metadata/debug")
-
-tab_name = "yago_seltab_wordnet_movie"
-tab_path = Path(data_path, f"{tab_name}.parquet")
-df = pl.read_parquet(tab_path)
-query_column = "isLocatedIn"
-query = df[query_column].sample(50000).drop_nulls()
-
-mh_result = mh_index.query_index(query)
-
-# %%
-mdata_source = RawDataset(tab_path, "yago3-dl", metadata_path)
-
-
-# %%
+""
