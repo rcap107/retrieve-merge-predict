@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 import json
+import pickle
 
 
 class LazoIndex:
@@ -12,7 +13,14 @@ class LazoIndex:
     index server must be already running on the machine.
     """
 
-    def __init__(self, data_dir, partition_size=50_000, host="localhost", port=15449):
+    def __init__(
+        self,
+        data_dir,
+        partition_size=50_000,
+        host="localhost",
+        port=15449,
+        index_file=None,
+    ):
         """Initialize the LazoIndex class.
 
         Args:
@@ -25,14 +33,21 @@ class LazoIndex:
             port (int, optional): Lazo server port. Defaults to 15449.
         """
         self.index_name = "lazo"
-        self.lazo_client = lazo_index_service.LazoIndexClient(host=host, port=port)
-        self.partition_size = partition_size
 
-        self.data_dir = Path(data_dir)
-        if not self.data_dir.exists():
-            raise IOError("Invalid data directory")
+        if index_file is not None:
+            self.load_index(index_file)
 
-        self.add_tables_from_path(self.data_dir)
+        if index_file is None:
+            self.host = host
+            self.port = port
+            self.partition_size = partition_size
+        
+        self.lazo_client = lazo_index_service.LazoIndexClient(host=self.host, port=self.port)
+        
+        if data_dir is not None:
+            self.add_tables_from_path(data_dir)
+            self.data_dir = data_dir
+        
 
     def _index_single_table(self, df: pl.DataFrame, tab_name: str):
         for col in df.columns:
@@ -72,7 +87,13 @@ class LazoIndex:
         Args:
             data_path (Path): Path to the directory to scan for metadata.
         """
+        if not data_path.exists():
+            raise IOError("Invalid data directory")
+
         total_files = sum(1 for f in data_path.glob("*.json"))
+
+        if total_files == 0:
+            raise RuntimeError(f"No json files found in {data_path}.")
 
         for path in data_path.glob("*.json"):
             mdata_dict = json.load(open(path, "r"))
@@ -110,3 +131,23 @@ class LazoIndex:
     def clean_index(self, cleanup_dict: dict):
         for tab_name, column_list in cleanup_dict.items():
             self.lazo_client.remove_sketches(tab_name, column_list)
+
+    def load_index(self, index_file):
+        if Path(index_file).exists():
+            with open(index_file, "rb") as fp:
+                params = pickle.load(fp)
+                self.host = params["host"]
+                self.port = params["port"]
+                self.partition_size = params["partition_size"]        
+        else:
+            raise FileNotFoundError(f"File {index_file} not found.")
+
+    def save_index(self, output_path):
+        out_dict = {
+            "index_name": self.index_name,
+            "host": self.host,
+            "port": self.port,
+            "partition_size": self.partition_size,
+        }
+        with open(output_path, "wb") as fp:
+            pickle.dump(out_dict, fp)

@@ -11,7 +11,7 @@ import json
 
 class MinHashIndex:
     def __init__(
-        self, data_dir, thresholds=[20], num_perm=128, num_part=32, oneshot=True
+        self, data_dir=None, thresholds=[20], num_perm=128, num_part=32, oneshot=True, index_file=None
     ) -> None:
         """Index class based on `MinHashLSHEnsemble`. By default, it scans for metadata files
         in the provided `data_dir` and adds all them to the index.
@@ -23,36 +23,49 @@ class MinHashIndex:
         Ensembles do not support online updates, so after loading all tables in the index it is necessary
         to invoke the function `create_ensembles`. Querying without this step will raise an exception.
 
+        If `index_file` is provided, the data structures required for the index are loaded from the given 
+        index file. 
+
         If `oneshot` is set to True, the index will be initialized within this function.
         If `oneshot` is set to False, the index creation will not be wrapped up until the user manually
         invokes `create_ensembles`: this allows to update the indices with tables that were not added
         while scanning `data_dir`.
 
         Args:
-            data_dir (str): Path to the dir that contains the metadata of the target tables.
+            data_dir (str, optional): Path to the dir that contains the metadata of the target tables. 
             thresholds (list, optional): List of thresholds to be used by the ensemble. Defaults to [20].
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
             oneshot (bool, optional): If False, index will have to be finalized by the user. Defaults to True.
+            index_file (str, optional): Path to a pickle containing a pre-computed index. 
         """
         self.index_name = "minhash"
+
         self.hash_index = []
         self.num_perm = num_perm
         self.num_part = num_part
         self.thresholds = thresholds
         self.initialized = False
         self.ensembles = {}
-        self.minhashes = {}
 
-        self.data_dir = Path(data_dir)
-        if not self.data_dir.exists():
-            raise IOError("Invalid data directory")
+        if index_file is not None:
+            self.load_index(index_file)
+            self.initialized = True
+            
+        elif data_dir is not None:
+            self.data_dir = Path(data_dir)
+            if not self.data_dir.exists():
+                raise IOError("Invalid data directory")
 
-        self.add_tables_from_path(self.data_dir)
+            self.add_tables_from_path(self.data_dir)
 
-        if oneshot:
-            # If oneshot, wrap up the generation of the index here. If not, create_ensemble will have to be called later
-            self.create_ensembles()
+            if oneshot:
+                # If oneshot, wrap up the generation of the index here. If not, create_ensemble will have to be called later
+                self.create_ensembles()
+        else:
+            # Do nothing, the user will load the data manually.
+            pass
+
 
     def _index_single_table(self, df: pl.DataFrame, tab_name) -> dict:
         """Generate the minhashes for a single dataframe.
@@ -83,11 +96,14 @@ class MinHashIndex:
         """
         total_files = sum(1 for f in data_path.glob("*.json"))
 
-        for path in data_path.glob("*.json"):
-            mdata_dict = json.load(open(path, "r"))
-            ds_hash = mdata_dict["hash"]
-            df = pl.read_parquet(mdata_dict["full_path"])
-            self.add_single_table(df, ds_hash)
+        if total_files > 0:
+            for path in data_path.glob("*.json"):
+                mdata_dict = json.load(open(path, "r"))
+                ds_hash = mdata_dict["hash"]
+                df = pl.read_parquet(mdata_dict["full_path"])
+                self.add_single_table(df, ds_hash)
+        else:
+            raise RuntimeError("No metadata files were found.")
 
     def add_tables_from_dict(self, df_dict):
         """Given a dictionary of pl.DataFrames, generate minhashes for each dataframe.
@@ -100,7 +116,7 @@ class MinHashIndex:
             # print(tab_name)
             t_dict.update(self._index_single_table(df, tab_name))
 
-        self.minhashes.update(t_dict)
+        # self.minhashes.update(t_dict)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
 
     def add_single_table(self, df: pl.DataFrame, tab_name):
@@ -113,7 +129,7 @@ class MinHashIndex:
         """
         # print(tab_name)
         t_dict = self._index_single_table(df, tab_name)
-        self.minhashes.update(t_dict)
+        # self.minhashes.update(t_dict)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
 
     def create_ensembles(self):
@@ -194,5 +210,27 @@ class MinHashIndex:
         """
         pickle.dump(self.ensembles, open(output_path, "wb"))
 
+    def save_index(self, output_path):
+        out_dict = {
+            "index_name": self.index_name,
+            "hash_index": self.hash_index,
+            "num_perm": self.num_perm,
+            "num_part": self.num_part,
+            "thresholds": self.thresholds,
+            "ensembles": self.ensembles,
+        }
 
-# %%
+        with open(output_path, "wb") as fp:
+            pickle.dump(out_dict, fp)
+
+    def load_index(self, index_file):
+        if Path(index_file).exists():
+            with open(index_file, "rb") as fp:
+                in_dict = pickle.load(index_file)
+                self.hash_index = in_dict["hash_index"]
+                self.num_perm = in_dict["num_perm"]
+                self.num_part = in_dict["numpart"]
+                self.thresholds = in_dict["thresholds"]
+                self.ensembles = in_dict["ensembles"]    
+        else:
+            raise FileNotFoundError(f"File `{index_file}` not found.")
