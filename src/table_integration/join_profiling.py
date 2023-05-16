@@ -106,21 +106,34 @@ def merge_table(
     """
     merged = (
         left_table[left_on]
-        .lazy()
-        .join(right_table[right_on].lazy(), left_on=left_on, right_on=right_on, how=how)
+        .lazy().drop_nulls()
+        .join(right_table[right_on].lazy().drop_nulls(), left_on=left_on, right_on=right_on, how=how)
     )
     return merged.collect()
 
 
+def estimate_join_size(source_table, candidate_table, left_on, right_on):
+    unique_source = find_unique_keys(source_table, left_on)
+    unique_cand = find_unique_keys(candidate_table, right_on)
+
+    numerator = len(source_table) * len(candidate_table)
+
+    estimates = [numerator/len(unique_source), numerator/len(unique_cand)]
+    
+    return estimates
+
 def measure_containment(
-    unique_source: pl.DataFrame,
-    unique_cand: pl.DataFrame,
+    source_table: pl.DataFrame,
+    candidate_table: pl.DataFrame,
     left_on,
     right_on
 ):
-    # s1 = set(unique_source[left_on].to_series().to_list())
-    # s2 = set(unique_cand[right_on].to_series().to_list())
-    # return len(s1.intersection(s2))/len(unique_source)
+    unique_source = find_unique_keys(source_table, left_on)
+    unique_cand = find_unique_keys(candidate_table, right_on)
+
+    s1 = set(unique_source[left_on].to_series().to_list())
+    s2 = set(unique_cand[right_on].to_series().to_list())
+    return len(s1.intersection(s2))/len(unique_source)
     intersection=unique_source.join(unique_cand, left_on=left_on, right_on=right_on, how="inner")
     return len(intersection) / len(unique_source)
 
@@ -146,7 +159,7 @@ def measure_join_quality(
         "C_H": 0.75,
         "C_G": 0.5,
         "C_M": 0.25,
-        "C_L": 0.1,
+        "C_P": 0.1,
         "K_H": 0.25,
         "K_G": 0.125,
         "K_M": 1 / 12,
