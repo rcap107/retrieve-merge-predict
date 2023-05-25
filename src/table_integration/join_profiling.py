@@ -106,8 +106,14 @@ def merge_table(
     """
     merged = (
         left_table[left_on]
-        .lazy().drop_nulls()
-        .join(right_table[right_on].lazy().drop_nulls(), left_on=left_on, right_on=right_on, how=how)
+        .lazy()
+        .drop_nulls()
+        .join(
+            right_table[right_on].lazy().drop_nulls(),
+            left_on=left_on,
+            right_on=right_on,
+            how=how,
+        )
     )
     return merged.collect()
 
@@ -118,36 +124,38 @@ def estimate_join_size(source_table, candidate_table, left_on, right_on):
 
     numerator = len(source_table) * len(candidate_table)
 
-    estimates = [numerator/len(unique_source), numerator/len(unique_cand)]
-    
+    estimates = [numerator / len(unique_source), numerator / len(unique_cand)]
+
     return estimates
 
+
 def measure_containment(
-    source_table: pl.DataFrame,
-    candidate_table: pl.DataFrame,
-    left_on,
-    right_on
+    source_table: pl.DataFrame, candidate_table: pl.DataFrame, left_on, right_on
 ):
     unique_source = find_unique_keys(source_table, left_on)
     unique_cand = find_unique_keys(candidate_table, right_on)
 
     s1 = set(unique_source[left_on].to_series().to_list())
     s2 = set(unique_cand[right_on].to_series().to_list())
-    return len(s1.intersection(s2))/len(unique_source)
-    intersection=unique_source.join(unique_cand, left_on=left_on, right_on=right_on, how="inner")
+    return len(s1.intersection(s2)) / len(s1)
+    intersection = unique_source.join(
+        unique_cand, left_on=left_on, right_on=right_on, how="inner"
+    )
     return len(intersection) / len(unique_source)
 
 
 def measure_cardinality_proportion(
-    source_table: pl.DataFrame,
-    candidate_table: pl.DataFrame,
+    source_table: pl.DataFrame, candidate_table: pl.DataFrame, left_on, right_on
 ):
-    cardinality_source = len(source_table)
-    cardinality_cand = len(candidate_table)
+    unique_source = find_unique_keys(source_table, left_on)
+    unique_cand = find_unique_keys(candidate_table, right_on)
 
-    c1 = cardinality_source / cardinality_cand
-    
-    return c1
+    cardinality_source = len(unique_source)
+    cardinality_cand = len(unique_cand)
+
+    card_prop = cardinality_source / cardinality_cand
+
+    return card_prop
 
 
 def measure_join_quality(
@@ -163,13 +171,13 @@ def measure_join_quality(
         "K_H": 0.25,
         "K_G": 0.125,
         "K_M": 1 / 12,
-    }
+    },
 ):
     unique_source = find_unique_keys(source_table, left_on)
     unique_cand = find_unique_keys(candidate_table, right_on)
     containment = measure_containment(unique_source, unique_cand, left_on, right_on)
     card_prop = measure_cardinality_proportion(
-        source_table, candidate_table
+        source_table, candidate_table, left_on, right_on
     )
 
     if containment >= constants["C_H"] and card_prop >= constants["K_H"]:
@@ -188,77 +196,58 @@ def measure_join_quality(
         return 0
 
 
-def profile_joins(
-    source_table: pl.DataFrame, source_table_name: str, join_candidates: List, verbose=0
-):
-    """This function takes as input a source table and a list of join candidates,
-    then runs a series of profiling operation on them.
+def profile_joins(join_candidates: dict):
+    """"""
 
-    It notes down `ds_name`, `candidate_name`, `left_on`, `right_on`, size of the
-    left join in `merged_rows`, `scale_factor`, cardinality of left and right
-    key columns in `left_unique_keys` and `right_unique_keys`.
+    tot_dict = []
+    for index_name, candidates in join_candidates.items():
 
-    Args:
+        for hash_, mdata in candidates.items():
+            prof_dict = {}
+            source_metadata = mdata.source_metadata
+            candidate_metadata = mdata.candidate_metadata
+            source_table = pl.read_parquet(source_metadata["full_path"])
+            candidate_table = pl.read_parquet(candidate_metadata["full_path"])
+            left_on = mdata.left_on
+            right_on = mdata.right_on
+            estimates = estimate_join_size(
+                source_table, candidate_table, left_on, right_on
+            )
+            join_quality = measure_join_quality(
+                source_table, candidate_table, left_on, right_on
+            )
+            containment = measure_containment(
+                source_table, candidate_table, left_on, right_on
+            )
+            card_prop = measure_cardinality_proportion(
+                source_table, candidate_table, left_on, right_on
+            )
+            if min(estimates) < 1e6:
+                joined = merge_table(
+                    source_table,
+                    candidate_table,
+                    left_on=left_on,
+                    right_on=right_on,
+                    how="inner",
+                )
+            else:
+                joined = None
+            prof_dict["candidate_id"] = mdata.candidate_id
+            prof_dict["index"] = index_name
+            prof_dict["source_table"] = source_metadata["full_path"]
+            prof_dict["source_name"] = source_metadata["df_name"]
+            prof_dict["candidate_table"] = candidate_metadata["full_path"]
+            prof_dict["candidate_name"] = candidate_metadata["df_name"]
+            prof_dict["min_estimate"] = min(estimates)
+            prof_dict["join_quality"] = join_quality
+            prof_dict["containment"] = containment
+            prof_dict["cardinality_proportion"] = card_prop
+            if joined is not None:
+                prof_dict["true_join_size"] = len(joined)
+            else:
+                prof_dict["true_join_size"] = 0
 
-        verbose (int, optional): How much information on dataset failures to be printed. Defaults to 0.
+            tot_dict.append(prof_dict)
 
-    Returns:
-        pd.DataFrame: Summary of the statistics in DataFrame format.
-    """
-
-    left_table = source_table.copy()
-    all_info_dict = {}
-    idx_info = 0
-
-    # TODO: I copypasted, it needs to be adapted to the format that is being spat out by the queries
-    for cand_id, join_column, threshold in join_candidates:
-        right_table_path = Path(cand_path, cand_id, "tables/learningData.csv")
-        base_dict_info = dict(prepare_base_dict_info())
-        base_dict_info["ds_name"] = ds_name
-        base_dict_info["candidate_name"] = cand_id
-        if not right_table_path.exists():
-            if verbose > 0:
-                print(f"{right_table_path} not found.")
-            dict_info = dict(base_dict_info)
-            all_info_dict[idx_info] = dict_info
-            idx_info += 1
-        else:
-            right_table = read_table_csv(right_table_path, engine)
-            for join_cand in cand_info["metadata"]:
-                left_on = join_cand["left_columns_names"][0]
-                right_on = join_cand["right_columns_names"][0]
-                dict_info = dict(base_dict_info)
-                if len(right_on) != len(left_on):
-                    if verbose > 1:
-                        print(f"Left: {left_on} != Right: {right_on}")
-                elif any(r not in right_table.columns for r in right_on) or any(
-                    l not in left_table.columns for l in left_on
-                ):
-                    if verbose > 0:
-                        print(f"Not all columns found.")
-                else:
-                    dict_info["left_rows"], dict_info["left_cols"] = left_table.shape
-
-                    merged = merge_table(
-                        left_table=left_table,
-                        right_table=right_table,
-                        left_on=left_on,
-                        right_on=right_on,
-                        engine=engine,
-                    )
-
-                    dict_info["left_on"] = left_on
-                    dict_info["right_on"] = right_on
-                    dict_info["merged_rows"] = len(merged)
-                    dict_info["scale_factor"] = len(merged) / dict_info["left_rows"]
-                    dict_info["left_unique_keys"] = get_unique_keys(left_table, left_on)
-                    dict_info["right_unique_keys"] = get_unique_keys(
-                        right_table, right_on
-                    )
-
-                all_info_dict[idx_info] = dict_info
-                idx_info += 1
-        df_info = pd.DataFrame().from_dict(all_info_dict, orient="index")
-    else:
-        df_info = pd.DataFrame()
-    return df_info
+    prof_df = pl.from_dicts(tot_dict)
+    return prof_df.to_pandas()
