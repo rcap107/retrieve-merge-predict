@@ -120,5 +120,6 @@ def execute_full_join(
 
     cat_features = [col for col in merged.columns if col not in num_features]
     merged = merged.fill_null("")
+    merged = merged.fill_nan("")
 
     return merged
