@@ -10,7 +10,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
 
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(required=True)
 
     start = subparsers.add_parser("start", help="Start the lazo index container.")
     kill = subparsers.add_parser("kill", help="Kill the lazo index container.")

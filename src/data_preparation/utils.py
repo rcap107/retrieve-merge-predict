@@ -8,6 +8,20 @@ import pandas as pd
 import polars as pl
 
 
+def cast_features(table: pl.DataFrame):
+    for col in table.columns:
+        try:
+            table = table.with_columns(
+                pl.col(col).cast(pl.Float64)
+            )
+        except pl.ComputeError:
+            continue    
+    
+    cat_features = [k for k,v in table.schema.items() if str(v) == "Utf8"]
+    num_features = [k for k,v in table.schema.items() if str(v) == "Float64"]
+    
+    return table, num_features, cat_features
+
 class MetadataIndex:
     """This class defines a Metadata Index, which reads the metadata folder to
     have a ready index of the tables found in the data lake. The index is implemented
@@ -30,7 +44,7 @@ class MetadataIndex:
 
         if index_path is not None:
             index_path = Path(index_path)
-            self.index = self.load_index(index_path)
+            self.index = self._load_index(index_path)
         elif metadata_dir is not None:
             metadata_dir = Path(metadata_dir)
             if (not metadata_dir.exists()) or (not metadata_dir.is_dir()):
@@ -59,7 +73,7 @@ class MetadataIndex:
             return itemgetter(hashes)(self.index)
         else:
             raise TypeError("Inappropriate type passed to argument `hashes`")
-
+        
     def create_index(self, metadata_dir):
         """Fill the index dictionary by loading all json files found in the provided directory. The stem of the file name will be used as dictionary key.
 
@@ -83,7 +97,7 @@ class MetadataIndex:
         else:
             raise IOError(f"Incorrect path {metadata_dir}")
 
-    def load_index(self, index_path: Path):
+    def _load_index(self, index_path: Path):
         """Load a pre-built index from the given `index_path`.
 
         Args:

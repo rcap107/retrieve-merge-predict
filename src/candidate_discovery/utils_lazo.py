@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import json
 import pickle
+from tqdm import tqdm
 
 
 class LazoIndex:
@@ -45,6 +46,7 @@ class LazoIndex:
         self.lazo_client = lazo_index_service.LazoIndexClient(host=self.host, port=self.port)
         
         if data_dir is not None:
+            data_dir = Path(data_dir)
             self.add_tables_from_path(data_dir)
             self.data_dir = data_dir
         
@@ -95,7 +97,7 @@ class LazoIndex:
         if total_files == 0:
             raise RuntimeError(f"No json files found in {data_path}.")
 
-        for path in data_path.glob("*.json"):
+        for path in tqdm(data_path.glob("*.json"), total=total_files):
             mdata_dict = json.load(open(path, "r"))
             ds_hash = mdata_dict["hash"]
             df = pl.read_parquet(mdata_dict["full_path"])

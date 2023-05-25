@@ -7,7 +7,7 @@ import polars as pl
 from datasketch import MinHash, MinHashLSHEnsemble
 from operator import itemgetter
 import json
-
+from tqdm import tqdm
 
 class MinHashIndex:
     def __init__(
@@ -97,7 +97,7 @@ class MinHashIndex:
         total_files = sum(1 for f in data_path.glob("*.json"))
 
         if total_files > 0:
-            for path in data_path.glob("*.json"):
+            for path in tqdm(data_path.glob("*.json"), total=total_files):
                 mdata_dict = json.load(open(path, "r"))
                 ds_hash = mdata_dict["hash"]
                 df = pl.read_parquet(mdata_dict["full_path"])

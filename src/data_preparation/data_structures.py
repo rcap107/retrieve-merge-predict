@@ -89,10 +89,14 @@ class RawDataset:
         return sha.hexdigest()
 
 
-
-    def save_metadata_to_json(self):
-        json.dump(self.info, open(self.path_metadata, "w"), indent=2)
-
+    def save_metadata_to_json(self, metadata_dir=None):
+        if metadata_dir is None:
+            pth_md = self.path_metadata
+        else:
+            pth_md = Path(metadata_dir, self.hash + ".json")
+        with open(pth_md, "w") as fp:
+            json.dump(self.info, fp, indent=2)
+        
     def prepare_metadata(self):
         pass
 
@@ -232,6 +236,7 @@ class IntegratedDataset(Dataset):
 class CandidateJoin:
     def __init__(
         self,
+        indexing_method,
         source_table_metadata,
         candidate_table_metadata,
         how=None,
@@ -241,6 +246,7 @@ class CandidateJoin:
         similarity_score=None
     ) -> None:
         
+        self.indexing_method = indexing_method
         self.source_table = source_table_metadata["hash"]
         self.candidate_table = candidate_table_metadata["hash"]
         self.source_metadata = source_table_metadata
@@ -282,10 +288,11 @@ class CandidateJoin:
 
     def generate_candidate_id(self):
         """Generate a unique id for this candidate relationship. The same pair of tables can have multiple candidate
-        relationships, so this function takes the source table, candidate table, left/right columns and combines them
+        relationships, so this function takes the index, source table, candidate table, left/right columns and combines them
         to produce a unique id.
         """
         join_string = [
+                    self.indexing_method,
                     self.source_table,
                     self.candidate_table,
                     self.how + "_j",
