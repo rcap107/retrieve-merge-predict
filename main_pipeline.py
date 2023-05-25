@@ -13,7 +13,7 @@ from src.candidate_discovery.utils_minhash import MinHashIndex
 from src.data_preparation.data_structures import CandidateJoin, RawDataset
 from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
-
+import src.evaluation.evaluation_methods as em
 
 def prepare_metadata(data_dir, source_data_lake, mdata_out_dir, mdata_index_fname):
     for dataset_path in data_dir.glob("**/*.parquet"):
@@ -144,6 +144,7 @@ def load_indices(index_dir):
 
 
 def generate_candidates(
+    index_name: str,
     index_result: list,
     metadata_index: MetadataIndex,
     mdata_source: dict,
@@ -156,6 +157,7 @@ def generate_candidates(
     table. `query_column` is the join column in the source table.
 
     Args:
+        index_name (str): Name of the index that generated the candidates.
         index_result (list): List of potential join candidates as they were provided by an index.
         metadata_index (MetadataIndex): Metadata Index that holds the metadata of all tables in the data lake.
         mdata_source (dict): Metadata of the source table.
@@ -169,6 +171,7 @@ def generate_candidates(
         hash_, column, similarity = res
         mdata_cand = metadata_index.query_by_hash(hash_)
         cjoin = CandidateJoin(
+            indexing_method=index_name,
             source_table_metadata=mdata_source.info,
             candidate_table_metadata=mdata_cand,
             how="left",
@@ -207,7 +210,7 @@ def querying(
 
     candidates_by_index = {}
     for index, index_res in query_results.items():
-        candidates = generate_candidates(
+        candidates = generate_candidates(index,
             index_res, mdata_index, mdata_source, source_column
         )
         candidates_by_index[index] = candidates
@@ -215,50 +218,55 @@ def querying(
     return query_results, candidates_by_index
 
 
-def profile_candidates(mdata_source: RawDataset, candidates_by_index: dict):
-    """Profile all the join candidates, then return the results in dataframe format.
+def evaluate_joins(source_table, join_candidates: dict, num_features=None, verbose=1):
+    result_list = []
+    source_table, num_features, cat_features = em.prepare_table_for_evaluation(source_table, num_features)
 
-    Args:
-        mdata_source (RawDataset): Metadata of the source table.
-        candidates_by_index (dict): Dictionary containing the candidates produced by each index.
+    # Run on source table alone
+    print("Running on base table.")
+    results = em.run_on_table(source_table, num_features, cat_features, verbose=verbose)
+    rmse = em.measure_rmse(results["y_test"], results["y_pred"])
+    r2 = em.measure_rmse(results["y_test"], results["y_pred"])
+    # TODO add proper name + hash
+    result_list.append(("base", "base", rmse, r2))
 
-    Returns:
-        pd.DataFrame: Dataframe containing the profiling results.
-    """
-    source_table_name = mdata_source.hash
+    # Run on all candidates
+    print("Running on candidates, one at a time.")
+    for index_name, index_cand in join_candidates.items():
+        rmse_dict = em.execute_on_candidates(index_cand, source_table, num_features, cat_features, verbose=verbose)
+        for k,v in rmse_dict.items():
+            result_list.append((index_name, k, v))
 
-    profiling_results = {}
-    for index, candidates in candidates_by_index.items():
-        profiling_results[index] = profile_joins(
-            mdata_source, source_table_name, candidates
-        )
+    # Execute full join by index, then evaluate
+    # print("Running on the fully-joined table. ")
+    # for index_name, index_cand in join_candidates.items():
+    #     merged_table = em.execute_full_join(index_cand, source_table, num_features, cat_features)
+    #     cat_features = [col for col in merged_table.columns if col not in num_features]
+    #     merged_table = merged_table.fill_null("")
+    #     merged_table = merged_table.fill_nan("")
+    #     results = em.run_on_table(merged_table, num_features, cat_features, verbose=verbose)
+    #     rmse = em.measure_rmse(results["y_test"], results["y_pred"])
+    #     result_list.append((index_name, "full_merge", rmse))    
 
-    return profiling_results
-
-
-def execute_joins():
-    pass
-
+    return pl.from_records(result_list, orient="row").to_pandas()
 
 # %%
 if __name__ == "__main__":
-    data_dir = Path("data/yago3-dl/wordnet/subtabs/yago_seltab_wordnet_movie")
     source_data_lake = "yago3-dl"
-    metadata_dir = "data/metadata/debug"
-    mdata_index_fname = "debug_metadata_index.pickle"
+    metadata_dir = "data/metadata/binary"
+    mdata_index_path = Path("data/metadata/mdi/md_index_binary.pickle")
+
     index_dir = "data/metadata/indices"
 
     precomputed_indices = True  # if true, load indices from disk
 
-    print("Preparing metadata")
-    metadata_index = prepare_metadata(
-        data_dir,
-        source_data_lake=source_data_lake,
-        mdata_out_dir=metadata_dir,
-        mdata_index_fname=mdata_index_fname,
-    )
+    print(f"Reading metadata from {mdata_index_path}")
+    if not mdata_index_path.exists():
+        raise FileNotFoundError(f"Path to metadata index {mdata_index_path} is invalid.")
+    else:
+        mdata_index = MetadataIndex(index_path=mdata_index_path)
 
-    selected_indices = ["minhash"]
+    selected_indices = ["minhash", "lazo"]
 
     if not precomputed_indices:
         index_configurations = prepare_default_configs(metadata_dir, selected_indices)
@@ -272,26 +280,44 @@ if __name__ == "__main__":
 
     # Query index
     print("Querying.")
-    query_data_path = Path("data/yago3-dl/wordnet")
-    query_metadata_path = Path("data/metadata/queries")
-    tab_name = "yago_seltab_wordnet_movie"
+    query_data_path = Path("data/source_tables/ken_datasets/presidential-results")
+    tab_name = "presidential-results-prepared"
     tab_path = Path(query_data_path, f"{tab_name}.parquet")
     df = pl.read_parquet(tab_path)
-
+    
     print(f"Querying from dataset {tab_path}")
-    query_metadata = RawDataset(tab_path.resolve(), "queries", query_metadata_path)
-    query_column = "isLocatedIn"
-    query = df[query_column].sample(50000).drop_nulls()
+    query_metadata = RawDataset(tab_path.resolve(), "queries", "data/metadata/queries")
+    query_metadata.save_metadata_to_json()
+    
+    query_column = "col_to_embed"
+    # query = df[query_column].sample(3000).drop_nulls()
+    query = df[query_column].drop_nulls()
 
     query_results, candidates_by_index = querying(
-        query_metadata, query_column, query, indices, metadata_index
+        query_metadata, query_column, query, indices, mdata_index
     )
 
-    with open("generated_candidates.pickle", "wb") as fp:
+    with open(f"generated_candidates_{tab_name}.pickle", "wb") as fp:
         pickle.dump(candidates_by_index, fp)
 
     print("Profiling results.")
-    # profile_candidates()
+    profiling_results = profile_joins(candidates_by_index)
+    profiling_results.to_csv("results/profiling_results.csv", index=False, mode="a")
+    
+    print("Evaluating join results.")
+    # num_features = [
+    #     "budget", 
+    #     "popularity",
+    #     "release_date", 
+    #     "runtime",
+    #     "vote_average",
+    #     "vote_count",
+    #     "target"
+    # ]
+
+    # TODO: Somewhere in here there still are issues with types 
+    results = evaluate_joins(df, join_candidates=candidates_by_index, num_features=None, verbose=0)
+    results.to_csv("results/run_results.csv", mode="a")
 
 
 # # %%
@@ -320,4 +346,3 @@ if __name__ == "__main__":
 # # %%
 
 # %%
-""
