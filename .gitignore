@@ -5,7 +5,8 @@ data/
 .idea
 *.pickle
 *.speedscope.json
-
+catboost_info/
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
