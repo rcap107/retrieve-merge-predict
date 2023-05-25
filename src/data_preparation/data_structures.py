@@ -20,19 +20,25 @@ logging.basicConfig(
     level=logging.DEBUG,
 )
 
-class FakeFileHasher():
+
+class FakeFileHasher:
     # by https://github.com/ogrisel
     def __init__(self):
         self._hash = hashlib.sha256()
+
     def read(self, *ignored, **ignored_again):
         raise RuntimeError(f"{self.__class__.__name__} does not support reading.")
+
     def seek(self, *ignored):
         raise RuntimeError(f"{self.__class__.__name__} does not support seeking.")
+
     def write(self, some_bytes):
         self._hash.update(some_bytes)
         return len(some_bytes)
+
     def flush(self):
         pass
+
     def hexdigest(self):
         return self._hash.hexdigest()
 
@@ -48,15 +54,12 @@ def read_dataset_paths(dataset_list_path: Path):
 
 
 class RawDataset:
-    def __init__(
-        self, full_df_path, source_dl, metadata_dir
-    ) -> None:
-
+    def __init__(self, full_df_path, source_dl, metadata_dir) -> None:
         self.path = Path(full_df_path).resolve()
-        
+
         if not self.path.exists():
             raise IOError(f"File {self.path} not found.")
-        
+
         # self.df = self.read_dataset_file()
         self.hash = self.prepare_path_digest()
         self.df_name = self.path.stem
@@ -69,16 +72,15 @@ class RawDataset:
             "df_name": self.df_name,
             "source_dl": source_dl,
             "license": "",
-            "path_metadata": str(self.path_metadata.resolve())
+            "path_metadata": str(self.path_metadata.resolve()),
         }
-
 
     def read_dataset_file(self):
         if self.path.suffix == ".csv":
-            #TODO Add parameters for the `pl.read_csv` function
+            # TODO Add parameters for the `pl.read_csv` function
             return pl.read_csv(self.path)
         elif self.path.suffix == ".parquet":
-            #TODO Add parameters for the `pl.read_parquet` function
+            # TODO Add parameters for the `pl.read_parquet` function
             return pl.read_parquet(self.path)
         else:
             raise IOError(f"Extension {self.path.suffix} not supported.")
@@ -88,7 +90,6 @@ class RawDataset:
         sha.update(str(self.path).encode())
         return sha.hexdigest()
 
-
     def save_metadata_to_json(self, metadata_dir=None):
         if metadata_dir is None:
             pth_md = self.path_metadata
@@ -96,31 +97,28 @@ class RawDataset:
             pth_md = Path(metadata_dir, self.hash + ".json")
         with open(pth_md, "w") as fp:
             json.dump(self.info, fp, indent=2)
-        
+
     def prepare_metadata(self):
         pass
 
     def save_to_json(self):
         pass
-        
+
     def save_to_csv(self):
         pass
-    
+
     def save_to_parquet(self):
         pass
 
 
 class Dataset:
-    def __init__(
-        self, path_metadata
-    ) -> None:
-        
+    def __init__(self, path_metadata) -> None:
         self.path_metadata = Path(path_metadata)
         self.path = Path(df_path)
-        
+
         if not self.path.exists():
             raise IOError(f"File {self.path} not found.")
-        
+
         self.id = df_name
         self.table = self.read_dataset_file()
         self.source_df = source_dl
@@ -129,20 +127,19 @@ class Dataset:
         self.path_metadata = None
 
         self.md5hash = None
-        
+
     def read_metadata(self):
         if self.path_metadata.exists():
             self.metadata_dict = json.load(self.path_metadata)
         else:
             raise IOError(f"File {self.path_metadata} not found.")
-        
-        
+
     def read_dataset_file(self):
         if self.path.suffix == ".csv":
-            #TODO Add parameters for the `pl.read_csv` function
+            # TODO Add parameters for the `pl.read_csv` function
             return pl.read_csv(self.path)
         elif self.path.suffix == ".parquet":
-            #TODO Add parameters for the `pl.read_parquet` function
+            # TODO Add parameters for the `pl.read_parquet` function
             return pl.read_parquet(self.path)
         else:
             raise IOError(f"Extension {self.path.suffix} not supported.")
@@ -161,18 +158,15 @@ class Dataset:
         self.df.write_ipc(ffh)
         return ffh.hexdigest()
 
-
     def save_metadata_to_json(self):
         pass
 
     def prepare_metadata(self):
         pass
 
-
-        
     def save_to_csv(self):
         pass
-    
+
     def save_to_parquet(self):
         pass
 
@@ -227,12 +221,23 @@ class SourceDataset(Dataset):
             )
             self.candidates[candidate_dataset.id].append(new_cand_rel)
 
+
 class IntegratedDataset(Dataset):
-    def __init__(self, df_name, df_path, source_dl, source_id, augmentation_list, source_og=None, dataset_license=None) -> None:
+    def __init__(
+        self,
+        df_name,
+        df_path,
+        source_dl,
+        source_id,
+        augmentation_list,
+        source_og=None,
+        dataset_license=None,
+    ) -> None:
         super().__init__(df_name, df_path, source_dl, source_og, dataset_license)
         self.source_id = source_id
         self.augmentation_list = augmentation_list
-        
+
+
 class CandidateJoin:
     def __init__(
         self,
@@ -242,10 +247,9 @@ class CandidateJoin:
         how=None,
         left_on=None,
         right_on=None,
-        on=None, 
-        similarity_score=None
+        on=None,
+        similarity_score=None,
     ) -> None:
-        
         self.indexing_method = indexing_method
         self.source_table = source_table_metadata["hash"]
         self.candidate_table = candidate_table_metadata["hash"]
@@ -257,14 +261,14 @@ class CandidateJoin:
         if how not in ["left", "right", "inner", "outer"]:
             raise ValueError(f"Join strategy {how} not recognized.")
         self.how = how
-        
+
         self.left_on = self._convert_to_list(left_on)
         self.right_on = self._convert_to_list(right_on)
         self.on = self._convert_to_list(on)
 
         if self.on is not None and all([self.left_on is None, self.right_on is None]):
             self.left_on = self.right_on = [self.on]
-        
+
         self.candidate_id = self.generate_candidate_id()
 
     @staticmethod
@@ -292,11 +296,11 @@ class CandidateJoin:
         to produce a unique id.
         """
         join_string = [
-                    self.indexing_method,
-                    self.source_table,
-                    self.candidate_table,
-                    self.how + "_j",
-                ]
+            self.indexing_method,
+            self.source_table,
+            self.candidate_table,
+            self.how + "_j",
+        ]
 
         if self.left_on is not None and self.right_on is not None:
             join_string += ["_".join(self.left_on)]
@@ -304,10 +308,8 @@ class CandidateJoin:
         elif self.on is not None:
             join_string += ["_".join(self.on)]
 
-        id_str = "_".join(
-            join_string
-        ).encode()
-        
+        id_str = "_".join(join_string).encode()
+
         md5 = hashlib.md5()
         md5.update(id_str)
         return md5.hexdigest()
