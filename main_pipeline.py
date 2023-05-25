@@ -233,8 +233,8 @@ def evaluate_joins(source_table, join_candidates: dict, num_features=None, verbo
     # Run on all candidates
     print("Running on candidates, one at a time.")
     for index_name, index_cand in join_candidates.items():
-        rmse_dict = em.execute_on_candidates(index_cand, source_table, num_features, cat_features, verbose=verbose)
-        for k,v in rmse_dict.items():
+        candidate_results_dict = em.execute_on_candidates(index_cand, source_table, num_features, cat_features, verbose=verbose)
+        for k,v in candidate_results_dict.items():
             result_list.append((index_name, k, v))
 
     # Execute full join by index, then evaluate
