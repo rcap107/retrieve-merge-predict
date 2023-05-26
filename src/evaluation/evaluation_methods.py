@@ -1,15 +1,14 @@
 """Evaluation methods"""
-from pathlib import Path
-
 import polars as pl
-from catboost import CatBoostError, CatBoostRegressor
+from catboost import CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from src.data_preparation.utils import cast_features
 from src.table_integration.utils_joins import execute_join
-
+from src.utils.data_structures import RunResult
+import hashlib
 
 def measure_rmse(y_true, y_pred, squared=False):
     rmse = mean_squared_error(y_true, y_pred, squared=squared)
@@ -38,88 +37,134 @@ def run_on_table(
     df,
     num_features,
     cat_features,
+    run_logger: RunResult,
     target_column="target",
     test_size=0.2,
     random_state=42,
     verbose=1,
+    iterations=1000,
 ):
     y = df[target_column]
     df = df.drop(target_column)
+    # TODO: implement crossvalidation + logging of crossvalid
     X_train, X_test, y_train, y_test = train_test_split(
         df.to_pandas(), y.to_pandas(), test_size=test_size, random_state=random_state
     )
 
     try:
-        model = CatBoostRegressor(cat_features=cat_features)
+        run_logger.add_time("start_training")
+        model = CatBoostRegressor(cat_features=cat_features, iterations=iterations)
         model.fit(X_train, y_train, verbose=verbose)
+        run_logger.add_time("end_training")
+        run_logger.add_duration("start_training", "end_training", "training_duration")
         y_pred = model.predict(X_test)
         results = {"y_test": y_test, "y_pred": y_pred, "status": "SUCCESS"}
+        rmse = measure_rmse(results["y_test"], results["y_pred"])
+        r2score = measure_rmse(results["y_test"], results["y_pred"])
+
+        run_logger.add_value("results", "rmse", rmse)
+        run_logger.add_value("results", "r2score", r2score)
+        run_logger.status = "SUCCESS"
     except Exception as e:
-        results = {
-            "y_test": None,
-            "y_pred": None,
-            "status": f"FAILED WITH EXCEPTION: {type(e).__name__}",
-        }
-    return results
+        run_logger.add_time("start_training")
+        run_logger.add_time("end_training")
+        run_logger.add_duration(label_duration="training_duration")
+
+        run_logger.add_value("results", "rmse", rmse)
+        run_logger.add_value("results", "r2score", r2score)
+        run_logger.status = f"FAILED - {type(e).__name__}"
+
+
+    return run_logger
 
 
 def execute_on_candidates(
-    join_candidates, source_table, num_features, cat_features, verbose=1
+    join_candidates,
+    source_table,
+    num_features,
+    cat_features,
+    verbose=1,
+    iterations=1000,
 ):
     result_dict = {}
-    for hash_, mdata in tqdm(join_candidates.items(), total=len(join_candidates)):
-        source_metadata = mdata.source_metadata
-        candidate_metadata = mdata.candidate_metadata
-        source_table = pl.read_parquet(source_metadata["full_path"])
-        candidate_table = pl.read_parquet(candidate_metadata["full_path"])
-        tqdm.write(candidate_metadata["full_path"])
-        left_on = mdata.left_on
-        right_on = mdata.right_on
-        merged = execute_join(
-            source_table,
-            candidate_table,
-            left_on=left_on,
-            right_on=right_on,
-            how="left",
-        )
-        merged = merged.fill_null("")
-        cat_features = [col for col in merged.columns if col not in num_features]
-        results = run_on_table(merged, num_features, cat_features, verbose=verbose)
-        if results["status"] == "SUCCESS":
-            rmse = mean_squared_error(
-                y_true=results["y_test"], y_pred=results["y_pred"], squared=False
+    for index_name, index_cand in join_candidates.items():
+        for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
+            run_logger = RunResult()
+            run_logger.add_value("parameters", "index_name", index_name)
+            source_metadata = mdata.source_metadata
+            candidate_metadata = mdata.candidate_metadata
+            source_table = pl.read_parquet(source_metadata["full_path"])
+            candidate_table = pl.read_parquet(candidate_metadata["full_path"])
+            tqdm.write(candidate_metadata["full_path"])
+            left_on = mdata.left_on
+            right_on = mdata.right_on
+                    
+            run_logger.add_value("parameters", "source_table", source_metadata["full_path"])
+            run_logger.add_value("parameters", "candidate_table", candidate_metadata["full_path"])
+            run_logger.add_value("parameters", "left_on", left_on)
+            run_logger.add_value("parameters", "right_on", right_on)
+            
+            merged = execute_join(
+                source_table,
+                candidate_table,
+                left_on=left_on,
+                right_on=right_on,
+                how="left",
             )
-            r2 = r2_score(
-                y_true=results["y_test"], y_pred=results["y_pred"]
+            merged = merged.fill_null("")
+            cat_features = [col for col in merged.columns if col not in num_features]
+            run_logger = run_on_table(
+                merged, num_features, cat_features, run_logger, verbose=verbose, iterations=iterations
             )
-            result_dict[hash_] = (results["status"], rmse, r2)
-        else:
-            result_dict[hash_] = (results["status"], None, None)
+            result_dict[hash] = run_logger
     return result_dict
 
 
 def execute_full_join(
-    candidates: dict, source_table: pl.DataFrame, num_features, cat_features
+    join_candidates: dict, source_table: pl.DataFrame, num_features, verbose, iterations
 ):
-    merged = source_table.clone()
+    results_dict = {}
+    for index_name, index_cand in join_candidates.items():
+        run_logger = RunResult()
+        run_logger.add_value("parameters", "index_name", index_name)
 
-    for hash_, mdata in tqdm(candidates.items(), total=len(candidates)):
-        source_metadata = mdata.source_metadata
-        candidate_metadata = mdata.candidate_metadata
-        source_table = pl.read_parquet(source_metadata["full_path"])
-        candidate_table = pl.read_parquet(candidate_metadata["full_path"])
-        left_on = mdata.left_on
-        right_on = mdata.right_on
-        merged = merged.join(
-            candidate_table,
-            left_on=left_on,
-            right_on=right_on,
-            how="left",
-            suffix=f"_{hash_[:5]}",
+        merged = source_table.clone().lazy()
+        hashes = []    
+        
+        for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
+            candidate_metadata = mdata.candidate_metadata
+            hashes.append(candidate_metadata["hash"])
+            candidate_table = pl.read_parquet(candidate_metadata["full_path"])
+
+            left_on = mdata.left_on
+            right_on = mdata.right_on
+            merged.join(
+                candidate_table.lazy(),
+                left_on=left_on,
+                right_on=right_on,
+                how="inner",
+                suffix=f"_{hash_[:5]}",
+            )
+        merged = merged.collect()
+        merged = merged.fill_null("")
+        merged = merged.fill_nan("")
+
+
+        md5 = hashlib.md5()
+        md5.update(("".join(sorted(hashes))).encode())
+        digest = md5.hexdigest()
+        
+        cat_features = [col for col in merged.columns if col not in num_features]
+        merged = merged.fill_null("")
+        merged = merged.fill_nan("")
+        run_logger = run_on_table(
+            merged,
+            num_features,
+            cat_features,
+            run_logger,
+            verbose=verbose,
+            iterations=iterations,
         )
-
-    cat_features = [col for col in merged.columns if col not in num_features]
-    merged = merged.fill_null("")
-    merged = merged.fill_nan("")
-
-    return merged
+        results_dict[digest] = run_logger
+    
+    return results_dict
