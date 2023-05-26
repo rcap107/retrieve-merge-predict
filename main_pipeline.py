@@ -16,28 +16,35 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--metadata_dir",
-        action="store",
+        "yadl_version",
+        action="store", 
         type=str,
-        required=True,
-        help="Directory that stores the metadata of the data lake variant to be used. ",
+        choices=["full", "binary", "seltab", "wordnet"]
     )
 
-    parser.add_argument(
-        "--metadata_index",
-        action="store",
-        type=str,
-        required=True,
-        help="Path to the metadata index. ",
-    )
+    # parser.add_argument(
+    #     "--metadata_dir",
+    #     action="store",
+    #     type=str,
+    #     required=True,
+    #     help="Directory that stores the metadata of the data lake variant to be used. ",
+    # )
 
-    parser.add_argument(
-        "--index_dir",
-        action="store",
-        type=str,
-        default="data/metadata/indices",
-        help="Directory storing the index information.",
-    )
+    # parser.add_argument(
+    #     "--metadata_index",
+    #     action="store",
+    #     type=str,
+    #     required=True,
+    #     help="Path to the metadata index. ",
+    # )
+
+    # parser.add_argument(
+    #     "--index_dir",
+    #     action="store",
+    #     type=str,
+    #     default="data/metadata/indices",
+    #     help="Directory storing the index information.",
+    # )
 
     parser.add_argument(
         "--source_table_path",
@@ -93,38 +100,29 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
+    case = args.yadl_version
+    print(f"Working with version {case}")
+    metadata_dir = Path("data/metadata/{case}")
+    metadata_index_path = Path("data/metadata/mdi/md_index_{case}.pickle")
 
-    metadata_dir = Path(args.metadata_dir)
-    mdata_index_path = Path(args.metadata_index)
+    # metadata_dir = Path(args.metadata_dir)
+    # mdata_index_path = Path(args.metadata_index)
 
-    index_dir = args.index_dir
+    index_dir = Path(f"data/metadata/indices/{case}")
 
-    precomputed_indices = True  # if true, load indices from disk
-
+    # index_dir = args.index_dir
     logger = RunLogger()
 
-    print(f"Reading metadata from {mdata_index_path}")
-    if not mdata_index_path.exists():
+    print(f"Reading metadata from {metadata_index_path}")
+    if not metadata_index_path.exists():
         raise FileNotFoundError(
-            f"Path to metadata index {mdata_index_path} is invalid."
+            f"Path to metadata index {metadata_index_path} is invalid."
         )
     else:
-        mdata_index = MetadataIndex(index_path=mdata_index_path)
+        mdata_index = MetadataIndex(index_path=metadata_index_path)
 
-    selected_indices = ["minhash", "lazo"]
-
-    # TODO: move index construction to a different script
-    if not precomputed_indices:
-        index_configurations = utils.prepare_default_configs(
-            metadata_dir, selected_indices
-        )
-        print("Preparing indices.")
-        indices = utils.prepare_indices(index_configurations)
-        print("Saving indices.")
-        utils.save_indices(indices, index_dir)
-    else:
-        print("Loading indices.")
-        indices = utils.load_indices(index_dir)
+    print("Loading indices.")
+    indices = utils.load_indices(index_dir)
 
     # Query index
     print("Querying.")
@@ -177,6 +175,8 @@ if __name__ == "__main__":
         verbose=0,
         iterations=args.iterations,
     )
-    results.to_csv("results/run_results.csv", mode="a")
-
-    logger.save_logger()
+    results["target_dl"] = args.metadata_dir
+    results_path = Path("results/run_results.csv")
+    results.to_csv(
+        results_path, mode="a", index=False, header=not results_path.exists()
+    )
