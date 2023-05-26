@@ -6,7 +6,7 @@ from pathlib import Path
 from src.candidate_discovery.utils_minhash import MinHashIndex
 from src.candidate_discovery.utils_lazo import LazoIndex
 import pickle
-from src.data_preparation.data_structures import CandidateJoin
+from src.utils.data_structures import CandidateJoin
 import json
 from tqdm import tqdm
 

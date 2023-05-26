@@ -1,9 +1,9 @@
 import polars as pl
-from src.data_preparation import data_structures as ds
+from src.utils import data_structures as ds
 import pandas as pd
 from typing import Iterable, Union, List
 from pathlib import Path
-
+from src.utils.logging_utils import RunLogger
 
 def execute_dummy_join(
     left_table: pl.DataFrame,
@@ -196,9 +196,8 @@ def measure_join_quality(
         return 0
 
 
-def profile_joins(join_candidates: dict):
-    """"""
-
+def profile_joins(join_candidates: dict, logger: RunLogger):
+    
     tot_dict = []
     for index_name, candidates in join_candidates.items():
 
@@ -249,5 +248,7 @@ def profile_joins(join_candidates: dict):
 
             tot_dict.append(prof_dict)
 
+    logger.add_dict("profiling_results", tot_dict)
+    
     prof_df = pl.from_dicts(tot_dict)
     return prof_df.to_pandas()

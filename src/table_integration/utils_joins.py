@@ -1,5 +1,5 @@
 import polars as pl
-from src.data_preparation import data_structures as ds
+from src.utils import data_structures as ds
 import pandas as pd
 from typing import Iterable
 

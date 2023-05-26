@@ -13,9 +13,6 @@ import json
 
 import pandas as pd
 from abc import abstractmethod, ABC
-
-from src.utils.logging_utils import RESULTS_PATH, RUN_ID_PATH
-
 # Setting the default path for all files. Assumes that the dir tree is already built. 
 RESULTS_PATH = Path("results").resolve()
 JSON_PATH = Path(RESULTS_PATH, "json")
@@ -39,10 +36,11 @@ class Logger(ABC):
         self.results_path = Path(results_path)
 
         self.run_id = self.find_latest_run_id()
+        # If no pre-existing path is provided, create a new empty logger file. 
         if file_path is None:
-            # If no pre-existing path is provided, create a new empty logger file. 
             self.obj = {}
             self.obj["run_id"] = self.run_id
+            self.obj["status"] = "SUCCESS"
             self.obj["timestamps"] = {}
             self.obj["durations"] = {}
 
@@ -175,7 +173,7 @@ class Logger(ABC):
             self.obj["timestamps"][label_end] - self.obj["timestamps"][label_start]
         ).total_seconds()
 
-    def save_obj(self, file_path=None):
+    def save_logger(self, file_path=None):
         """Save log object in a specific file_path, if provided. Alternatively,
         save the log object in a default location.
 

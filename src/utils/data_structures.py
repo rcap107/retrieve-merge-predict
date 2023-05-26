@@ -11,7 +11,9 @@ import polars as pl
 import pandas as pd
 import zlib
 import polars as pl
+import datetime as dt
 
+RUN_ID_PATH=Path("results/run_id")
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
@@ -313,3 +315,130 @@ class CandidateJoin:
         md5 = hashlib.md5()
         md5.update(id_str)
         return md5.hexdigest()
+
+
+class RunResult:
+    def __init__(
+        self,
+    ):
+        self.run_id = self.find_latest_run_id()
+        self.obj = {}
+        self.obj["run_id"] = self.run_id
+        self.obj["status"] = None
+        self.obj["timestamps"] = {}
+        self.obj["durations"] = {}
+        self.obj["parameters"] = {}
+        # Losses and actual imputation results
+        self.obj["results"] = {}
+        # Statistics measured on the given dataset (% missing values etc)
+        self.obj["statistics"] = {}
+
+        self.add_time("run_start_time")
+
+    
+    def find_latest_run_id(self):
+        """Utility function for opening the run_id file, checking for errors and 
+        incrementing it by one at the start of a run.
+
+        Raises:
+            ValueError: Raise ValueError if the read run_id is not a positive integer.
+
+        Returns:
+            int: The new (incremented) run_id.
+        """
+        if RUN_ID_PATH.exists():
+            with open(RUN_ID_PATH, "r") as fp:
+                last_run_id = fp.read().strip()
+                try:
+                    run_id = int(last_run_id) + 1
+                except ValueError:
+                    raise ValueError(
+                        f"Run ID {last_run_id} is not a positive integer. "
+                    )
+                if run_id < 0:
+                    raise ValueError(f"Run ID {run_id} is not a positive integer. ")
+            with open(RUN_ID_PATH, "w") as fp:
+                fp.write(f"{run_id}")
+        else:
+            run_id = 0
+            with open(RUN_ID_PATH, "w") as fp:
+                fp.write(f"{run_id}")
+        return run_id
+
+    def add_value(self, obj_name, key, value):
+        """Updating a single value in a given object. 
+
+        Args:
+            obj_name (str): Label of the object to update.
+            key (_type_): Key of the object to update.
+            value (_type_): Value of the object to update.
+        """
+        self.obj[obj_name][key] = value
+
+    def get_value(self, obj_name, key):
+        """Retrieve a single value from one of the dictionaries. 
+
+        Args:
+            obj_name (str): Label of the object to query.
+            key (_type_): Dict key to use to retrieve the value.
+
+        Returns:
+            _type_: Retrieved value.
+        """
+        return self.obj[obj_name][key]
+
+    def add_time(self, label, value=None):
+        """Add a new timestamp starting __now__, with the given label. 
+
+        Args:
+            label (str): Label to assign to the timestamp.
+        """
+        if value is None:
+            self.obj["timestamps"][label] = dt.datetime.now()
+        else:
+            self.obj["timestamps"][label] = -1
+        
+    def get_time(self, label):
+        """Retrieve a time according to the given label.    
+
+        Args:
+            label (str): Label of the timestamp to be retrieved. 
+        Returns:
+            _type_: Retrieved timestamp.
+        """
+        return self.obj["timestamp"][label]
+
+    def add_duration(self, label_start=None, label_end=None, label_duration=None):
+        #TODO: Fix docstring
+        """Create a new duration as timedelta. The timedelta is computed on the 
+        basis of the given start and end labels, and is assigned the given label.
+
+        Args:
+            label_start (str): Label of the timestamp to be used as start.
+            label_end (str): Label of the timestamp to be used as end.
+            label_duration (str): Label of the new timedelta object. 
+        """        
+        if label_start is None and label_end is None:
+            if label_duration is not None:
+                self.obj["durations"][label_duration] = -1
+            else:
+                raise ValueError(f"`label_duration` is required.")
+        else:
+            assert label_start in self.obj["timestamps"]
+            assert label_end in self.obj["timestamps"]
+            
+            self.obj["durations"][label_duration] = (
+                self.obj["timestamps"][label_end] - self.obj["timestamps"][label_start]
+            ).total_seconds()
+
+    def __getitem__(self, item):
+        return self.obj[item]
+
+    def to_dict(self):
+        output_dict = {}
+        for key, value in self.obj.items():
+            if isinstance(value, dict):
+                output_dict.update(value)
+            else:
+                output_dict[key] = value
+        return output_dict

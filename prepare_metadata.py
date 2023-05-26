@@ -1,7 +1,7 @@
 #%% 
 %load_ext autoreload
 %autoreload 2
-from src.data_preparation.data_structures import RawDataset
+from src.utils.data_structures import RawDataset
 from src.data_preparation.utils import MetadataIndex
 # %%
 import pandas as pd
