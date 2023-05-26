@@ -88,9 +88,9 @@ class RawDataset:
             raise IOError(f"Extension {self.path.suffix} not supported.")
 
     def prepare_path_digest(self):
-        sha = hashlib.sha256()
-        sha.update(str(self.path).encode())
-        return sha.hexdigest()
+        hash_ = hashlib.md5()
+        hash_.update(str(self.path).encode())
+        return hash_.hexdigest()
 
     def save_metadata_to_json(self, metadata_dir=None):
         if metadata_dir is None:
@@ -323,6 +323,7 @@ class RunResult:
     ):
         self.run_id = self.find_latest_run_id()
         self.obj = {}
+        self.status = None
         self.obj["run_id"] = self.run_id
         self.obj["status"] = None
         self.obj["timestamps"] = {}
@@ -335,6 +336,10 @@ class RunResult:
 
         self.add_time("run_start_time")
 
+    
+    def set_run_status(self, status):
+        self.obj["status"] = status
+        self.status = status
     
     def find_latest_run_id(self):
         """Utility function for opening the run_id file, checking for errors and 
@@ -410,14 +415,6 @@ class RunResult:
 
     def add_duration(self, label_start=None, label_end=None, label_duration=None):
         #TODO: Fix docstring
-        """Create a new duration as timedelta. The timedelta is computed on the 
-        basis of the given start and end labels, and is assigned the given label.
-
-        Args:
-            label_start (str): Label of the timestamp to be used as start.
-            label_end (str): Label of the timestamp to be used as end.
-            label_duration (str): Label of the new timedelta object. 
-        """        
         if label_start is None and label_end is None:
             if label_duration is not None:
                 self.obj["durations"][label_duration] = -1
