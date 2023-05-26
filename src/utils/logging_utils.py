@@ -21,7 +21,7 @@ JSON_PATH = Path(RESULTS_PATH, "json")
 RUN_ID_PATH = Path("results/run_id").resolve()
 
 
-class Logger(ABC):
+class Logger:
     def __init__(
         self,
         file_path=None,
@@ -172,6 +172,11 @@ class Logger(ABC):
         self.obj["durations"][label_duration] = (
             self.obj["timestamps"][label_end] - self.obj["timestamps"][label_start]
         ).total_seconds()
+
+    def set_run_status(self, status):
+        # self.status = status
+        self.obj["status"] = status
+
 
     def save_logger(self, file_path=None):
         """Save log object in a specific file_path, if provided. Alternatively,
