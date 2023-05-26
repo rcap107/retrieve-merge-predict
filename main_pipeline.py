@@ -17,9 +17,9 @@ def parse_arguments():
 
     parser.add_argument(
         "yadl_version",
-        action="store", 
+        action="store",
         type=str,
-        choices=["full", "binary", "seltab", "wordnet"]
+        choices=["full", "binary", "seltab", "wordnet"],
     )
 
     # parser.add_argument(
@@ -102,13 +102,13 @@ if __name__ == "__main__":
     args = parse_arguments()
     case = args.yadl_version
     print(f"Working with version {case}")
-    metadata_dir = Path("data/metadata/{case}")
-    metadata_index_path = Path("data/metadata/mdi/md_index_{case}.pickle")
+    metadata_dir = Path(f"data/metadata/{case}")
+    metadata_index_path = Path(f"data/metadata/_mdi/md_index_{case}.pickle")
 
     # metadata_dir = Path(args.metadata_dir)
     # mdata_index_path = Path(args.metadata_index)
 
-    index_dir = Path(f"data/metadata/indices/{case}")
+    index_dir = Path(f"data/metadata/_indices/{case}")
 
     # index_dir = args.index_dir
     logger = RunLogger()
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         verbose=0,
         iterations=args.iterations,
     )
-    results["target_dl"] = args.metadata_dir
+    results["target_dl"] = args.yadl_version
     results_path = Path("results/run_results.csv")
     results.to_csv(
         results_path, mode="a", index=False, header=not results_path.exists()

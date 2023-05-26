@@ -1,6 +1,6 @@
 """Evaluation methods"""
 import polars as pl
-from catboost import CatBoostRegressor
+from catboost import CatBoostRegressor, CatBoostError
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from tqdm import tqdm
@@ -35,7 +35,7 @@ def prepare_table_for_evaluation(df, num_features=None, cat_features=None):
 
 
 def run_on_table(
-    df,
+    src_df: pl.DataFrame,
     num_features,
     cat_features,
     run_logger: RunResult,
@@ -44,51 +44,54 @@ def run_on_table(
     random_state=42,
     verbose=1,
     iterations=1000,
+    
 ):
-    y = df[target_column]
-    df = df.drop(target_column)
-    # TODO: implement crossvalidation + logging of crossvalid
+    y = src_df[target_column].to_pandas()
+    df = src_df.drop(target_column).to_pandas()
+    df = df.fillna("null")
+    # df = df.fill_null(value="null")
+    # df = df.fill_nan(value="null")
+    # df = df.to_pandas()
     
     k_fold = KFold(n_splits=5)
     
-    # X_train, X_test, y_train, y_test = train_test_split(
-    #     df.to_pandas(), y.to_pandas(), test_size=test_size, random_state=random_state
-    # )
     run_logger.add_value("parameters", "iterations", iterations)
 
     r2_list = []
     rmse_list = []
-
-    for train_indices, test_indices in k_fold.split(df.to_pandas()):
-        X_train = df[train_indices].to_pandas()
-        y_train = y[train_indices].to_pandas()
-        X_test = df[test_indices].to_pandas()
-        y_test = y[test_indices].to_pandas()
-
+    try:
         run_logger.add_time("start_training")
-        model = CatBoostRegressor(cat_features=cat_features, iterations=iterations)
-        model.fit(X_train, y_train, verbose=verbose)
+        
+        for train_indices, test_indices in k_fold.split(df):
+            X_train = df.iloc[train_indices]
+            y_train = y[train_indices]
+            X_test = df.iloc[test_indices]
+            y_test = y[test_indices]
+
+            model = CatBoostRegressor(cat_features=cat_features, iterations=iterations)
+            model.fit(X_train, y_train, verbose=verbose)
+            y_pred = model.predict(X_test)
+            rmse = measure_rmse(y_test, y_pred)
+            r2score = measure_r2(y_test, y_pred)
+
+            r2_list.append(r2score)
+            rmse_list.append(rmse)
+
         run_logger.add_time("end_training")
         run_logger.add_duration("start_training", "end_training", "training_duration")
-        y_pred = model.predict(X_test)
-        results = {"y_test": y_test, "y_pred": y_pred, "status": "SUCCESS"}
-        rmse = measure_rmse(results["y_test"], results["y_pred"])
-        r2score = measure_r2(results["y_test"], results["y_pred"])
-
-        r2_list.append(r2score)
-        rmse_list.append(rmse)
-
-    run_logger.add_value("results", "avg_rmse", np.array(rmse_list).mean())
-    run_logger.add_value("results", "error_rmse", np.array(rmse_list).std())
-    run_logger.add_value("results", "avg_r2score", np.array(r2_list).mean())
-    run_logger.add_value("results", "error_r2score", np.array(r2_list).std())
-    # run_logger.add_value("status", "r2score", r2score)
-
-    run_logger.set_run_status("SUCCESS")
-
-
-
-
+        run_logger.add_value("results", "avg_rmse", np.array(rmse_list).mean())
+        run_logger.add_value("results", "error_rmse", np.array(rmse_list).std())
+        run_logger.add_value("results", "avg_r2score", np.array(r2_list).mean())
+        run_logger.add_value("results", "error_r2score", np.array(r2_list).std())
+        run_logger.set_run_status("SUCCESS")
+    except CatBoostError as e:
+        run_logger.add_time("end_training")
+        run_logger.add_duration("start_training", "end_training", "training_duration")
+        run_logger.add_value("results", "avg_rmse", np.nan)
+        run_logger.add_value("results", "error_rmse", np.nan)
+        run_logger.add_value("results", "avg_r2score", np.nan)
+        run_logger.add_value("results", "error_r2score", np.nan)
+        run_logger.set_run_status(f"FAILURE: {type(e).__name__}")
 
         # try:
             # run_logger.add_time("start_training")
@@ -158,7 +161,9 @@ def execute_on_candidates(
                 right_on=right_on,
                 how="left",
             )
-            merged = merged.fill_null("")
+            merged = merged.fill_null("null")
+            merged = merged.fill_nan(np.nan)
+            num_features = [col for col, col_type in merged.schema.items() if col_type==pl.Float64]
             cat_features = [col for col in merged.columns if col not in num_features]
             run_logger = run_on_table(
                 merged, num_features, cat_features, run_logger, verbose=verbose, iterations=iterations

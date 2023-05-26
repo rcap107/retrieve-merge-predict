@@ -63,14 +63,14 @@ for case in ["wordnet", "binary", "seltab", "full"]:
 
 
 # Prepare indices
-index_dir = Path("data/metadata/_indices/")
 
 selected_indices = ["minhash"]
 
 logger.info("Preparing minhash indices")
-for case in ["binary"]:
-# for case in ["wordnet", "binary", "seltab", "full"]:
-    logger.debug(f"Case: {case}")
+# for case in ["wordnet"]:
+for case in ["seltab", "full"]:
+    index_dir = Path(f"data/metadata/_indices/{case}")
+    logger.debug(f"Minhash: start {case}")
     metadata_dir = Path(f"data/metadata/{case}")
     case_dir = Path(index_dir, case)
     os.makedirs(case_dir, exist_ok=True)
@@ -80,4 +80,5 @@ for case in ["binary"]:
     indices = utils.prepare_indices(index_configurations)
     print("Saving indices.")
     utils.save_indices(indices, index_dir)
+    logger.debug(f"Minhash: end {case}")
 logger.debug("Done")
