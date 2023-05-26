@@ -1,6 +1,3 @@
-# %%
-# %load_ext autoreload
-# %autoreload 2
 import argparse
 import pickle
 from pathlib import Path
@@ -8,10 +5,11 @@ from pathlib import Path
 import polars as pl
 from tqdm import tqdm
 
-import src.utils as utils
-from src.data_preparation.data_structures import RawDataset
+import src.utils.pipeline_utils as utils
+from src.utils.data_structures import RawDataset
 from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
+from src.utils.logging_utils import RunLogger
 
 
 def parse_arguments():
@@ -82,27 +80,28 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--sampling_seed",
+        "--iterations",
         action="store",
         type=int,
-        default=42,
-        help="Random seed to be used when sampling, for reproducbility.",
+        default=1000,
+        help="Number of iterations to be executed in the evaluation step.",
     )
 
     args = parser.parse_args()
     return args
 
 
-# %%
 if __name__ == "__main__":
     args = parse_arguments()
 
-    metadata_dir = "data/metadata/binary"
-    mdata_index_path = Path("data/metadata/mdi/md_index_binary.pickle")
+    metadata_dir = Path(args.metadata_dir)
+    mdata_index_path = Path(args.metadata_index)
 
-    index_dir = "data/metadata/indices"
+    index_dir = args.index_dir
 
     precomputed_indices = True  # if true, load indices from disk
+
+    logger = RunLogger()
 
     print(f"Reading metadata from {mdata_index_path}")
     if not mdata_index_path.exists():
@@ -129,33 +128,55 @@ if __name__ == "__main__":
 
     # Query index
     print("Querying.")
-    query_data_path = Path("data/source_tables/ken_datasets/presidential-results")
-    tab_name = "presidential-results-prepared"
-    tab_path = Path(query_data_path, f"{tab_name}.parquet")
-    df = pl.read_parquet(tab_path)
+    query_data_path = Path(args.source_table_path)
+    if not query_data_path.exists():
+        raise FileNotFoundError(f"File {query_data_path} not found.")
 
-    print(f"Querying from dataset {tab_path}")
-    query_metadata = RawDataset(tab_path.resolve(), "queries", "data/metadata/queries")
+    tab_name = query_data_path.stem
+
+    df = pl.read_parquet(query_data_path)
+    print(f"Querying from dataset {query_data_path}")
+    query_metadata = RawDataset(
+        query_data_path.resolve(), "queries", "data/metadata/queries"
+    )
     query_metadata.save_metadata_to_json()
 
-    query_column = "col_to_embed"
-    # query = df[query_column].sample(3000).drop_nulls()
-    query = df[query_column].drop_nulls()
+    query_column = args.query_column
+    if query_column not in df.columns:
+        raise pl.ColumnNotFoundError()
 
+    if args.sample_size is not None:
+        query = df[query_column].sample(int(args.sample_size)).drop_nulls()
+    else:
+        query = df[query_column].drop_nulls()
+
+    logger.add_time("start_querying")
     query_results, candidates_by_index = utils.querying(
         query_metadata, query_column, query, indices, mdata_index
     )
+    logger.add_time("end_querying")
 
-    with open(f"generated_candidates_{tab_name}.pickle", "wb") as fp:
-        pickle.dump(candidates_by_index, fp)
+    if args.query_result_path is not None:
+        with open(args.query_result_path, "wb") as fp:
+            pickle.dump(candidates_by_index, fp)
+    else:
+        with open(f"generated_candidates_{tab_name}.pickle", "wb") as fp:
+            pickle.dump(candidates_by_index, fp)
 
-    print("Profiling results.")
-    profiling_results = profile_joins(candidates_by_index)
-    profiling_results.to_csv("results/profiling_results.csv", index=False, mode="a")
+    # TODO: Dropping profiling for a bit
+    # print("Profiling results.")
+    # profiling_results = profile_joins(candidates_by_index, logger=logger)
 
     print("Evaluating join results.")
     # TODO: Somewhere in here there still are issues with types
     results = utils.evaluate_joins(
-        df, join_candidates=candidates_by_index, num_features=None, verbose=0
+        df,
+        query_metadata,
+        join_candidates=candidates_by_index,
+        num_features=None,
+        verbose=0,
+        iterations=args.iterations,
     )
     results.to_csv("results/run_results.csv", mode="a")
+
+    logger.save_logger()
