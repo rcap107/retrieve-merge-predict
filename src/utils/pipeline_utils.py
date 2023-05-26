@@ -11,6 +11,7 @@ from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
 from src.utils.data_structures import RunResult
 
+
 def prepare_default_configs(data_dir, selected_indices=None):
     """Prepare default configurations for various indexing methods and provide the
     data directory that contains the metadata of the tables to be indexed.
@@ -35,7 +36,7 @@ def prepare_default_configs(data_dir, selected_indices=None):
             },
             "minhash": {
                 "data_dir": data_dir,
-                "thresholds": [20, 40, 80],
+                "thresholds": [10, 20, 80],
                 "oneshot": True,
             },
         }
@@ -222,13 +223,20 @@ def evaluate_joins(
 
     run_logger = RunResult()
     run_logger.add_value("parameters", "index_name", "base_table")
-    run_logger.add_value("parameters", "source_table", source_metadata.info["full_path"])
+    run_logger.add_value(
+        "parameters", "source_table", source_metadata.info["full_path"]
+    )
     run_logger.add_value("parameters", "candidate_table", "")
     run_logger.add_value("parameters", "left_on", "")
     run_logger.add_value("parameters", "right_on", "")
 
     run_logger = em.run_on_table(
-        source_table, num_features, cat_features, run_logger, verbose=verbose, iterations=iterations
+        source_table,
+        num_features,
+        cat_features,
+        run_logger,
+        verbose=verbose,
+        iterations=iterations,
     )
     results_dict[source_metadata.hash] = run_logger
 
@@ -242,13 +250,21 @@ def evaluate_joins(
         verbose=verbose,
         iterations=iterations,
     )
-
     results_dict.update(partial_results)
 
-    partial_results = em.execute_full_join(join_candidates, source_table, num_features, verbose=verbose, iterations=iterations)
+    # partial_results = em.execute_full_join(
+    #     join_candidates,
+    #     source_table,
+    #     source_metadata,
+    #     num_features,
+    #     verbose=verbose,
+    #     iterations=iterations,
+    # )
+    # results_dict.update(partial_results)
 
-    results_dict.update(partial_results)
+    res_list = []
+    for v in results_dict.values():
+        res_list.append(v.to_dict())
 
-    pl.from_records({k: v.to_dict() for k, v in results_dict.items()}, orient="row").to_pandas()
-
-    return 
+    result_df = pl.from_dicts(res_list).to_pandas()
+    return result_df
