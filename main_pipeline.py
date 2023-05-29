@@ -11,6 +11,23 @@ from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
 from src.utils.logging_utils import RunLogger
 
+import logging
+
+log_format = "%(asctime)s - %(message)s"
+
+logger = logging.getLogger("main_pipeline")
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter(fmt=log_format)
+
+fh = logging.FileHandler(filename="results/logging_runs.log")
+fh.setFormatter(formatter)
+sh = logging.StreamHandler()
+sh.setFormatter(formatter)
+
+logger.addHandler(fh)
+logger.addHandler(sh)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -19,32 +36,8 @@ def parse_arguments():
         "yadl_version",
         action="store",
         type=str,
-        choices=["full", "binary", "seltab", "wordnet"],
+        # choices=["full", "binary", "seltab", "wordnet"],
     )
-
-    # parser.add_argument(
-    #     "--metadata_dir",
-    #     action="store",
-    #     type=str,
-    #     required=True,
-    #     help="Directory that stores the metadata of the data lake variant to be used. ",
-    # )
-
-    # parser.add_argument(
-    #     "--metadata_index",
-    #     action="store",
-    #     type=str,
-    #     required=True,
-    #     help="Path to the metadata index. ",
-    # )
-
-    # parser.add_argument(
-    #     "--index_dir",
-    #     action="store",
-    #     type=str,
-    #     default="data/metadata/indices",
-    #     help="Directory storing the index information.",
-    # )
 
     parser.add_argument(
         "--source_table_path",
@@ -94,26 +87,34 @@ def parse_arguments():
         help="Number of iterations to be executed in the evaluation step.",
     )
 
+    parser.add_argument(
+        "--join_strategy",
+        action="store",
+        type=str,
+        default="left",
+        choices=["left", "right", "inner", "outer"],
+        help="Number of iterations to be executed in the evaluation step.",
+    )
+
+    parser.add_argument(
+        "--dedup",
+        action="store_true",
+    )
+
     args = parser.parse_args()
     return args
 
 
 if __name__ == "__main__":
+    logger.info("Run start.")
     args = parse_arguments()
     case = args.yadl_version
-    print(f"Working with version {case}")
+    logger.info(f"Working with version `{case}`")
     metadata_dir = Path(f"data/metadata/{case}")
     metadata_index_path = Path(f"data/metadata/_mdi/md_index_{case}.pickle")
-
-    # metadata_dir = Path(args.metadata_dir)
-    # mdata_index_path = Path(args.metadata_index)
-
     index_dir = Path(f"data/metadata/_indices/{case}")
 
-    # index_dir = args.index_dir
-    logger = RunLogger()
-
-    print(f"Reading metadata from {metadata_index_path}")
+    logger.info(f"Reading metadata from {metadata_index_path}")
     if not metadata_index_path.exists():
         raise FileNotFoundError(
             f"Path to metadata index {metadata_index_path} is invalid."
@@ -121,11 +122,11 @@ if __name__ == "__main__":
     else:
         mdata_index = MetadataIndex(index_path=metadata_index_path)
 
-    print("Loading indices.")
+    # print("Loading indices.")
     indices = utils.load_indices(index_dir)
 
     # Query index
-    print("Querying.")
+    # print("Querying.")
     query_data_path = Path(args.source_table_path)
     if not query_data_path.exists():
         raise FileNotFoundError(f"File {query_data_path} not found.")
@@ -133,7 +134,7 @@ if __name__ == "__main__":
     tab_name = query_data_path.stem
 
     df = pl.read_parquet(query_data_path)
-    print(f"Querying from dataset {query_data_path}")
+    logger.info(f"Querying from dataset {query_data_path}")
     query_metadata = RawDataset(
         query_data_path.resolve(), "queries", "data/metadata/queries"
     )
@@ -148,11 +149,11 @@ if __name__ == "__main__":
     else:
         query = df[query_column].drop_nulls()
 
-    logger.add_time("start_querying")
+    logger.info("Querying start")
     query_results, candidates_by_index = utils.querying(
         query_metadata, query_column, query, indices, mdata_index
     )
-    logger.add_time("end_querying")
+    logger.info("Querying end")
 
     if args.query_result_path is not None:
         with open(args.query_result_path, "wb") as fp:
@@ -165,8 +166,7 @@ if __name__ == "__main__":
     # print("Profiling results.")
     # profiling_results = profile_joins(candidates_by_index, logger=logger)
 
-    print("Evaluating join results.")
-    # TODO: Somewhere in here there still are issues with types
+    logger.info("Evaluating join results.")
     results = utils.evaluate_joins(
         df,
         query_metadata,
@@ -174,9 +174,15 @@ if __name__ == "__main__":
         num_features=None,
         verbose=0,
         iterations=args.iterations,
+        join_strategy=args.join_strategy,
+        dedup=args.dedup
     )
+    logger.info("Evaluation complete.")
+    
     results["target_dl"] = args.yadl_version
     results_path = Path("results/run_results.csv")
     results.to_csv(
         results_path, mode="a", index=False, header=not results_path.exists()
     )
+    logger.info("Run end.")
+    
