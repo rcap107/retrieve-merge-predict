@@ -8,6 +8,10 @@ from datasketch import MinHash, MinHashLSHEnsemble
 from operator import itemgetter
 import json
 from tqdm import tqdm
+import logging
+
+mh_logger = logging.getLogger("metadata_logger")
+
 
 class MinHashIndex:
     def __init__(
@@ -101,7 +105,10 @@ class MinHashIndex:
                 mdata_dict = json.load(open(path, "r"))
                 ds_hash = mdata_dict["hash"]
                 df = pl.read_parquet(mdata_dict["full_path"])
-                self.add_single_table(df, ds_hash)
+                try:
+                    self.add_single_table(df, ds_hash)
+                except AttributeError:
+                    mh_logger.error("Error with file %s", str(mdata_dict["full_path"]))
         else:
             raise RuntimeError("No metadata files were found.")
 
@@ -127,9 +134,7 @@ class MinHashIndex:
             df (pl.DataFrame): _description_
             tab_name (_type_): _description_
         """
-        # print(tab_name)
         t_dict = self._index_single_table(df, tab_name)
-        # self.minhashes.update(t_dict)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
 
     def create_ensembles(self):
