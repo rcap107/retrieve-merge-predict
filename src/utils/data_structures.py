@@ -439,3 +439,8 @@ class RunResult:
             else:
                 output_dict[key] = value
         return output_dict
+    
+    def to_str(self):
+        res_dict = self.to_dict()
+        res_str = ",".join([str(val) for val in res_dict.values()])
+        return res_str

@@ -5,11 +5,27 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from tqdm import tqdm
 import numpy as np
+from copy import deepcopy
 
 from src.data_preparation.utils import cast_features
 from src.table_integration.utils_joins import execute_join
 from src.utils.data_structures import RunResult
 import hashlib
+import logging
+
+logger = logging.getLogger("main_pipeline")
+alt_logger = logging.getLogger("evaluation_method")
+alt_logger.setLevel(logging.DEBUG)
+
+log_format = "%(message)s"
+res_formatter = logging.Formatter(fmt=log_format)
+
+rfh = logging.FileHandler(filename="results/results.log")
+rfh.setFormatter(res_formatter)
+
+alt_logger.addHandler(rfh)
+
+
 
 def measure_rmse(y_true, y_pred, squared=False):
     rmse = mean_squared_error(y_true, y_pred, squared=squared)
@@ -44,38 +60,44 @@ def run_on_table(
     random_state=42,
     verbose=1,
     iterations=1000,
-    
 ):
     y = src_df[target_column].to_pandas()
-    df = src_df.drop(target_column).to_pandas()
-    df = df.fillna("null")
-    # df = df.fill_null(value="null")
-    # df = df.fill_nan(value="null")
-    # df = df.to_pandas()
-    
+    # df = src_df.drop(target_column).to_pandas()
+    df = src_df.drop(target_column)
+    # df = df.fillna("null")
+    df = df.fill_null(value="null")
+    df = df.fill_nan(value=np.nan)
+    df = df.to_pandas()
+
     k_fold = KFold(n_splits=5)
-    
+
     run_logger.add_value("parameters", "iterations", iterations)
 
     r2_list = []
     rmse_list = []
     try:
         run_logger.add_time("start_training")
-        
+        if len(df) < 5:
+            raise ValueError
+
         for train_indices, test_indices in k_fold.split(df):
             X_train = df.iloc[train_indices]
             y_train = y[train_indices]
             X_test = df.iloc[test_indices]
             y_test = y[test_indices]
 
-            model = CatBoostRegressor(cat_features=cat_features, iterations=iterations)
+            model = CatBoostRegressor(cat_features=cat_features, 
+                                      iterations=iterations,
+                                    #   task_type="GPU",
+                                    #   devices="0"
+                                      )
             model.fit(X_train, y_train, verbose=verbose)
             y_pred = model.predict(X_test)
             rmse = measure_rmse(y_test, y_pred)
             r2score = measure_r2(y_test, y_pred)
 
-            r2_list.append(r2score)
             rmse_list.append(rmse)
+            r2_list.append(r2score)
 
         run_logger.add_time("end_training")
         run_logger.add_duration("start_training", "end_training", "training_duration")
@@ -84,45 +106,15 @@ def run_on_table(
         run_logger.add_value("results", "avg_r2score", np.array(r2_list).mean())
         run_logger.add_value("results", "error_r2score", np.array(r2_list).std())
         run_logger.set_run_status("SUCCESS")
-    except CatBoostError as e:
+    except (CatBoostError, ValueError) as exc:
         run_logger.add_time("end_training")
         run_logger.add_duration("start_training", "end_training", "training_duration")
         run_logger.add_value("results", "avg_rmse", np.nan)
         run_logger.add_value("results", "error_rmse", np.nan)
         run_logger.add_value("results", "avg_r2score", np.nan)
         run_logger.add_value("results", "error_r2score", np.nan)
-        run_logger.set_run_status(f"FAILURE: {type(e).__name__}")
-
-        # try:
-            # run_logger.add_time("start_training")
-            # model = CatBoostRegressor(cat_features=cat_features, iterations=iterations)
-            # model.fit(X_train, y_train, verbose=verbose)
-            # run_logger.add_time("end_training")
-            # run_logger.add_duration("start_training", "end_training", "training_duration")
-            # y_pred = model.predict(X_test)
-            # results = {"y_test": y_test, "y_pred": y_pred, "status": "SUCCESS"}
-            # rmse = measure_rmse(results["y_test"], results["y_pred"])
-            # r2score = measure_r2(results["y_test"], results["y_pred"])
-
-            # run_logger.add_value("results", "rmse", rmse)
-            # run_logger.add_value("results", "r2score", r2score)
-            # # run_logger.add_value("status", "r2score", r2score)
-
-            # run_logger.set_run_status("SUCCESS")
-            
-        # except Exception as e:
-        #     print(f"Exception raised: {type(e).__name__}")
-        #     run_logger.add_time("start_training")
-        #     run_logger.add_time("end_training")
-        #     run_logger.add_duration(label_duration="training_duration")
-
-        #     run_logger.add_value("results", "rmse", rmse)
-        #     run_logger.add_value("results", "r2score", r2score)
-        #     run_logger.set_run_status(f"FAILED - {type(e).__name__}")
-
-            
-
-
+        run_logger.set_run_status(f"FAILURE: {type(exc).__name__}")
+    alt_logger.info(run_logger.to_str())
     return run_logger
 
 
@@ -133,6 +125,8 @@ def execute_on_candidates(
     cat_features,
     verbose=1,
     iterations=1000,
+    join_strategy="left",
+    dedup=False,
 ):
     result_dict = {}
     for index_name, index_cand in join_candidates.items():
@@ -140,40 +134,79 @@ def execute_on_candidates(
             run_logger = RunResult()
             run_logger.add_value("parameters", "index_name", index_name)
             run_logger.add_value("parameters", "iterations", iterations)
-            
+
             src_md = mdata.source_metadata
             cnd_md = mdata.candidate_metadata
             source_table = pl.read_parquet(src_md["full_path"])
             candidate_table = pl.read_parquet(cnd_md["full_path"])
-            tqdm.write(cnd_md["full_path"])
+            # tqdm.write(cnd_md["full_path"])
             left_on = mdata.left_on
             right_on = mdata.right_on
-                    
+
             run_logger.add_value("parameters", "source_table", src_md["full_path"])
             run_logger.add_value("parameters", "candidate_table", cnd_md["full_path"])
             run_logger.add_value("parameters", "left_on", left_on)
             run_logger.add_value("parameters", "right_on", right_on)
+            if dedup:
+                jstr = join_strategy + "_dedup"
+            else:
+                jstr = join_strategy
+            run_logger.add_value("parameters", "join_strategy", jstr)
             
+            run_logger.add_time("start_join")
+            logger.debug("Start joining.")
             merged = execute_join(
                 source_table,
                 candidate_table,
                 left_on=left_on,
                 right_on=right_on,
-                how="left",
+                how=join_strategy,
+                dedup=dedup,
             )
-            merged = merged.fill_null("null")
-            merged = merged.fill_nan(np.nan)
-            num_features = [col for col, col_type in merged.schema.items() if col_type==pl.Float64]
-            cat_features = [col for col in merged.columns if col not in num_features]
+            logger.debug("End joining.")
+            run_logger.add_time("end_join")
+            run_logger.add_duration("start_join", "end_join", "join_duration")
+
+            # TODO: FIX NUM_ CAT_ FEATURES 
+            num_features = []
+            cat_features = []
+            for col in merged.columns:
+                try:
+                    merged.with_columns(
+                        pl.col(col).cast(pl.Float64)
+                    )
+                    num_features.append(col)
+                except pl.ComputeError:
+                    merged.with_columns(
+                        pl.col(col).cast(pl.Utf8)
+                    )
+                    cat_features.append(col)
+
+            # num_features = [
+            #     col for col, col_type in merged.schema.items() if col_type == pl.Float64
+            # ]
+            # cat_features = [col for col in merged.columns if col not in num_features]
+            merged[cat_features].fill_null("null")
+            merged[num_features].fill_nan(np.nan)
             run_logger = run_on_table(
-                merged, num_features, cat_features, run_logger, verbose=verbose, iterations=iterations
+                merged,
+                num_features,
+                cat_features,
+                run_logger,
+                verbose=verbose,
+                iterations=iterations,
             )
-            result_dict[hash_] = run_logger
+            result_dict[hash_] = deepcopy(run_logger)
     return result_dict
 
 
 def execute_full_join(
-    join_candidates: dict, source_table: pl.DataFrame, source_metadata, num_features, verbose, iterations
+    join_candidates: dict,
+    source_table: pl.DataFrame,
+    source_metadata,
+    num_features,
+    verbose,
+    iterations,
 ):
     results_dict = {}
     for index_name, index_cand in join_candidates.items():
@@ -182,8 +215,8 @@ def execute_full_join(
         run_logger.add_value("parameters", "iterations", iterations)
 
         merged = source_table.clone().lazy()
-        hashes = []    
-        
+        hashes = []
+
         for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
             cnd_md = mdata.candidate_metadata
             hashes.append(cnd_md["hash"])
@@ -202,11 +235,10 @@ def execute_full_join(
         merged = merged.fill_null("")
         merged = merged.fill_nan("")
 
-
         md5 = hashlib.md5()
         md5.update(("".join(sorted(hashes))).encode())
         digest = md5.hexdigest()
-        
+
         cat_features = [col for col in merged.columns if col not in num_features]
         merged = merged.fill_null("")
         merged = merged.fill_nan("")
@@ -218,11 +250,11 @@ def execute_full_join(
             verbose=verbose,
             iterations=iterations,
         )
-        run_logger.add_value("parameters", "source_table", source_metadata.info["full_path"])
+        run_logger.add_value(
+            "parameters", "source_table", source_metadata.info["full_path"]
+        )
         run_logger.add_value("parameters", "candidate_table", "full_join")
-        
-        results_dict[digest] = run_logger
-    
 
-    
+        results_dict[digest] = run_logger
+
     return results_dict

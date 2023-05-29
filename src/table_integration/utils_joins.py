@@ -11,6 +11,7 @@ def execute_join(
     left_on=None,
     right_on=None,
     how="left",
+    dedup=False
 ):
     if how not in ["left", "inner", "outer"]:
         raise ValueError(f"Unknown join option {how}")
@@ -41,4 +42,20 @@ def execute_join(
             .collect()
         )
 
+        if dedup:
+            joined_table = prepare_deduplicated_table(joined_table, left_table.columns)
+
     return joined_table
+
+
+def prepare_deduplicated_table(table, left_columns):
+    df_list = []
+    
+    for gkey, group in table.groupby(left_columns):
+        g = group.lazy().select(pl.col(left_columns),
+        pl.all().exclude(left_columns).mode().first()
+        ).collect()
+        df_list.append(g)
+
+    df_dedup = pl.concat(df_list)
+    return df_dedup

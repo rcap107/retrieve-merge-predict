@@ -190,7 +190,7 @@ def querying(
     """
     query_results = {}
     for index_name, index in indices.items():
-        print(f"Querying index {index_name}.")
+        # print(f"Querying index {index_name}.")
         index_res = index.query_index(query)
         query_results[index.index_name] = index_res
 
@@ -211,6 +211,8 @@ def evaluate_joins(
     num_features=None,
     verbose=1,
     iterations=1000,
+    join_strategy="left",
+    dedup=False
 ):
     source_table, num_features, cat_features = em.prepare_table_for_evaluation(
         source_table, num_features
@@ -249,6 +251,8 @@ def evaluate_joins(
         cat_features,
         verbose=verbose,
         iterations=iterations,
+        join_strategy=join_strategy,
+        dedup=dedup
     )
     results_dict.update(partial_results)
 
