@@ -146,6 +146,7 @@ def execute_on_candidates(
             run_logger = RunResult()
             run_logger.add_value("parameters", "index_name", index_name)
             run_logger.add_value("parameters", "iterations", iterations)
+            run_logger.add_value("parameters", "similarity", mdata.similarity_score)
             
             run_logger.add_value("parameters", "git_hash", repo_sha)
 
