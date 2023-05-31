@@ -97,8 +97,12 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--dedup",
-        action="store_true",
+        "--aggregation",
+        action="store",
+        type=str,
+        default="none",
+        choices=["none", "dedup", "dfs"],
+        help="Number of iterations to be executed in the evaluation step.",
     )
 
     args = parser.parse_args()
@@ -175,14 +179,13 @@ if __name__ == "__main__":
         verbose=0,
         iterations=args.iterations,
         join_strategy=args.join_strategy,
-        dedup=args.dedup
+        aggregation=args.aggregation,
     )
     logger.info("Evaluation complete.")
-    
+
     results["target_dl"] = args.yadl_version
     results_path = Path("results/run_results.csv")
     results.to_csv(
         results_path, mode="a", index=False, header=not results_path.exists()
     )
     logger.info("Run end.")
-    

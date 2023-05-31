@@ -11,6 +11,11 @@ from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
 from src.utils.data_structures import RunResult
 
+import git
+
+repo = git.Repo(search_parent_directories=True)
+repo_sha = repo.head.object.hexsha
+
 
 def prepare_default_configs(data_dir, selected_indices=None):
     """Prepare default configurations for various indexing methods and provide the
@@ -212,7 +217,7 @@ def evaluate_joins(
     verbose=1,
     iterations=1000,
     join_strategy="left",
-    dedup=False
+    aggregation="none",
 ):
     source_table, num_features, cat_features = em.prepare_table_for_evaluation(
         source_table, num_features
@@ -225,6 +230,7 @@ def evaluate_joins(
 
     run_logger = RunResult()
     run_logger.add_value("parameters", "index_name", "base_table")
+    run_logger.add_value("parameters", "git_hash", repo_sha)
     run_logger.add_value(
         "parameters", "source_table", source_metadata.info["full_path"]
     )
@@ -252,7 +258,7 @@ def evaluate_joins(
         verbose=verbose,
         iterations=iterations,
         join_strategy=join_strategy,
-        dedup=dedup
+        aggregation=aggregation,
     )
     results_dict.update(partial_results)
 
