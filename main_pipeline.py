@@ -122,6 +122,9 @@ def parse_arguments():
         help="Number of iterations to be executed in the evaluation step.",
     )
 
+
+    
+    
     
     parser.add_argument(
         "--k_fold",
@@ -130,6 +133,21 @@ def parse_arguments():
         default=5,
         help="Number of crossvalidation folds.",
     )
+    
+    parser.add_argument(
+        "--top_k",
+        action="store",
+        type=int,
+        default=0,
+        help="Number of candidates to keep. If 0, keep all candidates.",
+    )
+
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="Skip evaluation.",
+    )
+
 
 
 
@@ -142,6 +160,7 @@ if __name__ == "__main__":
     logger.info("Run start.")
     
     args = parse_arguments()
+    logger.info(args)
     case = args.yadl_version
     logger.info(f"Working with version `{case}`")
     metadata_dir = Path(f"data/metadata/{case}")
@@ -197,9 +216,11 @@ if __name__ == "__main__":
 
     logger.info("Querying start")
     query_results, candidates_by_index = utils.querying(
-        query_metadata, query_column, query, indices, mdata_index
+        query_metadata, query_column, query, indices, mdata_index, args.top_k
     )
     logger.info("Querying end")
+
+    scl.results["n_candidates"] = len(candidates_by_index["minhash"])
 
     if args.query_result_path is not None:
         with open(args.query_result_path, "wb") as fp:
@@ -212,25 +233,26 @@ if __name__ == "__main__":
     # print("Profiling results.")
     # profiling_results = profile_joins(candidates_by_index, logger=logger)
 
-    logger.info("Evaluating join results.")
-    results = utils.evaluate_joins(
-        df,
-        query_metadata,
-        scl,
-        join_candidates=candidates_by_index,
-        num_features=None,
-        verbose=0,
-        iterations=args.iterations,
-        join_strategy=args.join_strategy,
-        aggregation=args.aggregation,
-    )
-    logger.info("Evaluation complete.")
+    if not args.dry_run:
+        logger.info("Evaluating join results.")
+        utils.evaluate_joins(
+            df,
+            query_metadata,
+            scl,
+            join_candidates=candidates_by_index,
+            num_features=None,
+            verbose=0,
+            iterations=args.iterations,
+            join_strategy=args.join_strategy,
+            aggregation=args.aggregation,
+        )
+        logger.info("Evaluation complete.")
 
-    results["target_dl"] = args.yadl_version
-    results_path = Path("results/run_results.csv")
-    results.to_csv(
-        results_path, mode="a", index=False, header=not results_path.exists()
-    )
+    # results["target_dl"] = args.yadl_version
+    # results_path = Path("results/run_results.csv")
+    # results.to_csv(
+    #     results_path, mode="a", index=False, header=not results_path.exists()
+    # )
     scl.add_timestamp("end")
     scl.write_to_file("results/scenario_results.txt")
     scenario_logger.info(scl.to_string())

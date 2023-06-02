@@ -36,6 +36,7 @@ def prepare_yadl_versions(cases=[], save_to_full=False):
         logger.info("Case %s", case)
         data_folder = Path(f"data/yago3-dl/{case}")
         if data_folder.exists():
+            os.makedirs(f"data/metadata/{case}", exist_ok=True)
             for dataset_path in data_folder.glob("**/*.parquet"):
                 ds = RawDataset(dataset_path, "yago3-dl", f"data/metadata/{case}")
                 ds.save_metadata_to_json(f"data/metadata/{case}")
@@ -105,9 +106,9 @@ def prepare_indices(cases=[]):
     logger.info("Done")
 
 
-# logger.info("Starting metadata creation - YADL")
-# prepare_yadl_versions(cases=["debug"])
-# logger.debug("Done with metadata - YADL")
+logger.info("Starting metadata creation - YADL")
+prepare_yadl_versions(cases=["wordnet_cp"], save_to_full=False)
+logger.debug("Done with metadata - YADL")
 
 # logger.info("Starting metadata creation - gittables")
 # prepare_gittables()
@@ -119,5 +120,5 @@ def prepare_indices(cases=[]):
 
 
 # logger.info("Preparing indices")
-prepare_indices(cases=["debug"])
+prepare_indices(cases=["wordnet_cp"])
 # logger.info("Done with indices")

@@ -140,6 +140,7 @@ def generate_candidates(
     metadata_index: MetadataIndex,
     mdata_source: dict,
     query_column: str,
+    top_k=15
 ):
     """Given the index results in `index_result`, generate a candidate join for each of them. The candidate join will
     not execute the join operation: it holds the information (path, join columns) necessary for it.
@@ -171,8 +172,15 @@ def generate_candidates(
             similarity_score=similarity,
         )
         candidates[cjoin.candidate_id] = cjoin
-    return candidates
+        
+        
+    if top_k > 0:
+        #TODO rewrite this so it's cleaner
+        ranking = [(k, v.similarity_score) for k,v in candidates.items()]
+        clamped = [x[0] for x in sorted(ranking, key=lambda x: x[1], reverse=True)][:top_k]
 
+        candidates = {k: v for k, v in candidates.items() if k in clamped}
+    return candidates
 
 def querying(
     mdata_source: dict,
@@ -180,6 +188,7 @@ def querying(
     query: list,
     indices: dict,
     mdata_index: MetadataIndex,
+    top_k = 15
 ):
     """Query all indices for the given values in `query`, then generate the join candidates.
 
@@ -202,7 +211,7 @@ def querying(
     candidates_by_index = {}
     for index, index_res in query_results.items():
         candidates = generate_candidates(
-            index, index_res, mdata_index, mdata_source, source_column
+            index, index_res, mdata_index, mdata_source, source_column, top_k
         )
         candidates_by_index[index] = candidates
 

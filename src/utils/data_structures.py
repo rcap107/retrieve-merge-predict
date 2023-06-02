@@ -340,6 +340,7 @@ class ScenarioLogger:
         self.aggregation = aggregation
         self.target_dl = target_dl
         self.k_fold = k_fold
+        self.results = {}
 
     def add_timestamp(self, which_ts):
         if which_ts == "start":
@@ -395,6 +396,7 @@ class ScenarioLogger:
                     self.aggregation,
                     self.target_dl,
                     self.k_fold,
+                    self.results["n_candidates"]
                 ],
             )
         )
@@ -402,7 +404,7 @@ class ScenarioLogger:
 
     def write_to_file(self, out_path):
         with open(out_path, "a") as fp:
-            fp.write(self.to_string + "\n")
+            fp.write(self.to_string() + "\n")
 
 
 class RunLogger:

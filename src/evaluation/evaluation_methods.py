@@ -18,7 +18,7 @@ from src.table_integration.utils_joins import execute_join, prepare_dfs_table
 from src.utils.data_structures import RunLogger, ScenarioLogger
 
 import datetime as dt
-
+from pathlib import Path
 import git
 
 repo = git.Repo(search_parent_directories=True)
@@ -134,7 +134,7 @@ def execute_on_candidates(
     verbose=1,
     iterations=1000,
     join_strategy="left",
-    aggregation="none",
+    aggregation="none"
 ):
     result_dict = {}
     for index_name, index_cand in join_candidates.items():
@@ -195,7 +195,7 @@ def execute_on_candidates(
             merged[num_features].fill_nan(np.nan)
 
             add_params = {
-                    "source_table": src_md["full_path"],
+                    "source_table": Path(src_md["full_path"]).stem,
                     "candidate_table": cnd_md["full_path"],
                     "index_name": index_name,
                     "left_on": left_on,
