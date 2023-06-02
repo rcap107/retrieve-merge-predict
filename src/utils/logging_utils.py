@@ -216,7 +216,7 @@ class Logger:
         return output_dict
 
 
-class RunLogger(Logger):
+class OldLogger(Logger):
     
     def __init__(self, file_path=None, run_id_path=RUN_ID_PATH, results_path=RESULTS_PATH):
         super().__init__(file_path, run_id_path, results_path)

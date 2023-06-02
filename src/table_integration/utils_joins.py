@@ -87,7 +87,11 @@ def execute_join(
     right_on=None,
     how="left",
     dedup=False,
+    suffix=None
 ):
+    if suffix is None:
+        suffix = ""
+    
     if how not in ["left", "inner", "outer"]:
         raise ValueError(f"Unknown join option {how}")
 
@@ -108,7 +112,7 @@ def execute_join(
 
         joined_table = (
             left_table.lazy()
-            .join(right_table.lazy(), left_on=left_on, right_on=right_on, how=how)
+            .join(right_table.lazy(), left_on=left_on, right_on=right_on, how=how, suffix=suffix)
             .collect()
         )
 

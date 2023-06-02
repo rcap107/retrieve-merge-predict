@@ -3,7 +3,6 @@ from src.utils import data_structures as ds
 import pandas as pd
 from typing import Iterable, Union, List
 from pathlib import Path
-from src.utils.logging_utils import RunLogger
 
 def execute_dummy_join(
     left_table: pl.DataFrame,
@@ -196,7 +195,7 @@ def measure_join_quality(
         return 0
 
 
-def profile_joins(join_candidates: dict, logger: RunLogger):
+def profile_joins(join_candidates: dict, logger):
     
     tot_dict = []
     for index_name, candidates in join_candidates.items():

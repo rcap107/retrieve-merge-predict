@@ -9,22 +9,39 @@ import src.utils.pipeline_utils as utils
 from src.utils.data_structures import RawDataset
 from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
-from src.utils.logging_utils import RunLogger
+from src.utils.data_structures import ScenarioLogger
 
 import logging
 
-log_format = "%(asctime)s - %(message)s"
+import git 
 
+repo = git.Repo(search_parent_directories=True)
+repo_sha = repo.head.object.hexsha
+
+
+# prepare scenario logger
+scenario_logger = logging.getLogger("scenario_logger")
+scenario_logger.setLevel(logging.DEBUG)
+
+log_format = "%(message)s"
+res_formatter = logging.Formatter(fmt=log_format)
+
+rfh = logging.FileHandler(filename="results/scenario_logger.log")
+rfh.setFormatter(res_formatter)
+
+scenario_logger.addHandler(rfh)
+
+
+
+# preparing generic logger
+log_format = "%(asctime)s - %(message)s"
 logger = logging.getLogger("main_pipeline")
 logger.setLevel(logging.DEBUG)
-
 formatter = logging.Formatter(fmt=log_format)
-
 fh = logging.FileHandler(filename="results/logging_runs.log")
 fh.setFormatter(formatter)
 sh = logging.StreamHandler()
 sh.setFormatter(formatter)
-
 logger.addHandler(fh)
 logger.addHandler(sh)
 
@@ -105,12 +122,25 @@ def parse_arguments():
         help="Number of iterations to be executed in the evaluation step.",
     )
 
+    
+    parser.add_argument(
+        "--k_fold",
+        action="store",
+        type=int,
+        default=5,
+        help="Number of crossvalidation folds.",
+    )
+
+
+
+
     args = parser.parse_args()
     return args
 
 
 if __name__ == "__main__":
     logger.info("Run start.")
+    
     args = parse_arguments()
     case = args.yadl_version
     logger.info(f"Working with version `{case}`")
@@ -118,6 +148,23 @@ if __name__ == "__main__":
     metadata_index_path = Path(f"data/metadata/_mdi/md_index_{case}.pickle")
     index_dir = Path(f"data/metadata/_indices/{case}")
 
+    query_data_path = Path(args.source_table_path)
+    if not query_data_path.exists():
+        raise FileNotFoundError(f"File {query_data_path} not found.")
+
+    tab_name = query_data_path.stem
+    
+    
+    scl = ScenarioLogger(
+        source_table = tab_name,
+        git_hash=repo_sha,
+        iterations= args.iterations,
+        join_strategy=args.join_strategy,
+        aggregation=args.aggregation,
+        target_dl = args.yadl_version,
+        k_fold = args.k_fold
+    )
+    
     logger.info(f"Reading metadata from {metadata_index_path}")
     if not metadata_index_path.exists():
         raise FileNotFoundError(
@@ -131,11 +178,6 @@ if __name__ == "__main__":
 
     # Query index
     # print("Querying.")
-    query_data_path = Path(args.source_table_path)
-    if not query_data_path.exists():
-        raise FileNotFoundError(f"File {query_data_path} not found.")
-
-    tab_name = query_data_path.stem
 
     df = pl.read_parquet(query_data_path)
     logger.info(f"Querying from dataset {query_data_path}")
@@ -174,6 +216,7 @@ if __name__ == "__main__":
     results = utils.evaluate_joins(
         df,
         query_metadata,
+        scl,
         join_candidates=candidates_by_index,
         num_features=None,
         verbose=0,
@@ -188,4 +231,7 @@ if __name__ == "__main__":
     results.to_csv(
         results_path, mode="a", index=False, header=not results_path.exists()
     )
+    scl.add_timestamp("end")
+    scl.write_to_file("results/scenario_results.txt")
+    scenario_logger.info(scl.to_string())
     logger.info("Run end.")

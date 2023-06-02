@@ -9,7 +9,7 @@ from src.candidate_discovery.utils_minhash import MinHashIndex
 from src.utils.data_structures import CandidateJoin, RawDataset
 from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
-from src.utils.data_structures import RunResult
+from src.utils.data_structures import RunLogger
 
 import git
 
@@ -212,6 +212,7 @@ def querying(
 def evaluate_joins(
     source_table,
     source_metadata,
+    scenario_logger,
     join_candidates: dict,
     num_features=None,
     verbose=1,
@@ -228,31 +229,22 @@ def evaluate_joins(
     # Run on source table alone
     print("Running on base table.")
 
-    run_logger = RunResult()
-    run_logger.add_value("parameters", "index_name", "base_table")
-    run_logger.add_value("parameters", "git_hash", repo_sha)
-    run_logger.add_value(
-        "parameters", "source_table", source_metadata.info["full_path"]
-    )
-    run_logger.add_value("parameters", "candidate_table", "")
-    run_logger.add_value("parameters", "left_on", "")
-    run_logger.add_value("parameters", "right_on", "")
-
-    run_logger = em.run_on_table(
+    em.run_on_table(
         source_table,
         num_features,
         cat_features,
-        run_logger,
+        scenario_logger,
         verbose=verbose,
         iterations=iterations,
     )
-    results_dict[source_metadata.hash] = run_logger
+
 
     # Run on all candidates
     print("Running on candidates, one at a time.")
-    partial_results = em.execute_on_candidates(
+    em.execute_on_candidates(
         join_candidates,
         source_table,
+        scenario_logger,
         num_features,
         cat_features,
         verbose=verbose,
@@ -260,9 +252,8 @@ def evaluate_joins(
         join_strategy=join_strategy,
         aggregation=aggregation,
     )
-    results_dict.update(partial_results)
 
-    # partial_results = em.execute_full_join(
+    # em.execute_full_join(
     #     join_candidates,
     #     source_table,
     #     source_metadata,
@@ -270,11 +261,5 @@ def evaluate_joins(
     #     verbose=verbose,
     #     iterations=iterations,
     # )
-    # results_dict.update(partial_results)
 
-    res_list = []
-    for v in results_dict.values():
-        res_list.append(v.to_dict())
-
-    result_df = pl.from_dicts(res_list).to_pandas()
-    return result_df
+    return

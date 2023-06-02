@@ -15,15 +15,14 @@ from woodwork.logical_types import Categorical, Double
 
 from src.data_preparation.utils import cast_features
 from src.table_integration.utils_joins import execute_join, prepare_dfs_table
-from src.utils.data_structures import RunResult
+from src.utils.data_structures import RunLogger, ScenarioLogger
 
-import git 
+import datetime as dt
+
+import git
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
-
-
-
 
 logger = logging.getLogger("main_pipeline")
 alt_logger = logging.getLogger("evaluation_method")
@@ -65,12 +64,13 @@ def run_on_table(
     src_df: pl.DataFrame,
     num_features,
     cat_features,
-    run_logger: RunResult,
+    scenario_logger,
     target_column="target",
-    test_size=0.2,
-    random_state=42,
-    verbose=1,
+    verbose=0,
     iterations=1000,
+    n_splits=5,
+    additional_parameters=None,
+    additional_timestamps=None
 ):
     y = src_df[target_column].to_pandas()
     # df = src_df.drop(target_column).to_pandas()
@@ -80,18 +80,20 @@ def run_on_table(
     df = df.fill_nan(value=np.nan)
     df = df.to_pandas()
 
-    k_fold = KFold(n_splits=5)
+    k_fold = KFold(n_splits=n_splits)
+    if len(df) < 5:
+        raise ValueError
 
-    run_logger.add_value("parameters", "iterations", iterations)
-
-    r2_list = []
-    rmse_list = []
-    try:
-        run_logger.add_time("start_training")
-        if len(df) < 5:
-            raise ValueError
-
-        for train_indices, test_indices in k_fold.split(df):
+    for fold_id, (train_indices, test_indices) in enumerate(k_fold.split(df)):
+        run_logger = RunLogger(
+            scenario_logger,
+            fold_id=fold_id,
+            additional_parameters=additional_parameters,
+        )
+        run_logger.update_timestamps(additional_timestamps)
+        
+        run_logger.timestamps["run_start"] = dt.datetime.now()
+        try:
             X_train = df.iloc[train_indices]
             y_train = y[train_indices]
             X_test = df.iloc[test_indices]
@@ -108,48 +110,35 @@ def run_on_table(
             rmse = measure_rmse(y_test, y_pred)
             r2score = measure_r2(y_test, y_pred)
 
-            rmse_list.append(rmse)
-            r2_list.append(r2score)
+            run_logger.results["rmse"] = rmse
+            run_logger.results["r2score"] = r2score
+            run_logger.timestamps["run_end"] = dt.datetime.now()
+            run_logger.add_duration("run_start", "run_end", "run_duration")
 
-        run_logger.add_time("end_training")
-        run_logger.add_duration("start_training", "end_training", "training_duration")
-        run_logger.add_value("results", "avg_rmse", np.array(rmse_list).mean())
-        run_logger.add_value("results", "error_rmse", np.array(rmse_list).std())
-        run_logger.add_value("results", "avg_r2score", np.array(r2_list).mean())
-        run_logger.add_value("results", "error_r2score", np.array(r2_list).std())
-        run_logger.set_run_status("SUCCESS")
-    except (CatBoostError, ValueError) as exc:
-        run_logger.add_time("end_training")
-        run_logger.add_duration("start_training", "end_training", "training_duration")
-        run_logger.add_value("results", "avg_rmse", np.nan)
-        run_logger.add_value("results", "error_rmse", np.nan)
-        run_logger.add_value("results", "avg_r2score", np.nan)
-        run_logger.add_value("results", "error_r2score", np.nan)
-        run_logger.set_run_status(f"FAILURE: {type(exc).__name__}")
-    alt_logger.info(run_logger.to_str())
+            run_logger.set_run_status("SUCCESS")
+        except (CatBoostError, ValueError) as exc:
+            run_logger.timestamps["run_end"] = dt.datetime.now()
+            run_logger.add_duration("run_start", "run_end")
+            run_logger.set_run_status(f"FAILURE: {type(exc).__name__}")
+
+        alt_logger.info(run_logger.to_str())
     return run_logger
 
 
 def execute_on_candidates(
     join_candidates,
     source_table,
+    scenario_logger,
     num_features,
     cat_features,
     verbose=1,
     iterations=1000,
     join_strategy="left",
-    aggregation="none"
+    aggregation="none",
 ):
     result_dict = {}
     for index_name, index_cand in join_candidates.items():
         for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
-            run_logger = RunResult()
-            run_logger.add_value("parameters", "index_name", index_name)
-            run_logger.add_value("parameters", "iterations", iterations)
-            run_logger.add_value("parameters", "similarity", mdata.similarity_score)
-            
-            run_logger.add_value("parameters", "git_hash", repo_sha)
-
             # TODO reimplement this to have a single function that takes the candidate and executes the entire join elsewhere
             src_md = mdata.source_metadata
             cnd_md = mdata.candidate_metadata
@@ -158,16 +147,10 @@ def execute_on_candidates(
             left_on = mdata.left_on
             right_on = mdata.right_on
 
-            # TODO: change this so that I can pass the candidate metadata alone, then all these values are saved in RunLogger instead
-            run_logger.add_value("parameters", "source_table", src_md["full_path"])
-            run_logger.add_value("parameters", "candidate_table", cnd_md["full_path"])
-            run_logger.add_value("parameters", "left_on", left_on)
-            run_logger.add_value("parameters", "right_on", right_on)
-            run_logger.add_value("parameters", "prejoin_size", len(source_table))
-            
+            add_timestamps = {
+                "join_start": dt.datetime.now()
+            }
             if aggregation == "dfs":
-                run_logger.add_value("parameters", "join_strategy", "dfs")
-                run_logger.add_time("start_join")
                 logger.debug("Start DFS.")
 
                 merged = prepare_dfs_table(
@@ -177,20 +160,14 @@ def execute_on_candidates(
                     right_on=right_on,
                 )
                 logger.debug("End DFS.")
-                run_logger.add_time("end_join")
-                run_logger.add_duration("start_join", "end_join", "join_duration")
-                run_logger.add_value("parameters", "postjoin_size", len(merged))
 
             else:
                 if aggregation == "dedup":
-                    dedup=True
+                    dedup = True
                     jstr = join_strategy + "_dedup"
                 else:
                     jstr = join_strategy + "_none"
-                    dedup=False
-                run_logger.add_value("parameters", "join_strategy", jstr)
-
-                run_logger.add_time("start_join")
+                    dedup = False
                 logger.debug("Start joining.")
                 merged = execute_join(
                     source_table,
@@ -200,12 +177,9 @@ def execute_on_candidates(
                     how=join_strategy,
                     dedup=dedup,
                 )
-                run_logger.add_value("parameters", "postjoin_size", len(merged))
-
                 logger.debug("End joining.")
-                run_logger.add_time("end_join")
-                run_logger.add_duration("start_join", "end_join", "join_duration")
 
+            add_timestamps["join_end"] = dt.datetime.now()
             # TODO: FIX NUM_ CAT_ FEATURES
             num_features = []
             cat_features = []
@@ -217,41 +191,54 @@ def execute_on_candidates(
                     merged.with_columns(pl.col(col).cast(pl.Utf8))
                     cat_features.append(col)
 
-            # num_features = [
-            #     col for col, col_type in merged.schema.items() if col_type == pl.Float64
-            # ]
-            # cat_features = [col for col in merged.columns if col not in num_features]
             merged[cat_features].fill_null("null")
             merged[num_features].fill_nan(np.nan)
-            run_logger = run_on_table(
+
+            add_params = {
+                    "source_table": src_md["full_path"],
+                    "candidate_table": cnd_md["full_path"],
+                    "index_name": index_name,
+                    "left_on": left_on,
+                    "right_on": right_on,
+                    "similarity": mdata.similarity_score,
+                    "size_prejoin": len(source_table),
+                    "size_postjoin": len(merged),
+            }
+
+            run_on_table(
                 merged,
                 num_features,
                 cat_features,
-                run_logger,
+                scenario_logger=scenario_logger,
                 verbose=verbose,
                 iterations=iterations,
+                additional_parameters=add_params,
+                additional_timestamps=add_timestamps
             )
-            result_dict[hash_] = deepcopy(run_logger)
-    return result_dict
+    return
 
 
 def execute_full_join(
     join_candidates: dict,
     source_table: pl.DataFrame,
     source_metadata,
+    scenario_logger,
     num_features,
     verbose,
     iterations,
 ):
     results_dict = {}
     for index_name, index_cand in join_candidates.items():
-        run_logger = RunResult()
-        run_logger.add_value("parameters", "index_name", index_name)
-        run_logger.add_value("parameters", "iterations", iterations)
-
         merged = source_table.clone().lazy()
         hashes = []
 
+        params = {
+            "source_table": source_metadata["full_path"],
+            "candidate_table": "full_join",
+            "left_on": "full_join",
+            "right_on": "full_join",
+            "size_prejoin": len(source_table),
+        }
         for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
             cnd_md = mdata.candidate_metadata
             hashes.append(cnd_md["hash"])
@@ -259,14 +246,15 @@ def execute_full_join(
 
             left_on = mdata.left_on
             right_on = mdata.right_on
-            merged = merged.join(
-                candidate_table.lazy(),
+            merged = execute_join(
+                source_table,
+                candidate_table,
                 left_on=left_on,
                 right_on=right_on,
                 how="left",
-                suffix=f"_{hash_[:5]}",
+                dedup=True,
+                suffix="_" + hash_[:10],
             )
-        merged = merged.collect()
         merged = merged.fill_null("")
         merged = merged.fill_nan("")
 
@@ -277,19 +265,15 @@ def execute_full_join(
         cat_features = [col for col in merged.columns if col not in num_features]
         merged = merged.fill_null("")
         merged = merged.fill_nan("")
-        run_logger = run_on_table(
+        params["size_postjoin"] = len(merged)
+        run_on_table(
             merged,
             num_features,
             cat_features,
-            run_logger,
+            scenario_logger,
             verbose=verbose,
             iterations=iterations,
+            additional_parameters=params,
         )
-        run_logger.add_value(
-            "parameters", "source_table", source_metadata.info["full_path"]
-        )
-        run_logger.add_value("parameters", "candidate_table", "full_join")
 
-        results_dict[digest] = run_logger
-
-    return results_dict
+    return

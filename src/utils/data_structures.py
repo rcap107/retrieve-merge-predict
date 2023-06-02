@@ -13,7 +13,8 @@ import zlib
 import polars as pl
 import datetime as dt
 
-RUN_ID_PATH=Path("results/run_id")
+RUN_ID_PATH = Path("results/run_id")
+SCENARIO_ID_PATH = Path("results/scenario_id")
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
@@ -317,32 +318,134 @@ class CandidateJoin:
         return md5.hexdigest()
 
 
-class RunResult:
+class ScenarioLogger:
     def __init__(
         self,
-    ):
+        source_table,
+        git_hash,
+        iterations,
+        join_strategy,
+        aggregation,
+        target_dl,
+        k_fold,
+    ) -> None:
+        self.scenario_id = self.find_latest_scenario_id()
+        self.start_timestamp = None
+        self.add_timestamp("start")
+        self.end_timestamp = None
+        self.source_table = source_table
+        self.git_hash = git_hash
+        self.iterations = iterations
+        self.join_strategy = join_strategy
+        self.aggregation = aggregation
+        self.target_dl = target_dl
+        self.k_fold = k_fold
+
+    def add_timestamp(self, which_ts):
+        if which_ts == "start":
+            self.start_timestamp = dt.datetime.now()
+        elif which_ts == "end":
+            self.end_timestamp = dt.datetime.now()
+        else:
+            raise ValueError(which_ts)
+
+    def find_latest_scenario_id(self):
+        """Utility function for opening the scenario_id file, checking for errors and
+        incrementing it by one at the start of a run.
+
+        Raises:
+            ValueError: Raise ValueError if the read scenario_id is not a positive integer.
+
+        Returns:
+            int: The new (incremented) scenario_id.
+        """
+        if SCENARIO_ID_PATH.exists():
+            with open(SCENARIO_ID_PATH, "r") as fp:
+                last_scenario_id = fp.read().strip()
+                try:
+                    scenario_id = int(last_scenario_id) + 1
+                except ValueError:
+                    raise ValueError(
+                        f"Scenario ID {last_scenario_id} is not a positive integer. "
+                    )
+                if scenario_id < 0:
+                    raise ValueError(
+                        f"Scenario ID {scenario_id} is not a positive integer. "
+                    )
+            with open(SCENARIO_ID_PATH, "w") as fp:
+                fp.write(f"{scenario_id}")
+        else:
+            scenario_id = 0
+            with open(SCENARIO_ID_PATH, "w") as fp:
+                fp.write(f"{scenario_id}")
+        return scenario_id
+
+    def to_string(self):
+        str_res = ",".join(
+            map(
+                str,
+                [
+                    self.scenario_id,
+                    self.start_timestamp,
+                    self.end_timestamp,
+                    self.source_table,
+                    self.git_hash,
+                    self.iterations,
+                    self.join_strategy,
+                    self.aggregation,
+                    self.target_dl,
+                    self.k_fold,
+                ],
+            )
+        )
+        return str_res
+
+    def write_to_file(self, out_path):
+        with open(out_path, "a") as fp:
+            fp.write(self.to_string + "\n")
+
+
+class RunLogger:
+    def __init__(self, scenario_logger: ScenarioLogger, fold_id, additional_parameters):
+        # TODO: rewrite with __getitem__ instead
+        self.scenario_id = scenario_logger.scenario_id
+        self.fold_id = fold_id
         self.run_id = self.find_latest_run_id()
-        self.obj = {}
         self.status = None
-        self.obj["run_id"] = self.run_id
-        self.obj["status"] = None
-        self.obj["timestamps"] = {}
-        self.obj["durations"] = {}
-        self.obj["parameters"] = {}
-        # Losses and actual imputation results
-        self.obj["results"] = {}
-        # Statistics measured on the given dataset (% missing values etc)
-        self.obj["statistics"] = {}
+        self.timestamps = {}
+        self.durations = {}
+        self.parameters = self.get_parameters(scenario_logger, additional_parameters)
+        self.results = {}
 
         self.add_time("run_start_time")
 
-    
+    def get_parameters(self, scenario_logger: ScenarioLogger, additional_parameters):
+        parameters = {
+            "source_table": scenario_logger.source_table,
+            "candidate_table": "",
+            "left_on": "",
+            "right_on": "",
+            "git_hash": scenario_logger.git_hash,
+            "index_name": "base_table",
+            "iterations": scenario_logger.iterations,
+            "join_strategy": scenario_logger.join_strategy,
+            "aggregation": scenario_logger.aggregation,
+            "target_dl": scenario_logger.target_dl,
+        }
+        if additional_parameters is not None:   
+            parameters.update(additional_parameters)
+
+        return parameters
+
+    def update_timestamps(self, additional_timestamps=None):
+        if additional_timestamps is not None:
+            self.timestamps.update(additional_timestamps)
+
     def set_run_status(self, status):
-        self.obj["status"] = status
         self.status = status
-    
+
     def find_latest_run_id(self):
-        """Utility function for opening the run_id file, checking for errors and 
+        """Utility function for opening the run_id file, checking for errors and
         incrementing it by one at the start of a run.
 
         Raises:
@@ -370,77 +473,69 @@ class RunResult:
                 fp.write(f"{run_id}")
         return run_id
 
-    def add_value(self, obj_name, key, value):
-        """Updating a single value in a given object. 
-
-        Args:
-            obj_name (str): Label of the object to update.
-            key (_type_): Key of the object to update.
-            value (_type_): Value of the object to update.
-        """
-        self.obj[obj_name][key] = value
-
-    def get_value(self, obj_name, key):
-        """Retrieve a single value from one of the dictionaries. 
-
-        Args:
-            obj_name (str): Label of the object to query.
-            key (_type_): Dict key to use to retrieve the value.
-
-        Returns:
-            _type_: Retrieved value.
-        """
-        return self.obj[obj_name][key]
-
     def add_time(self, label, value=None):
-        """Add a new timestamp starting __now__, with the given label. 
+        """Add a new timestamp starting __now__, with the given label.
 
         Args:
             label (str): Label to assign to the timestamp.
         """
         if value is None:
-            self.obj["timestamps"][label] = dt.datetime.now()
+            self.timestamps[label] = dt.datetime.now()
         else:
-            self.obj["timestamps"][label] = -1
-        
+            self.timestamps[label] = -1
+
     def get_time(self, label):
-        """Retrieve a time according to the given label.    
+        """Retrieve a time according to the given label.
 
         Args:
-            label (str): Label of the timestamp to be retrieved. 
+            label (str): Label of the timestamp to be retrieved.
         Returns:
             _type_: Retrieved timestamp.
         """
-        return self.obj["timestamp"][label]
+        return self.timestamps[label]
 
     def add_duration(self, label_start=None, label_end=None, label_duration=None):
-        #TODO: Fix docstring
         if label_start is None and label_end is None:
             if label_duration is not None:
-                self.obj["durations"][label_duration] = -1
+                self.durations[label_duration] = -1
             else:
                 raise ValueError(f"`label_duration` is required.")
         else:
-            assert label_start in self.obj["timestamps"]
-            assert label_end in self.obj["timestamps"]
-            
-            self.obj["durations"][label_duration] = (
-                self.obj["timestamps"][label_end] - self.obj["timestamps"][label_start]
+            assert label_start in self.timestamps
+            assert label_end in self.timestamps
+
+            self.durations[label_duration] = (
+                self.timestamps[label_end] - self.timestamps[label_start]
             ).total_seconds()
 
-    def __getitem__(self, item):
-        return self.obj[item]
-
-    def to_dict(self):
-        output_dict = {}
-        for key, value in self.obj.items():
-            if isinstance(value, dict):
-                output_dict.update(value)
-            else:
-                output_dict[key] = value
-        return output_dict
-    
     def to_str(self):
-        res_dict = self.to_dict()
-        res_str = ",".join([str(val) for val in res_dict.values()])
+        res_str = ",".join(
+            map(
+                str,
+                [
+                    self.scenario_id,
+                    self.status,
+                    self.parameters["target_dl"],
+                    self.parameters["git_hash"],
+                    self.parameters["index_name"],
+                    self.parameters["source_table"],
+                    self.parameters["candidate_table"],
+                    self.parameters["iterations"],
+                    self.parameters["join_strategy"],
+                    self.parameters["aggregation"],
+                    self.fold_id,
+                    self.timestamps["run_start"],
+                    self.timestamps["run_end"],
+                    self.durations["run_duration"],
+                    self.timestamps.get("join_start", ""),
+                    self.timestamps.get("join_end", ""),
+                    self.durations.get("join_duration", ""),
+                    self.parameters.get("similarity", ""),
+                    self.parameters.get("size_prejoin", ""),
+                    self.parameters.get("size_postjoin", ""),
+                    self.results.get("rmse", ""),
+                    self.results.get("r2score", ""),
+                ],
+            )
+        )
         return res_str
