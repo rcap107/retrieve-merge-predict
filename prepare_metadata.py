@@ -77,7 +77,7 @@ def prepare_auctus():
         raise FileNotFoundError(f"Invalid path {data_folder}")
 
 
-def prepare_indices(cases=[]):
+def prepare_indices(cases=[], additional_configurations=None):
     
     for case in cases:
         metadata_index = MetadataIndex(f"data/metadata/{case}")
@@ -107,7 +107,7 @@ def prepare_indices(cases=[]):
 
 
 logger.info("Starting metadata creation - YADL")
-prepare_yadl_versions(cases=["wordnet_cp"], save_to_full=False)
+prepare_yadl_versions(cases=["wordnet_big"], save_to_full=False)
 logger.debug("Done with metadata - YADL")
 
 # logger.info("Starting metadata creation - gittables")
@@ -120,5 +120,5 @@ logger.debug("Done with metadata - YADL")
 
 
 # logger.info("Preparing indices")
-prepare_indices(cases=["wordnet_cp"])
+prepare_indices(cases=["wordnet_big"])
 # logger.info("Done with indices")
