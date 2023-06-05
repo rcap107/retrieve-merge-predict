@@ -1,4 +1,5 @@
 """Evaluation methods"""
+#TODO: Fix imports
 import hashlib
 import logging
 from copy import deepcopy
@@ -9,7 +10,7 @@ import pandas as pd
 import polars as pl
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, ShuffleSplit
 from tqdm import tqdm
 from woodwork.logical_types import Categorical, Double
 
@@ -20,6 +21,13 @@ from src.utils.data_structures import RunLogger, ScenarioLogger
 import datetime as dt
 from pathlib import Path
 import git
+
+import cProfile, pstats, io
+from pstats import SortKey
+
+pr = cProfile.Profile()
+
+
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
@@ -69,6 +77,8 @@ def run_on_table(
     verbose=0,
     iterations=1000,
     n_splits=5,
+    test_split=0.25,
+    random_state=42,
     additional_parameters=None,
     additional_timestamps=None
 ):
@@ -80,11 +90,12 @@ def run_on_table(
     df = df.fill_nan(value=np.nan)
     df = df.to_pandas()
 
-    k_fold = KFold(n_splits=n_splits)
+    # k_fold = KFold(n_splits=n_splits)
+    model_selector = ShuffleSplit(n_splits=n_splits, test_size=test_split)
     if len(df) < 5:
         raise ValueError
 
-    for fold_id, (train_indices, test_indices) in enumerate(k_fold.split(df)):
+    for fold_id, (train_indices, test_indices) in enumerate(model_selector.split(df)):
         run_logger = RunLogger(
             scenario_logger,
             fold_id=fold_id,
@@ -122,6 +133,7 @@ def run_on_table(
             run_logger.set_run_status(f"FAILURE: {type(exc).__name__}")
 
         alt_logger.info(run_logger.to_str())
+
     return run_logger
 
 
@@ -142,7 +154,7 @@ def execute_on_candidates(
             # TODO reimplement this to have a single function that takes the candidate and executes the entire join elsewhere
             src_md = mdata.source_metadata
             cnd_md = mdata.candidate_metadata
-            source_table = pl.read_parquet(src_md["full_path"])
+            source_table = pl.read_parquet(src_md["full_path"]).unique()
             candidate_table = pl.read_parquet(cnd_md["full_path"])
             left_on = mdata.left_on
             right_on = mdata.right_on

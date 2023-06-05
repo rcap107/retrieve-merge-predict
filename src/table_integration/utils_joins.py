@@ -33,17 +33,17 @@ def prepare_dfs_table(
         left_on = left_on[0]
         right_on = right_on[0]
 
-    left_table = left_table.unique("col_to_embed").to_pandas()
+    left_table_dedup = left_table.unique("col_to_embed").to_pandas()
     target_column = left_table["target"]
     right_table = right_table.with_row_count("index").to_pandas()
 
     es = ft.EntitySet()
-    left_types = get_logical_types(left_table)
+    left_types = get_logical_types(left_table_dedup)
     right_types = get_logical_types(right_table)
 
     es = es.add_dataframe(
         dataframe_name="source_table",
-        dataframe=left_table,
+        dataframe=left_table_dedup,
         index=left_on,
         logical_types=left_types,
     )
@@ -64,9 +64,9 @@ def prepare_dfs_table(
         return_types="all",
     )
 
-    feature_matrix["target"] = left_table["target"]
+    feature_matrix["target"] = left_table_dedup["target"]
 
-    new_df = feature_matrix.copy().reset_index()
+    new_df = feature_matrix.copy()
     cat_cols = new_df.select_dtypes(exclude="number").columns
     num_cols = new_df.select_dtypes("number").columns
     for col in cat_cols:
@@ -74,7 +74,14 @@ def prepare_dfs_table(
     for col in num_cols:
         new_df[col] = new_df[col].astype(float)
 
-    pl_df = pl.from_pandas(new_df)
+    feat_columns = [col for col in new_df.columns if col not in left_table.columns]
+    augmented_table = left_table.to_pandas().merge(
+        new_df[feat_columns].reset_index(),
+        how="left",
+        on="col_to_embed"
+    )
+
+    pl_df = pl.from_pandas(augmented_table)
 
     return pl_df
 
@@ -122,10 +129,10 @@ def execute_join(
     return joined_table
 
 
-def prepare_deduplicated_table(table, left_columns):
+def prepare_deduplicated_table(joined_table, left_columns):
     df_list = []
 
-    for gkey, group in table.groupby(left_columns):
+    for gkey, group in joined_table.groupby(left_columns):
         g = (
             group.lazy()
             .select(pl.col(left_columns), pl.all().exclude(left_columns).mode().first())
@@ -133,5 +140,5 @@ def prepare_deduplicated_table(table, left_columns):
         )
         df_list.append(g)
 
-    df_dedup = pl.concat(df_list)
+    df_dedup = pl.concat(df_list).unique()
     return df_dedup
