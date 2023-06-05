@@ -43,6 +43,7 @@ def prepare_default_configs(data_dir, selected_indices=None):
                 "data_dir": data_dir,
                 "thresholds": [10, 20, 80],
                 "oneshot": True,
+                "num_perm": 128
             },
         }
         if selected_indices is not None:
