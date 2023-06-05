@@ -193,7 +193,7 @@ def querying(
     query: list,
     indices: dict,
     mdata_index: MetadataIndex,
-    top_k = 15
+    top_k = 15,
 ):
     """Query all indices for the given values in `query`, then generate the join candidates.
 
@@ -234,6 +234,7 @@ def evaluate_joins(
     n_splits=5,
     join_strategy="left",
     aggregation="none",
+    cuda=False
 ):
     source_table, num_features, cat_features = em.prepare_table_for_evaluation(
         source_table, num_features
@@ -253,6 +254,7 @@ def evaluate_joins(
             n_splits=n_splits,
             verbose=verbose,
             iterations=iterations,
+            cuda=cuda
         )
 
     else:
@@ -268,6 +270,7 @@ def evaluate_joins(
             n_splits=n_splits,
             join_strategy=join_strategy,
             aggregation=aggregation,
+            cuda=cuda
         )
 
     # em.execute_full_join(

@@ -147,6 +147,12 @@ def parse_arguments():
         action="store_true",
         help="Skip evaluation.",
     )
+    
+    parser.add_argument(
+        "--cuda",
+        action="store_true",
+        help="Try to run on GPU.",
+    )
 
 
 
@@ -253,6 +259,7 @@ if __name__ == "__main__":
             n_splits=args.n_splits,
             join_strategy=args.join_strategy,
             aggregation=args.aggregation,
+            cuda=args.cuda
         )
         logger.info("Evaluation complete.")
         scl.add_timestamp("end_evaluation")
