@@ -408,11 +408,11 @@ class ScenarioLogger:
                 ],
             )
         )
-        
+        str_res += ','
         for ts in self.timestamps.values():
-            str_res += str(ts)
+            str_res += str(ts) + ","
         
-        return str_res
+        return str_res.rstrip(",")
 
     def write_to_file(self, out_path):
         with open(out_path, "a") as fp:
