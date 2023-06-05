@@ -329,7 +329,7 @@ class ScenarioLogger:
         join_strategy,
         aggregation,
         target_dl,
-        k_fold,
+        n_splits,
     ) -> None:
         self.timestamps = {
             "start_process": dt.datetime.now(),
@@ -348,9 +348,12 @@ class ScenarioLogger:
         self.git_hash = git_hash
         self.iterations = iterations
         self.join_strategy = join_strategy
-        self.aggregation = aggregation
+        if join_strategy == "nojoin":
+            self.aggregation = "nojoin"
+        else:
+            self.aggregation = aggregation
         self.target_dl = target_dl
-        self.k_fold = k_fold
+        self.n_splits = n_splits
         self.results = {}
         self.process_time = 0
 
@@ -373,16 +376,19 @@ class ScenarioLogger:
         if SCENARIO_ID_PATH.exists():
             with open(SCENARIO_ID_PATH, "r") as fp:
                 last_scenario_id = fp.read().strip()
-                try:
-                    scenario_id = int(last_scenario_id) + 1
-                except ValueError:
-                    raise ValueError(
-                        f"Scenario ID {last_scenario_id} is not a positive integer. "
-                    )
-                if scenario_id < 0:
-                    raise ValueError(
-                        f"Scenario ID {scenario_id} is not a positive integer. "
-                    )
+                if len(last_scenario_id) != 0:
+                    try:
+                        scenario_id = int(last_scenario_id) + 1
+                    except ValueError:
+                        raise ValueError(
+                            f"Scenario ID {last_scenario_id} is not a positive integer. "
+                        )
+                    if scenario_id < 0:
+                        raise ValueError(
+                            f"Scenario ID {scenario_id} is not a positive integer. "
+                        )
+                else:
+                    scenario_id = 0
             with open(SCENARIO_ID_PATH, "w") as fp:
                 fp.write(f"{scenario_id}")
         else:
@@ -403,7 +409,7 @@ class ScenarioLogger:
                     self.join_strategy,
                     self.aggregation,
                     self.target_dl,
-                    self.k_fold,
+                    self.n_splits,
                     self.results["n_candidates"],
                 ],
             )
@@ -538,9 +544,8 @@ class RunLogger:
                     self.parameters["join_strategy"],
                     self.parameters["aggregation"],
                     self.fold_id,
-                    self.timestamps["run_start"],
-                    self.timestamps["run_end"],
-                    self.durations["run_duration"],
+                    self.durations["fit_time"],
+                    self.durations["score_time"],
                     self.timestamps.get("join_start", ""),
                     self.timestamps.get("join_end", ""),
                     self.durations.get("join_duration", ""),
@@ -549,6 +554,7 @@ class RunLogger:
                     self.parameters.get("size_postjoin", ""),
                     self.results.get("rmse", ""),
                     self.results.get("r2score", ""),
+                    
                 ],
             )
         )

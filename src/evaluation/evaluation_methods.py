@@ -1,5 +1,5 @@
 """Evaluation methods"""
-#TODO: Fix imports
+# TODO: Fix imports
 import hashlib
 import logging
 from copy import deepcopy
@@ -10,7 +10,7 @@ import pandas as pd
 import polars as pl
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import KFold, ShuffleSplit
+from sklearn.model_selection import KFold, ShuffleSplit, cross_validate
 from tqdm import tqdm
 from woodwork.logical_types import Categorical, Double
 
@@ -26,7 +26,6 @@ import cProfile, pstats, io
 from pstats import SortKey
 
 pr = cProfile.Profile()
-
 
 
 repo = git.Repo(search_parent_directories=True)
@@ -68,6 +67,62 @@ def prepare_table_for_evaluation(df, num_features=None, cat_features=None):
     return df, num_features, cat_features
 
 
+def run_on_table_cross_valid(
+    src_df: pl.DataFrame,
+    num_features,
+    cat_features,
+    scenario_logger,
+    target_column="target",
+    verbose=0,
+    iterations=1000,
+    n_splits=5,
+    test_split=0.25,
+    random_state=42,
+    additional_parameters=None,
+    additional_timestamps=None,
+):
+    y = src_df[target_column].to_pandas()
+    # df = src_df.drop(target_column).to_pandas()
+    df = src_df.drop(target_column)
+    # df = df.fillna("null")
+    df = df.fill_null(value="null")
+    df = df.fill_nan(value=np.nan)
+    df = df.to_pandas()
+
+    model = CatBoostRegressor(
+        cat_features=cat_features,
+        iterations=iterations,
+        #   task_type="GPU",
+        #   devices="0"
+    )
+
+    results=cross_validate(
+        model,
+        X=df,
+        y=y,
+        scoring=("r2", "neg_root_mean_squared_error"),
+        cv=n_splits,
+        n_jobs=-1,
+        fit_params={"verbose": verbose},
+    )
+
+    for fold in range(n_splits):
+        run_logger = RunLogger(
+            scenario_logger,
+            fold_id=fold,
+            additional_parameters=additional_parameters,
+        )
+        run_logger.durations["fit_time"]=results["fit_time"][fold]
+        run_logger.durations["score_time"]=results["score_time"][fold]
+        run_logger.results["rmse"] = results["test_neg_root_mean_squared_error"][fold]
+        run_logger.results["r2score"] = results["test_r2"][fold]
+        run_logger.set_run_status("SUCCESS")
+
+        alt_logger.info(run_logger.to_str())
+
+    return 
+
+
 def run_on_table(
     src_df: pl.DataFrame,
     num_features,
@@ -80,7 +135,7 @@ def run_on_table(
     test_split=0.25,
     random_state=42,
     additional_parameters=None,
-    additional_timestamps=None
+    additional_timestamps=None,
 ):
     y = src_df[target_column].to_pandas()
     # df = src_df.drop(target_column).to_pandas()
@@ -102,7 +157,7 @@ def run_on_table(
             additional_parameters=additional_parameters,
         )
         run_logger.update_timestamps(additional_timestamps)
-        
+
         run_logger.timestamps["run_start"] = dt.datetime.now()
         try:
             X_train = df.iloc[train_indices]
@@ -145,8 +200,9 @@ def execute_on_candidates(
     cat_features,
     verbose=1,
     iterations=1000,
+    n_splits=5,
     join_strategy="left",
-    aggregation="none"
+    aggregation="none",
 ):
     result_dict = {}
     for index_name, index_cand in join_candidates.items():
@@ -159,9 +215,7 @@ def execute_on_candidates(
             left_on = mdata.left_on
             right_on = mdata.right_on
 
-            add_timestamps = {
-                "join_start": dt.datetime.now()
-            }
+            add_timestamps = {"join_start": dt.datetime.now()}
             if aggregation == "dfs":
                 logger.debug("Start DFS.")
 
@@ -207,25 +261,26 @@ def execute_on_candidates(
             merged[num_features].fill_nan(np.nan)
 
             add_params = {
-                    "source_table": Path(src_md["full_path"]).stem,
-                    "candidate_table": cnd_md["full_path"],
-                    "index_name": index_name,
-                    "left_on": left_on,
-                    "right_on": right_on,
-                    "similarity": mdata.similarity_score,
-                    "size_prejoin": len(source_table),
-                    "size_postjoin": len(merged),
+                "source_table": Path(src_md["full_path"]).stem,
+                "candidate_table": cnd_md["full_path"],
+                "index_name": index_name,
+                "left_on": left_on,
+                "right_on": right_on,
+                "similarity": mdata.similarity_score,
+                "size_prejoin": len(source_table),
+                "size_postjoin": len(merged),
             }
 
-            run_on_table(
+            run_on_table_cross_valid(
                 merged,
                 num_features,
                 cat_features,
                 scenario_logger=scenario_logger,
                 verbose=verbose,
+                n_splits=n_splits,
                 iterations=iterations,
                 additional_parameters=add_params,
-                additional_timestamps=add_timestamps
+                additional_timestamps=add_timestamps,
             )
     return
 

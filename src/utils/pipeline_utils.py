@@ -231,6 +231,7 @@ def evaluate_joins(
     num_features=None,
     verbose=1,
     iterations=1000,
+    n_splits=5,
     join_strategy="left",
     aggregation="none",
 ):
@@ -244,11 +245,12 @@ def evaluate_joins(
     print("Running on base table.")
 
     if join_strategy == "nojoin":
-        em.run_on_table(
+        em.run_on_table_cross_valid(
             source_table,
             num_features,
             cat_features,
             scenario_logger,
+            n_splits=n_splits,
             verbose=verbose,
             iterations=iterations,
         )
@@ -263,6 +265,7 @@ def evaluate_joins(
             cat_features,
             verbose=verbose,
             iterations=iterations,
+            n_splits=n_splits,
             join_strategy=join_strategy,
             aggregation=aggregation,
         )

@@ -127,7 +127,7 @@ def parse_arguments():
     
     
     parser.add_argument(
-        "--k_fold",
+        "--n_splits",
         action="store",
         type=int,
         default=5,
@@ -181,7 +181,7 @@ if __name__ == "__main__":
         join_strategy=args.join_strategy,
         aggregation=args.aggregation,
         target_dl = args.yadl_version,
-        k_fold = args.k_fold
+        n_splits = args.n_splits
     )
     
     logger.info(f"Reading metadata from {metadata_index_path}")
@@ -250,6 +250,7 @@ if __name__ == "__main__":
             num_features=None,
             verbose=0,
             iterations=args.iterations,
+            n_splits=args.n_splits,
             join_strategy=args.join_strategy,
             aggregation=args.aggregation,
         )
