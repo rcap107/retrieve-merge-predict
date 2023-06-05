@@ -12,7 +12,6 @@ new, redudant versions of the already known datasets. This is done to reflect
 real-life data analysis operations and table augmentations. 
 
 # Scripts
-`main_dataprep.py` is used to prepare the candidate set given a list of datasets. 
 
 
 # Dir structure
@@ -25,4 +24,13 @@ real-life data analysis operations and table augmentations.
 
 
 ## Logging
-- [mlflow](https://mlflow.org)
+
+
+# How to execute
+
+## Preparing the metadata
+
+## Running the indexing
+
+## Testing the performance
+
