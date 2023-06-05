@@ -109,7 +109,7 @@ def parse_arguments():
         action="store",
         type=str,
         default="left",
-        choices=["left", "right", "inner", "outer"],
+        choices=["left", "right", "inner", "outer", "nojoin"],
         help="Number of iterations to be executed in the evaluation step.",
     )
 
@@ -193,12 +193,17 @@ if __name__ == "__main__":
         mdata_index = MetadataIndex(index_path=metadata_index_path)
 
     # print("Loading indices.")
+    scl.add_timestamp("start_load_index")
     indices = utils.load_indices(index_dir)
+    scl.add_timestamp("end_load_index")
 
     # Query index
     # print("Querying.")
 
-    df = pl.read_parquet(query_data_path)
+    # I am removing all duplicate rows
+    scl.add_timestamp("start_querying")
+    df = pl.read_parquet(query_data_path).unique()
+    # TODO: Fix logging
     logger.info(f"Querying from dataset {query_data_path}")
     query_metadata = RawDataset(
         query_data_path.resolve(), "queries", "data/metadata/queries"
@@ -219,7 +224,8 @@ if __name__ == "__main__":
         query_metadata, query_column, query, indices, mdata_index, args.top_k
     )
     logger.info("Querying end")
-
+    scl.add_timestamp("end_querying")
+    
     scl.results["n_candidates"] = len(candidates_by_index["minhash"])
 
     if args.query_result_path is not None:
@@ -234,6 +240,7 @@ if __name__ == "__main__":
     # profiling_results = profile_joins(candidates_by_index, logger=logger)
 
     if not args.dry_run:
+        scl.add_timestamp("start_evaluation")
         logger.info("Evaluating join results.")
         utils.evaluate_joins(
             df,
@@ -247,13 +254,15 @@ if __name__ == "__main__":
             aggregation=args.aggregation,
         )
         logger.info("Evaluation complete.")
+        scl.add_timestamp("end_evaluation")
 
     # results["target_dl"] = args.yadl_version
     # results_path = Path("results/run_results.csv")
     # results.to_csv(
     #     results_path, mode="a", index=False, header=not results_path.exists()
     # )
-    scl.add_timestamp("end")
+    scl.add_timestamp("end_process")
+
     scl.write_to_file("results/scenario_results.txt")
     scenario_logger.info(scl.to_string())
     logger.info("Run end.")

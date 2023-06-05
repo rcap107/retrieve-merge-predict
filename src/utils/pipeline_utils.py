@@ -13,6 +13,10 @@ from src.utils.data_structures import RunLogger
 
 import git
 
+import cProfile, pstats, io
+from pstats import SortKey
+
+
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
 
@@ -239,29 +243,29 @@ def evaluate_joins(
     # Run on source table alone
     print("Running on base table.")
 
-    em.run_on_table(
-        source_table,
-        num_features,
-        cat_features,
-        scenario_logger,
-        verbose=verbose,
-        iterations=iterations,
-    )
+    if join_strategy == "nojoin":
+        em.run_on_table(
+            source_table,
+            num_features,
+            cat_features,
+            scenario_logger,
+            verbose=verbose,
+            iterations=iterations,
+        )
 
-
-    # Run on all candidates
-    print("Running on candidates, one at a time.")
-    em.execute_on_candidates(
-        join_candidates,
-        source_table,
-        scenario_logger,
-        num_features,
-        cat_features,
-        verbose=verbose,
-        iterations=iterations,
-        join_strategy=join_strategy,
-        aggregation=aggregation,
-    )
+    else:
+        # Run on all candidates
+        em.execute_on_candidates(
+            join_candidates,
+            source_table,
+            scenario_logger,
+            num_features,
+            cat_features,
+            verbose=verbose,
+            iterations=iterations,
+            join_strategy=join_strategy,
+            aggregation=aggregation,
+        )
 
     # em.execute_full_join(
     #     join_candidates,

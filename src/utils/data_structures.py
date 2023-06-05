@@ -13,6 +13,8 @@ import zlib
 import polars as pl
 import datetime as dt
 
+from time import process_time
+
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
@@ -329,9 +331,18 @@ class ScenarioLogger:
         target_dl,
         k_fold,
     ) -> None:
+        self.timestamps = {
+            "start_process": dt.datetime.now(),
+            "end_process": 0,
+            "start_load_index": 0,
+            "end_load_index": 0,
+            "start_querying": 0,
+            "end_querying": 0,
+            "start_evaluation": 0,
+            "end_evaluation": 0,
+        }
         self.scenario_id = self.find_latest_scenario_id()
         self.start_timestamp = None
-        self.add_timestamp("start")
         self.end_timestamp = None
         self.source_table = source_table
         self.git_hash = git_hash
@@ -341,14 +352,13 @@ class ScenarioLogger:
         self.target_dl = target_dl
         self.k_fold = k_fold
         self.results = {}
+        self.process_time = 0
 
     def add_timestamp(self, which_ts):
-        if which_ts == "start":
-            self.start_timestamp = dt.datetime.now()
-        elif which_ts == "end":
-            self.end_timestamp = dt.datetime.now()
-        else:
-            raise ValueError(which_ts)
+        self.timestamps[which_ts] = dt.datetime.now() 
+        
+    def add_process_time(self):
+        self.process_time = process_time()
 
     def find_latest_scenario_id(self):
         """Utility function for opening the scenario_id file, checking for errors and
@@ -387,19 +397,21 @@ class ScenarioLogger:
                 str,
                 [
                     self.scenario_id,
-                    self.start_timestamp,
-                    self.end_timestamp,
-                    self.source_table,
                     self.git_hash,
+                    self.source_table,
                     self.iterations,
                     self.join_strategy,
                     self.aggregation,
                     self.target_dl,
                     self.k_fold,
-                    self.results["n_candidates"]
+                    self.results["n_candidates"],
                 ],
             )
         )
+        
+        for ts in self.timestamps.values():
+            str_res += str(ts)
+        
         return str_res
 
     def write_to_file(self, out_path):
