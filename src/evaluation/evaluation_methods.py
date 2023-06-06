@@ -61,18 +61,13 @@ def measure_r2(y_true, y_pred):
     return r2
 
 
-def prepare_table_for_evaluation(df, test_size=0.2):
+def prepare_table_for_evaluation(df):
     df, num_features, cat_features = cast_features(df)
     df = df.fill_nan("null").fill_null("null")
-
-    train_split, test_split = train_test_split(df.to_pandas(), test_size=test_size)
-
     return (
         df,
         num_features,
         cat_features,
-        pl.from_pandas(train_split),
-        pl.from_pandas(test_split),
     )
 
 
@@ -154,17 +149,17 @@ def run_on_table_cross_valid(
         return_estimator=True,
     )
 
-    for fold in range(n_splits):
-        run_logger = RunLogger(
-            scenario_logger,
-            fold_id=fold,
-            additional_parameters=additional_parameters,
-        )
-        run_logger.durations["fit_time"] = results["fit_time"][fold]
-        run_logger.durations["score_time"] = results["score_time"][fold]
-        run_logger.results["rmse"] = results["test_neg_root_mean_squared_error"][fold]
-        run_logger.results["r2score"] = results["test_r2"][fold]
-        run_logger.set_run_status("SUCCESS")
+    # for fold in range(n_splits):
+    #     run_logger = RunLogger(
+    #         scenario_logger,
+    #         fold_id=fold,
+    #         additional_parameters=additional_parameters,
+    #     )
+    #     run_logger.durations["fit_time"] = results["fit_time"][fold]
+    #     run_logger.durations["score_time"] = results["score_time"][fold]
+    #     run_logger.results["rmse"] = results["test_neg_root_mean_squared_error"][fold]
+    #     run_logger.results["r2score"] = results["test_r2"][fold]
+    #     run_logger.set_run_status("SUCCESS")
 
         # alt_logger.info(run_logger.to_str())
 
@@ -190,6 +185,10 @@ def execute_on_candidates(
     join_strategy="left",
     cuda=False,
 ):
+    durations = {}
+    join_durations = []
+    train_durations = []
+    
     result_list = []
     for index_name, index_cand in join_candidates.items():
         for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
@@ -200,8 +199,7 @@ def execute_on_candidates(
             left_on = mdata.left_on
             right_on = mdata.right_on
 
-            add_timestamps = {"join_start": dt.datetime.now()}
-
+            start_join = dt.datetime.now()
             merged = execute_join_complete(
                 source_table,
                 candidate_table,
@@ -210,7 +208,7 @@ def execute_on_candidates(
                 how=join_strategy,
                 aggregation=aggregation,
             )
-
+            
             # logger.debug("End joining.")
 
             # TODO: FIX NUM_ CAT_ FEATURES
@@ -226,6 +224,9 @@ def execute_on_candidates(
 
             merged[cat_features].fill_null("null")
             merged[num_features].fill_nan(np.nan)
+            end_join = dt.datetime.now()
+            join_duration = (end_join - start_join).total_seconds()
+            join_durations.append(join_duration)
 
             add_params = {
                 "source_table": Path(src_md["full_path"]).stem,
@@ -238,6 +239,7 @@ def execute_on_candidates(
                 "size_postjoin": len(merged),
             }
 
+            start_train = dt.datetime.now()
             best_score, best_model = run_on_table_cross_valid(
                 merged,
                 num_features,
@@ -248,9 +250,13 @@ def execute_on_candidates(
                 n_splits=n_splits,
                 iterations=iterations,
                 additional_parameters=add_params,
-                additional_timestamps=add_timestamps,
+                additional_timestamps={},
                 cuda=cuda,
             )
+            end_train = dt.datetime.now()
+            train_duration = (end_train - start_train).total_seconds()
+            train_durations.append(train_duration)
+
             result_list.append((best_score, best_model))
 
     result_list.sort(key=lambda x: x[0], reverse=True)
@@ -262,6 +268,8 @@ def execute_on_candidates(
     left_on = best_candidate_mdata.left_on
     right_on = best_candidate_mdata.right_on
 
+
+    start_eval_join = dt.datetime.now()
     merged_test = execute_join_complete(
         test_table,
         candidate_table,
@@ -270,10 +278,21 @@ def execute_on_candidates(
         how=join_strategy,
         aggregation=aggregation,
     )
+    end_eval_join = dt.datetime.now()
+    eval_join_duration = (end_eval_join - start_eval_join).total_seconds()
 
+    start_eval = dt.datetime.now()
     rmse, r2 = evaluate_model_on_test_split(merged_test, hash_of_best_candidate)
+    end_eval = dt.datetime.now()
+    eval_duration = (end_eval - start_eval).total_seconds()
 
-    return rmse, r2
+    durations["avg_join"] = np.mean(join_durations)
+    durations["avg_train"] = np.mean(train_durations)
+    durations["eval_join"] = eval_join_duration
+    durations["eval"] = eval_duration
+
+
+    return (rmse, r2), durations
 
 
 def execute_full_join(

@@ -243,7 +243,6 @@ if __name__ == "__main__":
             query_metadata,
             scl,
             join_candidates=candidates_by_index,
-            num_features=None,
             verbose=0,
             iterations=args.iterations,
             n_splits=args.n_splits,

@@ -12,6 +12,10 @@ from src.table_integration.join_profiling import profile_joins
 from src.utils.data_structures import RunLogger
 from catboost import CatBoostError, CatBoostRegressor
 import logging
+import numpy as np
+
+from sklearn.model_selection import ShuffleSplit
+
 
 import git
 
@@ -243,89 +247,97 @@ def querying(
 
 
 def evaluate_joins(
-    source_table,
+    base_table,
     source_metadata,
     scenario_logger,
     join_candidates: dict,
-    num_features=None,
     verbose=1,
     iterations=1000,
     n_splits=5,
+    test_size=0.25,
     join_strategy="left",
     aggregation="none",
     cuda=False,
 ):
-    source_table, num_features, cat_features, train_split, test_split = em.prepare_table_for_evaluation(
-        source_table, num_features
-    )
-
-    results_list = []
-
-    run_logger = RunLogger(scenario_logger, 0, {})
+    
+    rs = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+    
+    for i, (train_index, test_index) in enumerate(rs.split(base_table)):
         
-    base_result, base_model =  em.run_on_table_cross_valid(
-        train_split,
-        num_features,
-        cat_features,
-        scenario_logger,
-        n_splits=n_splits,
-        run_label=source_metadata.info["df_name"],
-        verbose=verbose,
-        test_split=test_split,
-        iterations=iterations,
-        cuda=cuda,
-    )
-    
-    model_folder = Path("data/models")
-    results_base = em.evaluate_model_on_test_split(test_split, base_result[1])
+        left_table_train, num_features, cat_features = em.prepare_table_for_evaluation(
+            base_table[train_index]
+        )
+        
+        left_table_test, num_features, cat_features = em.prepare_table_for_evaluation(
+            base_table[test_index]
+        )
+        
 
-    run_logger.results["rmse"] = results_base[0]
-    run_logger.results["r2score"] = results_base[1]
-    run_logger.set_run_status("SUCCESS")
+        run_logger = RunLogger(scenario_logger, i, {"aggregation": "nojoin"})
+        
+        run_logger.add_time("start_training")
+        base_result, base_model =  em.run_on_table_cross_valid(
+            left_table_train,
+            num_features,
+            cat_features,
+            scenario_logger,
+            n_splits=n_splits,
+            run_label=source_metadata.info["df_name"],
+            verbose=verbose,
+            test_split=left_table_test,
+            iterations=iterations,
+            cuda=cuda,
+        )
+        run_logger.add_time("end_training")
+        run_logger.add_duration("start_training", "end_training", "training_duration")
+        run_logger.durations["avg_train"] = run_logger.durations["training_duration"]
+        
+        model_folder = Path("data/models")
+        run_logger.add_time("start_eval")
+        results_base = em.evaluate_model_on_test_split(left_table_test, base_result[1])
+        run_logger.add_time("end_eval")
+        run_logger.add_duration("start_eval", "end_eval", "eval")
 
-    crossval_logger.info(run_logger.to_str())
+        run_logger.results["rmse"] = results_base[0]
+        run_logger.results["r2score"] = results_base[1]
+        run_logger.set_run_status("SUCCESS")
 
-
-    # Run on all candidates
-    
-    add_params = {
-        "candidate_table": "best_candidate",
-        "index_name": "minhash"
-    }
-    run_logger = RunLogger(scenario_logger, 1, additional_parameters=add_params)
-    
-    results_best = em.execute_on_candidates(
-        join_candidates,
-        train_split,
-        test_split,
-        aggregation,
-        scenario_logger,
-        num_features,
-        cat_features,
-        verbose=verbose,
-        iterations=iterations,
-        n_splits=n_splits,
-        join_strategy=join_strategy,
-        cuda=cuda,
-    )
-
-    print(f"base: rmse {results_base[0]} r2 {results_base[1]}")
-    print(f"joined: rmse {results_best[0]} r2 {results_best[1]}")
-
-    run_logger.results["rmse"] = results_best[0]
-    run_logger.results["r2score"] = results_best[1]
-    run_logger.set_run_status("SUCCESS")
-
-    crossval_logger.info(run_logger.to_str())
+        crossval_logger.info(run_logger.to_str())
 
 
-    # em.execute_full_join(
-    #     join_candidates,
-    #     source_table,
-    #     source_metadata,
-    #     num_features,
-    #     verbose=verbose,
-    #     iterations=iterations,
-    # )
+        # Run on all candidates
+        
+        add_params = {
+            "candidate_table": "best_candidate",
+            "index_name": "minhash"
+        }
+        run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
+        
+        results_best, durations = em.execute_on_candidates(
+            join_candidates,
+            left_table_train,
+            left_table_test,
+            aggregation,
+            scenario_logger,
+            num_features,
+            cat_features,
+            verbose=verbose,
+            iterations=iterations,
+            n_splits=n_splits,
+            join_strategy=join_strategy,
+            cuda=cuda,
+        )
+
+        print(f"Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}")
+        print(f"Join table -  RMSE {results_best[0]:.2f}  - R2 score {results_best[1]:.2f}")
+
+        run_logger.results["rmse"] = results_best[0]
+        run_logger.results["r2score"] = results_best[1]
+        run_logger.durations.update(durations)
+        run_logger.set_run_status("SUCCESS")
+
+        crossval_logger.info(run_logger.to_str())
+
+
 
     return

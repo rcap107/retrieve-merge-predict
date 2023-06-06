@@ -166,6 +166,8 @@ def execute_join(
 
         if dedup:
             joined_table = prepare_deduplicated_table(joined_table, left_table.columns)
+        else:
+            joined_table = prepare_deduplicated_table_simple(joined_table, left_table.columns)
 
     return joined_table
 
@@ -182,4 +184,8 @@ def prepare_deduplicated_table(joined_table, left_columns):
         df_list.append(g)
 
     df_dedup = pl.concat(df_list).unique()
+    return df_dedup
+
+def prepare_deduplicated_table_simple(joined_table: pl.DataFrame, left_columns):
+    df_dedup = joined_table.unique(left_columns, keep="first")
     return df_dedup

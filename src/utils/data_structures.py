@@ -420,6 +420,13 @@ class ScenarioLogger:
         
         return str_res.rstrip(",")
 
+    def pretty_print(self):
+        print(f'Scenario ID: {self.scenario_id}')
+        print(f'Source table: {self.source_table}')
+        print(f'Iterations: {self.iterations}')
+        print(f'Join strategy: {self.join_strategy}')
+        print(f'DL Variant: {self.target_dl}')
+
     def write_to_file(self, out_path):
         with open(out_path, "a") as fp:
             fp.write(self.to_string() + "\n")
@@ -544,14 +551,10 @@ class RunLogger:
                     self.parameters["join_strategy"],
                     self.parameters["aggregation"],
                     self.fold_id,
-                    # self.durations["fit_time"],
-                    # self.durations["score_time"],
-                    # self.timestamps.get("join_start", ""),
-                    # self.timestamps.get("join_end", ""),
-                    # self.durations.get("join_duration", ""),
-                    # self.parameters.get("similarity", ""),
-                    # self.parameters.get("size_prejoin", ""),
-                    # self.parameters.get("size_postjoin", ""),
+                    self.durations["avg_train"],
+                    self.durations["eval"],
+                    self.durations.get("avg_join", ""),
+                    self.durations.get("eval_join", ""),
                     self.results.get("rmse", ""),
                     self.results.get("r2score", ""),
                     
