@@ -10,38 +10,45 @@ import pandas as pd
 import polars as pl
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import KFold, ShuffleSplit, cross_validate
+from sklearn.model_selection import (
+    KFold,
+    ShuffleSplit,
+    cross_validate,
+    train_test_split,
+)
 from tqdm import tqdm
 from woodwork.logical_types import Categorical, Double
 
 from src.data_preparation.utils import cast_features
-from src.table_integration.utils_joins import execute_join, prepare_dfs_table
+from src.table_integration.utils_joins import (
+    execute_join,
+    prepare_dfs_table,
+    execute_join_complete,
+)
 from src.utils.data_structures import RunLogger, ScenarioLogger
 
 import datetime as dt
 from pathlib import Path
 import git
 
-import cProfile, pstats, io
-from pstats import SortKey
-
-pr = cProfile.Profile()
-
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
 
-logger = logging.getLogger("main_pipeline")
-alt_logger = logging.getLogger("evaluation_method")
-alt_logger.setLevel(logging.DEBUG)
+# logger = logging.getLogger("main_pipeline")
+# alt_logger = logging.getLogger("evaluation_method")
+# alt_logger.setLevel(logging.DEBUG)
 
-log_format = "%(message)s"
-res_formatter = logging.Formatter(fmt=log_format)
+# log_format = "%(message)s"
+# res_formatter = logging.Formatter(fmt=log_format)
 
-rfh = logging.FileHandler(filename=f"results/results_{repo_sha}.log")
-rfh.setFormatter(res_formatter)
+# rfh = logging.FileHandler(filename=f"results/results_{repo_sha}.log")
+# rfh.setFormatter(res_formatter)
 
-alt_logger.addHandler(rfh)
+# alt_logger.addHandler(rfh)
+
+# TODO: move this somewhere else
+model_folder = Path("data/models")
 
 
 def measure_rmse(y_true, y_pred, squared=False):
@@ -54,7 +61,22 @@ def measure_r2(y_true, y_pred):
     return r2
 
 
-def prepare_table_for_evaluation(df, num_features=None, cat_features=None):
+def prepare_table_for_evaluation(df, test_size=0.2):
+    df, num_features, cat_features = cast_features(df)
+    df = df.fill_nan("null").fill_null("null")
+
+    train_split, test_split = train_test_split(df.to_pandas(), test_size=test_size)
+
+    return (
+        df,
+        num_features,
+        cat_features,
+        pl.from_pandas(train_split),
+        pl.from_pandas(test_split),
+    )
+
+
+def prepare_table_for_evaluation_old(df, num_features=None, cat_features=None):
     if num_features is None:
         df, num_features, cat_features = cast_features(df)
     else:
@@ -62,9 +84,24 @@ def prepare_table_for_evaluation(df, num_features=None, cat_features=None):
             df = df.with_columns(pl.col(col).cast(pl.Float64))
         cat_features = [col for col in df.columns if col not in num_features]
 
-    # df = df.drop_nulls()
     df = df.fill_null("null")
     return df, num_features, cat_features
+
+
+def evaluate_model_on_test_split(test_split, run_label):
+    # TODO: add proper target column name rather than hardcoding "target"
+    test_split = test_split.fill_nan("null").fill_null("null")
+    y_test = test_split["target"].cast(pl.Float64)
+    test_split = test_split.drop("target").to_pandas()
+    model_name = Path(model_folder, run_label)
+    model = CatBoostRegressor()
+    model.load_model(model_name)
+    y_pred = model.predict(test_split)
+
+    rmse = measure_rmse(y_test, y_pred)
+    r2 = measure_r2(y_test, y_pred)
+
+    return (rmse, r2)
 
 
 def run_on_table_cross_valid(
@@ -73,15 +110,19 @@ def run_on_table_cross_valid(
     cat_features,
     scenario_logger,
     target_column="target",
+    run_label=None,
     verbose=0,
     iterations=1000,
     n_splits=5,
-    test_split=0.25,
+    test_split=None,
     random_state=42,
     additional_parameters=None,
     additional_timestamps=None,
-    cuda=False
+    cuda=False,
 ):
+    # TODO: Better error chekcing
+    if run_label is None:
+        raise ValueError
     y = src_df[target_column].to_pandas()
     # df = src_df.drop(target_column).to_pandas()
     df = src_df.drop(target_column)
@@ -94,24 +135,23 @@ def run_on_table_cross_valid(
         model = CatBoostRegressor(
             cat_features=cat_features,
             iterations=iterations,
-              task_type="GPU",
-              devices="0"
+            task_type="GPU",
+            #   devices="0"
         )
     else:
         model = CatBoostRegressor(
-            cat_features=cat_features,
-            iterations=iterations,
-            l2_leaf_reg=0.01
+            cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01
         )
 
-    results=cross_validate(
+    results = cross_validate(
         model,
         X=df,
         y=y,
         scoring=("r2", "neg_root_mean_squared_error"),
         cv=n_splits,
-        n_jobs=8,
+        n_jobs=4,
         fit_params={"verbose": verbose},
+        return_estimator=True,
     )
 
     for fold in range(n_splits):
@@ -120,89 +160,27 @@ def run_on_table_cross_valid(
             fold_id=fold,
             additional_parameters=additional_parameters,
         )
-        run_logger.durations["fit_time"]=results["fit_time"][fold]
-        run_logger.durations["score_time"]=results["score_time"][fold]
+        run_logger.durations["fit_time"] = results["fit_time"][fold]
+        run_logger.durations["score_time"] = results["score_time"][fold]
         run_logger.results["rmse"] = results["test_neg_root_mean_squared_error"][fold]
         run_logger.results["r2score"] = results["test_r2"][fold]
         run_logger.set_run_status("SUCCESS")
 
-        alt_logger.info(run_logger.to_str())
+        # alt_logger.info(run_logger.to_str())
 
-    return 
+    best_res = np.argmax(results["test_r2"])
 
+    best_estimator = results["estimator"][best_res]
+    best_estimator.save_model(Path(model_folder, run_label))
 
-def run_on_table(
-    src_df: pl.DataFrame,
-    num_features,
-    cat_features,
-    scenario_logger,
-    target_column="target",
-    verbose=0,
-    iterations=1000,
-    n_splits=5,
-    test_split=0.25,
-    random_state=42,
-    additional_parameters=None,
-    additional_timestamps=None,
-):
-    y = src_df[target_column].to_pandas()
-    # df = src_df.drop(target_column).to_pandas()
-    df = src_df.drop(target_column)
-    # df = df.fillna("null")
-    df = df.fill_null(value="null")
-    df = df.fill_nan(value=np.nan)
-    df = df.to_pandas()
-
-    # k_fold = KFold(n_splits=n_splits)
-    model_selector = ShuffleSplit(n_splits=n_splits, test_size=test_split)
-    if len(df) < 5:
-        raise ValueError
-
-    for fold_id, (train_indices, test_indices) in enumerate(model_selector.split(df)):
-        run_logger = RunLogger(
-            scenario_logger,
-            fold_id=fold_id,
-            additional_parameters=additional_parameters,
-        )
-        run_logger.update_timestamps(additional_timestamps)
-
-        run_logger.timestamps["run_start"] = dt.datetime.now()
-        try:
-            X_train = df.iloc[train_indices]
-            y_train = y[train_indices]
-            X_test = df.iloc[test_indices]
-            y_test = y[test_indices]
-
-            model = CatBoostRegressor(
-                cat_features=cat_features,
-                iterations=iterations,
-                #   task_type="GPU",
-                #   devices="0"
-            )
-            model.fit(X_train, y_train, verbose=verbose)
-            y_pred = model.predict(X_test)
-            rmse = measure_rmse(y_test, y_pred)
-            r2score = measure_r2(y_test, y_pred)
-
-            run_logger.results["rmse"] = rmse
-            run_logger.results["r2score"] = r2score
-            run_logger.timestamps["run_end"] = dt.datetime.now()
-            run_logger.add_duration("run_start", "run_end", "run_duration")
-
-            run_logger.set_run_status("SUCCESS")
-        except (CatBoostError, ValueError) as exc:
-            run_logger.timestamps["run_end"] = dt.datetime.now()
-            run_logger.add_duration("run_start", "run_end")
-            run_logger.set_run_status(f"FAILURE: {type(exc).__name__}")
-
-        alt_logger.info(run_logger.to_str())
-
-    return run_logger
+    return (max(results["test_r2"]), run_label), best_estimator
 
 
 def execute_on_candidates(
     join_candidates,
     source_table,
+    test_table,
+    aggregation,
     scenario_logger,
     num_features,
     cat_features,
@@ -210,51 +188,31 @@ def execute_on_candidates(
     iterations=1000,
     n_splits=5,
     join_strategy="left",
-    aggregation="none",
     cuda=False,
 ):
-    result_dict = {}
+    result_list = []
     for index_name, index_cand in join_candidates.items():
         for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
             # TODO reimplement this to have a single function that takes the candidate and executes the entire join elsewhere
             src_md = mdata.source_metadata
             cnd_md = mdata.candidate_metadata
-            source_table = pl.read_parquet(src_md["full_path"]).unique()
             candidate_table = pl.read_parquet(cnd_md["full_path"])
             left_on = mdata.left_on
             right_on = mdata.right_on
 
             add_timestamps = {"join_start": dt.datetime.now()}
-            if aggregation == "dfs":
-                # logger.debug("Start DFS.")
 
-                merged = prepare_dfs_table(
-                    source_table,
-                    candidate_table,
-                    left_on=left_on,
-                    right_on=right_on,
-                )
-                # logger.debug("End DFS.")
+            merged = execute_join_complete(
+                source_table,
+                candidate_table,
+                left_on=left_on,
+                right_on=right_on,
+                how=join_strategy,
+                aggregation=aggregation,
+            )
 
-            else:
-                if aggregation == "dedup":
-                    dedup = True
-                    jstr = join_strategy + "_dedup"
-                else:
-                    jstr = join_strategy + "_none"
-                    dedup = False
-                # logger.debug("Start joining.")
-                merged = execute_join(
-                    source_table,
-                    candidate_table,
-                    left_on=left_on,
-                    right_on=right_on,
-                    how=join_strategy,
-                    dedup=dedup,
-                )
-                # logger.debug("End joining.")
+            # logger.debug("End joining.")
 
-            add_timestamps["join_end"] = dt.datetime.now()
             # TODO: FIX NUM_ CAT_ FEATURES
             num_features = []
             cat_features = []
@@ -280,19 +238,42 @@ def execute_on_candidates(
                 "size_postjoin": len(merged),
             }
 
-            run_on_table_cross_valid(
+            best_score, best_model = run_on_table_cross_valid(
                 merged,
                 num_features,
                 cat_features,
                 scenario_logger=scenario_logger,
                 verbose=verbose,
+                run_label=hash_,
                 n_splits=n_splits,
                 iterations=iterations,
                 additional_parameters=add_params,
                 additional_timestamps=add_timestamps,
-                cuda=cuda
+                cuda=cuda,
             )
-    return
+            result_list.append((best_score, best_model))
+
+    result_list.sort(key=lambda x: x[0], reverse=True)
+
+    hash_of_best_candidate = result_list[0][0][1]
+    best_candidate_mdata = join_candidates["minhash"][hash_of_best_candidate]
+    cnd_md = best_candidate_mdata.candidate_metadata
+    candidate_table = pl.read_parquet(cnd_md["full_path"])
+    left_on = best_candidate_mdata.left_on
+    right_on = best_candidate_mdata.right_on
+
+    merged_test = execute_join_complete(
+        test_table,
+        candidate_table,
+        left_on=left_on,
+        right_on=right_on,
+        how=join_strategy,
+        aggregation=aggregation,
+    )
+
+    rmse, r2 = evaluate_model_on_test_split(merged_test, hash_of_best_candidate)
+
+    return rmse, r2
 
 
 def execute_full_join(

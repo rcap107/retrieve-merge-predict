@@ -86,6 +86,47 @@ def prepare_dfs_table(
     return pl_df
 
 
+def execute_join_complete(
+    left_table: pl.DataFrame,
+    right_table: pl.DataFrame,
+    on=None,
+    left_on=None,
+    right_on=None,
+    how="left",
+    aggregation=None,
+    suffix=None  
+):
+    if aggregation == "dfs":
+        # logger.debug("Start DFS.")
+
+        merged = prepare_dfs_table(
+            left_table,
+            right_table,
+            left_on=left_on,
+            right_on=right_on,
+        )
+        # logger.debug("End DFS.")
+
+    else:
+        if aggregation == "dedup":
+            dedup = True
+            jstr = how + "_dedup"
+        else:
+            jstr = how + "_none"
+            dedup = False
+
+        merged = execute_join(
+            left_table,
+            right_table,
+            left_on=left_on,
+            right_on=right_on,
+            how=how,
+            dedup=dedup,
+        )
+    return merged
+
+
+
 def execute_join(
     left_table: pl.DataFrame,
     right_table: pl.DataFrame,
@@ -93,7 +134,7 @@ def execute_join(
     left_on=None,
     right_on=None,
     how="left",
-    dedup=False,
+    dedup=None,
     suffix=None
 ):
     if suffix is None:
