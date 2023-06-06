@@ -38,7 +38,7 @@ alt_logger.setLevel(logging.DEBUG)
 log_format = "%(message)s"
 res_formatter = logging.Formatter(fmt=log_format)
 
-rfh = logging.FileHandler(filename="results/results.log")
+rfh = logging.FileHandler(filename=f"results/results_{repo_sha}.log")
 rfh.setFormatter(res_formatter)
 
 alt_logger.addHandler(rfh)
@@ -62,8 +62,8 @@ def prepare_table_for_evaluation(df, num_features=None, cat_features=None):
             df = df.with_columns(pl.col(col).cast(pl.Float64))
         cat_features = [col for col in df.columns if col not in num_features]
 
-    df = df.drop_nulls()
-    # df = df.fill_null("")
+    # df = df.drop_nulls()
+    df = df.fill_null("null")
     return df, num_features, cat_features
 
 
@@ -80,6 +80,7 @@ def run_on_table_cross_valid(
     random_state=42,
     additional_parameters=None,
     additional_timestamps=None,
+    cuda=False
 ):
     y = src_df[target_column].to_pandas()
     # df = src_df.drop(target_column).to_pandas()
@@ -89,12 +90,19 @@ def run_on_table_cross_valid(
     df = df.fill_nan(value=np.nan)
     df = df.to_pandas()
 
-    model = CatBoostRegressor(
-        cat_features=cat_features,
-        iterations=iterations,
-        #   task_type="GPU",
-        #   devices="0"
-    )
+    if cuda:
+        model = CatBoostRegressor(
+            cat_features=cat_features,
+            iterations=iterations,
+              task_type="GPU",
+              devices="0"
+        )
+    else:
+        model = CatBoostRegressor(
+            cat_features=cat_features,
+            iterations=iterations,
+            l2_leaf_reg=0.01
+        )
 
     results=cross_validate(
         model,
@@ -102,7 +110,7 @@ def run_on_table_cross_valid(
         y=y,
         scoring=("r2", "neg_root_mean_squared_error"),
         cv=n_splits,
-        n_jobs=-1,
+        n_jobs=8,
         fit_params={"verbose": verbose},
     )
 
@@ -203,6 +211,7 @@ def execute_on_candidates(
     n_splits=5,
     join_strategy="left",
     aggregation="none",
+    cuda=False,
 ):
     result_dict = {}
     for index_name, index_cand in join_candidates.items():
@@ -217,7 +226,7 @@ def execute_on_candidates(
 
             add_timestamps = {"join_start": dt.datetime.now()}
             if aggregation == "dfs":
-                logger.debug("Start DFS.")
+                # logger.debug("Start DFS.")
 
                 merged = prepare_dfs_table(
                     source_table,
@@ -225,7 +234,7 @@ def execute_on_candidates(
                     left_on=left_on,
                     right_on=right_on,
                 )
-                logger.debug("End DFS.")
+                # logger.debug("End DFS.")
 
             else:
                 if aggregation == "dedup":
@@ -234,7 +243,7 @@ def execute_on_candidates(
                 else:
                     jstr = join_strategy + "_none"
                     dedup = False
-                logger.debug("Start joining.")
+                # logger.debug("Start joining.")
                 merged = execute_join(
                     source_table,
                     candidate_table,
@@ -243,7 +252,7 @@ def execute_on_candidates(
                     how=join_strategy,
                     dedup=dedup,
                 )
-                logger.debug("End joining.")
+                # logger.debug("End joining.")
 
             add_timestamps["join_end"] = dt.datetime.now()
             # TODO: FIX NUM_ CAT_ FEATURES
@@ -281,6 +290,7 @@ def execute_on_candidates(
                 iterations=iterations,
                 additional_parameters=add_params,
                 additional_timestamps=add_timestamps,
+                cuda=cuda
             )
     return
 

@@ -13,7 +13,7 @@ from src.utils.data_structures import ScenarioLogger
 
 import logging
 
-import git 
+import git
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
@@ -30,7 +30,6 @@ rfh = logging.FileHandler(filename="results/scenario_logger.log")
 rfh.setFormatter(res_formatter)
 
 scenario_logger.addHandler(rfh)
-
 
 
 # preparing generic logger
@@ -122,10 +121,6 @@ def parse_arguments():
         help="Number of iterations to be executed in the evaluation step.",
     )
 
-
-    
-    
-    
     parser.add_argument(
         "--n_splits",
         action="store",
@@ -133,7 +128,7 @@ def parse_arguments():
         default=5,
         help="Number of crossvalidation folds.",
     )
-    
+
     parser.add_argument(
         "--top_k",
         action="store",
@@ -147,16 +142,12 @@ def parse_arguments():
         action="store_true",
         help="Skip evaluation.",
     )
-    
+
     parser.add_argument(
         "--cuda",
         action="store_true",
         help="Try to run on GPU.",
     )
-
-
-
-
 
     args = parser.parse_args()
     return args
@@ -164,7 +155,7 @@ def parse_arguments():
 
 if __name__ == "__main__":
     logger.info("Run start.")
-    
+
     args = parse_arguments()
     logger.info(args)
     case = args.yadl_version
@@ -178,18 +169,17 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"File {query_data_path} not found.")
 
     tab_name = query_data_path.stem
-    
-    
+
     scl = ScenarioLogger(
-        source_table = tab_name,
+        source_table=tab_name,
         git_hash=repo_sha,
-        iterations= args.iterations,
+        iterations=args.iterations,
         join_strategy=args.join_strategy,
         aggregation=args.aggregation,
-        target_dl = args.yadl_version,
-        n_splits = args.n_splits
+        target_dl=args.yadl_version,
+        n_splits=args.n_splits,
     )
-    
+
     logger.info(f"Reading metadata from {metadata_index_path}")
     if not metadata_index_path.exists():
         raise FileNotFoundError(
@@ -231,7 +221,7 @@ if __name__ == "__main__":
     )
     logger.info("Querying end")
     scl.add_timestamp("end_querying")
-    
+
     scl.results["n_candidates"] = len(candidates_by_index["minhash"])
 
     if args.query_result_path is not None:
@@ -259,7 +249,7 @@ if __name__ == "__main__":
             n_splits=args.n_splits,
             join_strategy=args.join_strategy,
             aggregation=args.aggregation,
-            cuda=args.cuda
+            cuda=args.cuda,
         )
         logger.info("Evaluation complete.")
         scl.add_timestamp("end_evaluation")
