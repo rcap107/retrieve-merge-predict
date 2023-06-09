@@ -14,6 +14,19 @@ We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge
 are available on Zenodo: https://zenodo.org/record/8015298
 
 # Running the pipeline
+Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake. 
+
+This can be done by runnning the script `prepare_metadata.py`.
+```
+python prepare_metadata.py -s CASE PATH
+```
+`CASE` is the tag to be given to the index (e.g., `binary` or `wordnet`). 
+
+`PATH` is the path to the root folder containing all the tables (saved in parquet) to be added to the metadata index and 
+to the indices.
+
+The actual pipeline is run on a single `CASE` at a time. 
+
 To run the experiments reported in the paper, run the `./run_experiments.sh` script. 
 
 # Dir structure
