@@ -13,10 +13,11 @@ measured before and after joining.
 We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
 are available on Zenodo: https://zenodo.org/record/8015298
 
+
 # Running the pipeline
 Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake. 
 
-This can be done by runnning the script `prepare_metadata.py`.
+Extract the variants to folder `data/yadl/`, then run the script `prepare_metadata.py`.
 ```
 python prepare_metadata.py -s CASE PATH
 ```
@@ -28,18 +29,3 @@ to the indices.
 The actual pipeline is run on a single `CASE` at a time. 
 
 To run the experiments reported in the paper, run the `./run_experiments.sh` script. 
-
-# Dir structure
-
-
-
-## Logging
-
-# How to execute
-
-## Preparing the metadata
-
-## Running the indexing
-
-## Testing the performance
-
