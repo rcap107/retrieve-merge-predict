@@ -425,6 +425,7 @@ class ScenarioLogger:
         print(f'Source table: {self.source_table}')
         print(f'Iterations: {self.iterations}')
         print(f'Join strategy: {self.join_strategy}')
+        print(f'Aggregation: {self.aggregation}')
         print(f'DL Variant: {self.target_dl}')
 
     def write_to_file(self, out_path):

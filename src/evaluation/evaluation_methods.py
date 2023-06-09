@@ -144,7 +144,7 @@ def run_on_table_cross_valid(
         y=y,
         scoring=("r2", "neg_root_mean_squared_error"),
         cv=n_splits,
-        n_jobs=4,
+        n_jobs=-1,
         fit_params={"verbose": verbose},
         return_estimator=True,
     )

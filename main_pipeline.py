@@ -159,7 +159,7 @@ if __name__ == "__main__":
     args = parse_arguments()
     logger.info(args)
     case = args.yadl_version
-    logger.info(f"Working with version `{case}`")
+    # logger.info(f"Working with version `{case}`")
     metadata_dir = Path(f"data/metadata/{case}")
     metadata_index_path = Path(f"data/metadata/_mdi/md_index_{case}.pickle")
     index_dir = Path(f"data/metadata/_indices/{case}")
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         n_splits=args.n_splits,
     )
 
-    logger.info(f"Reading metadata from {metadata_index_path}")
+    # logger.info(f"Reading metadata from {metadata_index_path}")
     if not metadata_index_path.exists():
         raise FileNotFoundError(
             f"Path to metadata index {metadata_index_path} is invalid."
@@ -193,6 +193,8 @@ if __name__ == "__main__":
     indices = utils.load_indices(index_dir)
     scl.add_timestamp("end_load_index")
 
+    scl.pretty_print()
+
     # Query index
     # print("Querying.")
 
@@ -200,7 +202,7 @@ if __name__ == "__main__":
     scl.add_timestamp("start_querying")
     df = pl.read_parquet(query_data_path).unique()
     # TODO: Fix logging
-    logger.info(f"Querying from dataset {query_data_path}")
+    # logger.info(f"Querying from dataset {query_data_path}")
     query_metadata = RawDataset(
         query_data_path.resolve(), "queries", "data/metadata/queries"
     )
@@ -215,11 +217,11 @@ if __name__ == "__main__":
     else:
         query = df[query_column].drop_nulls()
 
-    logger.info("Querying start")
+    # logger.info("Querying start")
     query_results, candidates_by_index = utils.querying(
         query_metadata, query_column, query, indices, mdata_index, args.top_k
     )
-    logger.info("Querying end")
+    # logger.info("Querying end")
     scl.add_timestamp("end_querying")
 
     scl.results["n_candidates"] = len(candidates_by_index["minhash"])
@@ -237,7 +239,7 @@ if __name__ == "__main__":
 
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")
-        logger.info("Evaluating join results.")
+        # logger.info("Evaluating join results.")
         utils.evaluate_joins(
             df,
             query_metadata,
@@ -250,7 +252,7 @@ if __name__ == "__main__":
             aggregation=args.aggregation,
             cuda=args.cuda,
         )
-        logger.info("Evaluation complete.")
+        # logger.info("Evaluation complete.")
         scl.add_timestamp("end_evaluation")
 
     # results["target_dl"] = args.yadl_version
