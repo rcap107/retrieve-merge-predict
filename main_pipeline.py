@@ -11,6 +11,7 @@ from src.data_preparation.utils import MetadataIndex
 from src.table_integration.join_profiling import profile_joins
 from src.utils.data_structures import ScenarioLogger
 
+import os
 import logging
 
 import git
@@ -92,7 +93,7 @@ def parse_arguments():
         action="store",
         type=str,
         default=None,
-        help="Path to use when saving the query results in pickle form. ",
+        help="Path to use when saving the results of the index queries in pickle form. ",
     )
 
     parser.add_argument(
@@ -109,15 +110,15 @@ def parse_arguments():
         type=str,
         default="left",
         choices=["left", "right", "inner", "outer", "nojoin"],
-        help="Number of iterations to be executed in the evaluation step.",
+        help="Join strategy to be used.",
     )
 
     parser.add_argument(
         "--aggregation",
         action="store",
         type=str,
-        default="none",
-        choices=["none", "dedup", "dfs"],
+        default="first",
+        choices=["first", "mean", "dfs"],
         help="Number of iterations to be executed in the evaluation step.",
     )
 
@@ -140,13 +141,13 @@ def parse_arguments():
     parser.add_argument(
         "--dry_run",
         action="store_true",
-        help="Skip evaluation.",
+        help="Skip evaluation. Used to generate the candidates.",
     )
 
     parser.add_argument(
         "--cuda",
         action="store_true",
-        help="Try to run on GPU.",
+        help="Run on GPU.",
     )
 
     args = parser.parse_args()
@@ -227,10 +228,13 @@ if __name__ == "__main__":
     scl.results["n_candidates"] = len(candidates_by_index["minhash"])
 
     if args.query_result_path is not None:
+        
         with open(args.query_result_path, "wb") as fp:
             pickle.dump(candidates_by_index, fp)
     else:
-        with open(f"generated_candidates_{tab_name}.pickle", "wb") as fp:
+        query_result_path = Path("results/generated_candidates")
+        os.makedirs(query_result_path, exist_ok=True)
+        with open(Path(query_result_path,f"{tab_name}.pickle"), "wb") as fp:
             pickle.dump(candidates_by_index, fp)
 
     # TODO: Dropping profiling for a bit
