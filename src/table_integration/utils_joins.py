@@ -108,11 +108,11 @@ def execute_join_complete(
         # logger.debug("End DFS.")
 
     else:
-        if aggregation == "dedup":
+        if aggregation == "mean":
             dedup = True
-            jstr = how + "_dedup"
+            jstr = how + "_mean"
         else:
-            jstr = how + "_none"
+            jstr = how + "_first"
             dedup = False
 
         merged = execute_join(
@@ -121,7 +121,7 @@ def execute_join_complete(
             left_on=left_on,
             right_on=right_on,
             how=how,
-            dedup=dedup,
+            mean=dedup,
         )
     return merged
 
@@ -134,7 +134,7 @@ def execute_join(
     left_on=None,
     right_on=None,
     how="left",
-    dedup=None,
+    mean=None,
     suffix=None
 ):
     if suffix is None:
@@ -164,7 +164,7 @@ def execute_join(
             .collect()
         )
 
-        if dedup:
+        if mean:
             joined_table = prepare_deduplicated_table(joined_table, left_table.columns)
         else:
             joined_table = prepare_deduplicated_table_simple(joined_table, left_table.columns)

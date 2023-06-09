@@ -329,7 +329,7 @@ def execute_full_join(
                 left_on=left_on,
                 right_on=right_on,
                 how="left",
-                dedup=True,
+                mean=True,
                 suffix="_" + hash_[:10],
             )
         merged = merged.fill_null("")
