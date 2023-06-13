@@ -3,10 +3,6 @@ import os
 from pathlib import Path
 import argparse
 
-import pandas as pd
-import polars as pl
-from tqdm import tqdm
-
 import src.utils.pipeline_utils as utils
 from src.data_preparation.utils import MetadataIndex
 from src.utils.data_structures import RawDataset
@@ -80,48 +76,6 @@ def prepare_metadata_from_case(case, data_folder, save_to_full=False):
         raise FileNotFoundError(f"Invalid path {data_folder}")
 
 
-# def prepare_yadl_versions(cases=[], save_to_full=False):
-#     for case in cases:
-#         logger.info("Case %s", case)
-#         data_folder = Path(f"data/yadl/{case}")
-#         if data_folder.exists():
-#             os.makedirs(f"data/metadata/{case}", exist_ok=True)
-#             for dataset_path in data_folder.glob("**/*.parquet"):
-#                 ds = RawDataset(dataset_path, "yadl", f"data/metadata/{case}")
-#                 ds.save_metadata_to_json(f"data/metadata/{case}")
-#                 if save_to_full:
-#                     ds.save_metadata_to_json("data/metadata/full")
-#         else:
-#             raise FileNotFoundError(f"Invalid path {data_folder}")
-
-
-# def prepare_gittables():
-#     case = "gittables"
-#     logger.info("Case %s", case)
-#     data_folder = Path("data/gittables/extracted/")
-#     if data_folder.exists():
-#         total = sum(1 for _ in data_folder.glob("**/*.parquet"))
-#         for dataset_path in tqdm(data_folder.glob("**/*.parquet"), total=total):
-#             ds = RawDataset(dataset_path, "gittables", f"data/metadata/{case}")
-#             ds.save_metadata_to_json(f"data/metadata/{case}")
-#             # ds.save_metadata_to_json("data/metadata/full")
-#     else:
-#         raise FileNotFoundError(f"Invalid path {data_folder}")
-
-# def prepare_auctus():
-#     case = "auctus"
-#     logger.info("Case %s", case)
-#     data_folder = Path("data/auctus/parquet/")
-#     if data_folder.exists():
-#         total = sum(1 for _ in data_folder.glob("**/*.parquet"))
-#         for dataset_path in tqdm(data_folder.glob("**/*.parquet"), total=total):
-#             ds = RawDataset(dataset_path, "auctus", f"data/metadata/{case}")
-#             ds.save_metadata_to_json(f"data/metadata/{case}")
-#             # ds.save_metadata_to_json("data/metadata/full")
-#     else:
-#         raise FileNotFoundError(f"Invalid path {data_folder}")
-
-
 def prepare_indices(case, selected_indices=["minhash"]):
     logger.info("Preparing minhash indices")
     index_dir = Path(f"data/metadata/_indices/{case}")
@@ -130,9 +84,7 @@ def prepare_indices(case, selected_indices=["minhash"]):
     case_dir = Path(index_dir, case)
     os.makedirs(case_dir, exist_ok=True)
 
-    index_configurations = utils.prepare_default_configs(
-        metadata_dir, selected_indices
-    )
+    index_configurations = utils.prepare_default_configs(metadata_dir, selected_indices)
     print("Preparing indices.")
     indices = utils.prepare_indices(index_configurations)
     print("Saving indices.")

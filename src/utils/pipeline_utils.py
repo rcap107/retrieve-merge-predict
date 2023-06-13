@@ -256,7 +256,7 @@ def evaluate_joins(
     n_splits=5,
     test_size=0.25,
     join_strategy="left",
-    aggregation="none",
+    aggregation="first",
     cuda=False,
 ):
     
