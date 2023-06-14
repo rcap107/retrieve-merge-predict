@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 import argparse
 
-import src.utils.pipeline_utils as utils
-from src.data_preparation.utils import MetadataIndex
+import src.pipeline as utils
+from src.data_structures.metadata import MetadataIndex
 from src.utils.data_structures import RawDataset
 
 log_format = "%(asctime)s - %(message)s"

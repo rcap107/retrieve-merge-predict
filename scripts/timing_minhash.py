@@ -4,7 +4,7 @@
 import datetime
 import logging
 from pathlib import Path
-from src.candidate_discovery.utils_minhash import MinHashIndex
+from src.data_structures.indices import MinHashIndex
 
 log_format = "%(message)s"
 
@@ -20,8 +20,6 @@ sh.setFormatter(formatter)
 
 logger.addHandler(fh)
 logger.addHandler(sh)
-
-
 
 
 def save_indices(index_dict, index_dir):
@@ -71,6 +69,6 @@ for case in ["binary", "wordnet"]:
         
         
 
-from src.utils.pipeline_utils import save_indices
+from src.pipeline import save_indices
 
 save_indices(indices, index_dir)

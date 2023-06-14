@@ -1,33 +1,13 @@
+import logging
 import pickle
 from pathlib import Path
-
-import polars as pl
-
-import src.evaluation.evaluation_methods as em
-from src.candidate_discovery.utils_lazo import LazoIndex
-from src.candidate_discovery.utils_minhash import MinHashIndex
-from src.utils.data_structures import CandidateJoin, RawDataset
-from src.data_preparation.utils import MetadataIndex
-from src.table_integration.join_profiling import profile_joins
-from src.utils.data_structures import RunLogger
 from catboost import CatBoostError, CatBoostRegressor
-import logging
-import numpy as np
-
 from sklearn.model_selection import ShuffleSplit
 
-
-import git
-
-import cProfile, pstats, io
-from pstats import SortKey
-
-
-
-
-repo = git.Repo(search_parent_directories=True)
-repo_sha = repo.head.object.hexsha
-
+from src.data_structures.indices import LazoIndex, MinHashIndex
+from src.data_structures.loggers import RunLogger
+from src.data_structures.metadata import CandidateJoin, MetadataIndex
+from src.methods import evaluation as em
 
 crossval_logger = logging.getLogger("pipeline_utils")
 crossval_logger.setLevel(logging.DEBUG)
@@ -39,7 +19,6 @@ rfh = logging.FileHandler(filename=f"results/results_crossval.log")
 rfh.setFormatter(res_formatter)
 
 crossval_logger.addHandler(rfh)
-
 
 
 def prepare_default_configs(data_dir, selected_indices=None):
@@ -259,24 +238,21 @@ def evaluate_joins(
     aggregation="first",
     cuda=False,
 ):
-    
     rs = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
-    
+
     for i, (train_index, test_index) in enumerate(rs.split(base_table)):
-        
         left_table_train, num_features, cat_features = em.prepare_table_for_evaluation(
             base_table[train_index]
         )
-        
+
         left_table_test, num_features, cat_features = em.prepare_table_for_evaluation(
             base_table[test_index]
         )
-        
 
         run_logger = RunLogger(scenario_logger, i, {"aggregation": "nojoin"})
-        
+
         run_logger.add_time("start_training")
-        base_result, base_model =  em.run_on_table_cross_valid(
+        base_result, base_model = em.run_on_table_cross_valid(
             left_table_train,
             num_features,
             cat_features,
@@ -291,7 +267,7 @@ def evaluate_joins(
         run_logger.add_time("end_training")
         run_logger.add_duration("start_training", "end_training", "training_duration")
         run_logger.durations["avg_train"] = run_logger.durations["training_duration"]
-        
+
         model_folder = Path("data/models")
         run_logger.add_time("start_eval")
         results_base = em.evaluate_model_on_test_split(left_table_test, base_result[1])
@@ -304,15 +280,11 @@ def evaluate_joins(
 
         crossval_logger.info(run_logger.to_str())
 
-
         # Run on all candidates
-        
-        add_params = {
-            "candidate_table": "best_candidate",
-            "index_name": "minhash"
-        }
+
+        add_params = {"candidate_table": "best_candidate", "index_name": "minhash"}
         run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
-        
+
         results_best, durations = em.execute_on_candidates(
             join_candidates,
             left_table_train,
@@ -328,8 +300,12 @@ def evaluate_joins(
             cuda=cuda,
         )
 
-        print(f"Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}")
-        print(f"Join table -  RMSE {results_best[0]:.2f}  - R2 score {results_best[1]:.2f}")
+        print(
+            f"Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
+        )
+        print(
+            f"Join table -  RMSE {results_best[0]:.2f}  - R2 score {results_best[1]:.2f}"
+        )
 
         run_logger.results["rmse"] = results_best[0]
         run_logger.results["r2score"] = results_best[1]
@@ -337,7 +313,5 @@ def evaluate_joins(
         run_logger.set_run_status("SUCCESS")
 
         crossval_logger.info(run_logger.to_str())
-
-
 
     return

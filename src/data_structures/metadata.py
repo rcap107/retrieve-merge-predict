@@ -1,3 +1,4 @@
+import hashlib
 import json
 import pickle
 from operator import itemgetter
@@ -5,19 +6,6 @@ from pathlib import Path
 from typing import Union
 
 import polars as pl
-
-
-def cast_features(table: pl.DataFrame):
-    for col in table.columns:
-        try:
-            table = table.with_columns(pl.col(col).cast(pl.Float64))
-        except pl.ComputeError:
-            continue
-
-    cat_features = [k for k, v in table.schema.items() if str(v) == "Utf8"]
-    num_features = [k for k, v in table.schema.items() if str(v) == "Float64"]
-
-    return table, num_features, cat_features
 
 
 class MetadataIndex:
@@ -129,3 +117,137 @@ class MetadataIndex:
         except KeyError:
             raise KeyError(f"Hash {tgt_hash} not found in the index.")
 
+
+class CandidateJoin:
+    def __init__(
+        self,
+        indexing_method,
+        source_table_metadata,
+        candidate_table_metadata,
+        how=None,
+        left_on=None,
+        right_on=None,
+        on=None,
+        similarity_score=None,
+    ) -> None:
+        self.indexing_method = indexing_method
+        self.source_table = source_table_metadata["hash"]
+        self.candidate_table = candidate_table_metadata["hash"]
+        self.source_metadata = source_table_metadata
+        self.candidate_metadata = candidate_table_metadata
+
+        self.similarity_score = similarity_score
+
+        if how not in ["left", "right", "inner", "outer"]:
+            raise ValueError(f"Join strategy {how} not recognized.")
+        self.how = how
+
+        self.left_on = self._convert_to_list(left_on)
+        self.right_on = self._convert_to_list(right_on)
+        self.on = self._convert_to_list(on)
+
+        if self.on is not None and all([self.left_on is None, self.right_on is None]):
+            self.left_on = self.right_on = [self.on]
+
+        self.candidate_id = self.generate_candidate_id()
+
+    @staticmethod
+    def _convert_to_list(val):
+        if isinstance(val, list):
+            return val
+        elif isinstance(val, str):
+            return [val]
+        elif val is None:
+            return None
+        else:
+            raise TypeError
+
+    def get_chosen_path(self, case):
+        if case == "source":
+            return self.source_metadata["full_path"]
+        elif case == "candidate":
+            return self.candidate_metadata["full_path"]
+        else:
+            raise ValueError
+
+    def generate_candidate_id(self):
+        """Generate a unique id for this candidate relationship. The same pair of tables can have multiple candidate
+        relationships, so this function takes the index, source table, candidate table, left/right columns and combines them
+        to produce a unique id.
+        """
+        join_string = [
+            self.indexing_method,
+            self.source_table,
+            self.candidate_table,
+            self.how + "_j",
+        ]
+
+        if self.left_on is not None and self.right_on is not None:
+            join_string += ["_".join(self.left_on)]
+            join_string += ["_".join(self.right_on)]
+        elif self.on is not None:
+            join_string += ["_".join(self.on)]
+
+        id_str = "_".join(join_string).encode()
+
+        md5 = hashlib.md5()
+        md5.update(id_str)
+        return md5.hexdigest()
+
+
+class RawDataset:
+    def __init__(self, full_df_path, source_dl, metadata_dir) -> None:
+        self.path = Path(full_df_path).resolve()
+
+        if not self.path.exists():
+            raise IOError(f"File {self.path} not found.")
+
+        # self.df = self.read_dataset_file()
+        self.hash = self.prepare_path_digest()
+        self.df_name = self.path.stem
+        self.source_dl = source_dl
+        self.path_metadata = Path(metadata_dir, self.hash + ".json")
+
+        self.info = {
+            "full_path": str(self.path),
+            "hash": self.hash,
+            "df_name": self.df_name,
+            "source_dl": source_dl,
+            "license": "",
+            "path_metadata": str(self.path_metadata.resolve()),
+        }
+
+    def read_dataset_file(self):
+        if self.path.suffix == ".csv":
+            # TODO Add parameters for the `pl.read_csv` function
+            return pl.read_csv(self.path)
+        elif self.path.suffix == ".parquet":
+            # TODO Add parameters for the `pl.read_parquet` function
+            return pl.read_parquet(self.path)
+        else:
+            raise IOError(f"Extension {self.path.suffix} not supported.")
+
+    def prepare_path_digest(self):
+        hash_ = hashlib.md5()
+        hash_.update(str(self.path).encode())
+        return hash_.hexdigest()
+
+    def save_metadata_to_json(self, metadata_dir=None):
+        if metadata_dir is None:
+            pth_md = self.path_metadata
+        else:
+            pth_md = Path(metadata_dir, self.hash + ".json")
+        with open(pth_md, "w") as fp:
+            json.dump(self.info, fp, indent=2)
+
+    def prepare_metadata(self):
+        pass
+
+    def save_to_json(self):
+        pass
+
+    def save_to_csv(self):
+        pass
+
+    def save_to_parquet(self):
+        pass

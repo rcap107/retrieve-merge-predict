@@ -1,54 +1,34 @@
 """Evaluation methods"""
 # TODO: Fix imports
+import datetime as dt
 import hashlib
-import logging
-from copy import deepcopy
+from pathlib import Path
 
-import featuretools as ft
 import numpy as np
-import pandas as pd
 import polars as pl
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import (
-    KFold,
-    ShuffleSplit,
-    cross_validate,
-    train_test_split,
-)
+from sklearn.model_selection import cross_validate
 from tqdm import tqdm
-from woodwork.logical_types import Categorical, Double
 
-from src.data_preparation.utils import cast_features
-from src.table_integration.utils_joins import (
-    execute_join,
-    prepare_dfs_table,
-    execute_join_complete,
-)
-from src.utils.data_structures import RunLogger, ScenarioLogger
+from src.utils.utils_joins import execute_join, execute_join_complete
 
-import datetime as dt
-from pathlib import Path
-import git
-
-
-repo = git.Repo(search_parent_directories=True)
-repo_sha = repo.head.object.hexsha
-
-# logger = logging.getLogger("main_pipeline")
-# alt_logger = logging.getLogger("evaluation_method")
-# alt_logger.setLevel(logging.DEBUG)
-
-# log_format = "%(message)s"
-# res_formatter = logging.Formatter(fmt=log_format)
-
-# rfh = logging.FileHandler(filename=f"results/results_{repo_sha}.log")
-# rfh.setFormatter(res_formatter)
-
-# alt_logger.addHandler(rfh)
 
 # TODO: move this somewhere else
 model_folder = Path("data/models")
+
+def cast_features(table: pl.DataFrame):
+    for col in table.columns:
+        try:
+            table = table.with_columns(pl.col(col).cast(pl.Float64))
+        except pl.ComputeError:
+            continue
+
+    cat_features = [k for k, v in table.schema.items() if str(v) == "Utf8"]
+    num_features = [k for k, v in table.schema.items() if str(v) == "Float64"]
+
+    return table, num_features, cat_features
+
 
 
 def measure_rmse(y_true, y_pred, squared=False):
@@ -83,11 +63,13 @@ def prepare_table_for_evaluation_old(df, num_features=None, cat_features=None):
     return df, num_features, cat_features
 
 
-def evaluate_model_on_test_split(test_split, run_label):
-    # TODO: add proper target column name rather than hardcoding "target"
+def evaluate_model_on_test_split(test_split, run_label, target_column_name=None):
+    if target_column_name is None:
+        target_column_name = "target"
+
     test_split = test_split.fill_nan("null").fill_null("null")
-    y_test = test_split["target"].cast(pl.Float64)
-    test_split = test_split.drop("target").to_pandas()
+    y_test = test_split[target_column_name].cast(pl.Float64)
+    test_split = test_split.drop(target_column_name).to_pandas()
     model_name = Path(model_folder, run_label)
     model = CatBoostRegressor()
     model.load_model(model_name)
@@ -148,20 +130,6 @@ def run_on_table_cross_valid(
         fit_params={"verbose": verbose},
         return_estimator=True,
     )
-
-    # for fold in range(n_splits):
-    #     run_logger = RunLogger(
-    #         scenario_logger,
-    #         fold_id=fold,
-    #         additional_parameters=additional_parameters,
-    #     )
-    #     run_logger.durations["fit_time"] = results["fit_time"][fold]
-    #     run_logger.durations["score_time"] = results["score_time"][fold]
-    #     run_logger.results["rmse"] = results["test_neg_root_mean_squared_error"][fold]
-    #     run_logger.results["r2score"] = results["test_r2"][fold]
-    #     run_logger.set_run_status("SUCCESS")
-
-        # alt_logger.info(run_logger.to_str())
 
     best_res = np.argmax(results["test_r2"])
 
@@ -304,6 +272,7 @@ def execute_full_join(
     verbose,
     iterations,
 ):
+    raise NotImplementedError
     results_dict = {}
     for index_name, index_cand in join_candidates.items():
         merged = source_table.clone().lazy()
@@ -343,7 +312,7 @@ def execute_full_join(
         merged = merged.fill_null("")
         merged = merged.fill_nan("")
         params["size_postjoin"] = len(merged)
-        run_on_table(
+        run_on_table_cross_valid(
             merged,
             num_features,
             cat_features,

@@ -1,23 +1,19 @@
 import argparse
+import logging
+import os
 import pickle
 from pathlib import Path
 
-import polars as pl
-from tqdm import tqdm
-
-import src.utils.pipeline_utils as utils
-from src.utils.data_structures import RawDataset
-from src.data_preparation.utils import MetadataIndex
-from src.table_integration.join_profiling import profile_joins
-from src.utils.data_structures import ScenarioLogger
-
-import os
-import logging
-
 import git
+import polars as pl
+
+import src.pipeline as utils
+from src.data_structures.metadata import MetadataIndex, RawDataset
+from src.data_structures.loggers import ScenarioLogger
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
+
 
 
 # prepare scenario logger
@@ -228,18 +224,13 @@ if __name__ == "__main__":
     scl.results["n_candidates"] = len(candidates_by_index["minhash"])
 
     if args.query_result_path is not None:
-        
         with open(args.query_result_path, "wb") as fp:
             pickle.dump(candidates_by_index, fp)
     else:
         query_result_path = Path("results/generated_candidates")
         os.makedirs(query_result_path, exist_ok=True)
-        with open(Path(query_result_path,f"{tab_name}.pickle"), "wb") as fp:
+        with open(Path(query_result_path, f"{tab_name}.pickle"), "wb") as fp:
             pickle.dump(candidates_by_index, fp)
-
-    # TODO: Dropping profiling for a bit
-    # print("Profiling results.")
-    # profiling_results = profile_joins(candidates_by_index, logger=logger)
 
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")

@@ -1,7 +1,5 @@
 import polars as pl
-from src.utils import data_structures as ds
 import pandas as pd
-from typing import Iterable
 
 import featuretools as ft
 from woodwork.logical_types import Categorical, Double
