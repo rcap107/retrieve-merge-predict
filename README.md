@@ -13,6 +13,8 @@ measured before and after joining.
 We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
 are available on Zenodo: https://zenodo.org/record/8015298
 
+The code for preparing the YADL variants can be found in this repo: https://github.com/rcap107/prepare-data-lakes
+
 
 # Running the pipeline
 Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake. 
