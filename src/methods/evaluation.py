@@ -10,25 +10,10 @@ from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate
 from tqdm import tqdm
-
-from src.utils.utils_joins import execute_join, execute_join_complete
-
+import src.utils.utils_joins as utils
 
 # TODO: move this somewhere else
 model_folder = Path("data/models")
-
-def cast_features(table: pl.DataFrame):
-    for col in table.columns:
-        try:
-            table = table.with_columns(pl.col(col).cast(pl.Float64))
-        except pl.ComputeError:
-            continue
-
-    cat_features = [k for k, v in table.schema.items() if str(v) == "Utf8"]
-    num_features = [k for k, v in table.schema.items() if str(v) == "Float64"]
-
-    return table, num_features, cat_features
-
 
 
 def measure_rmse(y_true, y_pred, squared=False):
@@ -42,25 +27,13 @@ def measure_r2(y_true, y_pred):
 
 
 def prepare_table_for_evaluation(df):
-    df, num_features, cat_features = cast_features(df)
+    df, num_features, cat_features = utils.cast_features(df)
     df = df.fill_nan("null").fill_null("null")
     return (
         df,
         num_features,
         cat_features,
     )
-
-
-def prepare_table_for_evaluation_old(df, num_features=None, cat_features=None):
-    if num_features is None:
-        df, num_features, cat_features = cast_features(df)
-    else:
-        for col in num_features:
-            df = df.with_columns(pl.col(col).cast(pl.Float64))
-        cat_features = [col for col in df.columns if col not in num_features]
-
-    df = df.fill_null("null")
-    return df, num_features, cat_features
 
 
 def evaluate_model_on_test_split(test_split, run_label, target_column_name=None):
@@ -83,26 +56,18 @@ def evaluate_model_on_test_split(test_split, run_label, target_column_name=None)
 
 def run_on_table_cross_valid(
     src_df: pl.DataFrame,
-    num_features,
-    cat_features,
-    scenario_logger,
     target_column="target",
     run_label=None,
     verbose=0,
     iterations=1000,
     n_splits=5,
-    test_split=None,
-    random_state=42,
     additional_parameters=None,
     additional_timestamps=None,
     cuda=False,
 ):
-    # TODO: Better error chekcing
-    if run_label is None:
-        raise ValueError
     y = src_df[target_column].to_pandas()
-    # df = src_df.drop(target_column).to_pandas()
     df = src_df.drop(target_column)
+    df, num_features, cat_features = utils.cast_features(df, only_types=True)
     # df = df.fillna("null")
     df = df.fill_null(value="null")
     df = df.fill_nan(value=np.nan)
@@ -126,7 +91,7 @@ def run_on_table_cross_valid(
         y=y,
         scoring=("r2", "neg_root_mean_squared_error"),
         cv=n_splits,
-        n_jobs=-1,
+        n_jobs=1,
         fit_params={"verbose": verbose},
         return_estimator=True,
     )
@@ -144,9 +109,6 @@ def execute_on_candidates(
     source_table,
     test_table,
     aggregation,
-    scenario_logger,
-    num_features,
-    cat_features,
     verbose=1,
     iterations=1000,
     n_splits=5,
@@ -156,7 +118,7 @@ def execute_on_candidates(
     durations = {}
     join_durations = []
     train_durations = []
-    
+
     result_list = []
     for index_name, index_cand in join_candidates.items():
         for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
@@ -168,7 +130,7 @@ def execute_on_candidates(
             right_on = mdata.right_on
 
             start_join = dt.datetime.now()
-            merged = execute_join_complete(
+            merged = utils.execute_join_with_aggregation(
                 source_table,
                 candidate_table,
                 left_on=left_on,
@@ -176,19 +138,10 @@ def execute_on_candidates(
                 how=join_strategy,
                 aggregation=aggregation,
             )
-            
-            # logger.debug("End joining.")
 
-            # TODO: FIX NUM_ CAT_ FEATURES
-            num_features = []
-            cat_features = []
-            for col in merged.columns:
-                try:
-                    merged.with_columns(pl.col(col).cast(pl.Float64))
-                    num_features.append(col)
-                except pl.ComputeError:
-                    merged.with_columns(pl.col(col).cast(pl.Utf8))
-                    cat_features.append(col)
+            merged, num_features, cat_features = utils.cast_features(
+                merged, only_types=True
+            )
 
             merged[cat_features].fill_null("null")
             merged[num_features].fill_nan(np.nan)
@@ -210,9 +163,6 @@ def execute_on_candidates(
             start_train = dt.datetime.now()
             best_score, best_model = run_on_table_cross_valid(
                 merged,
-                num_features,
-                cat_features,
-                scenario_logger=scenario_logger,
                 verbose=verbose,
                 run_label=hash_,
                 n_splits=n_splits,
@@ -236,9 +186,8 @@ def execute_on_candidates(
     left_on = best_candidate_mdata.left_on
     right_on = best_candidate_mdata.right_on
 
-
     start_eval_join = dt.datetime.now()
-    merged_test = execute_join_complete(
+    merged_test = utils.execute_join_with_aggregation(
         test_table,
         candidate_table,
         left_on=left_on,
@@ -254,11 +203,10 @@ def execute_on_candidates(
     end_eval = dt.datetime.now()
     eval_duration = (end_eval - start_eval).total_seconds()
 
-    durations["avg_join"] = np.mean(join_durations)
-    durations["avg_train"] = np.mean(train_durations)
-    durations["eval_join"] = eval_join_duration
-    durations["eval"] = eval_duration
-
+    durations["time_join"] = np.sum(join_durations)
+    durations["time_train"] = np.sum(train_durations)
+    durations["time_eval_join"] = eval_join_duration
+    durations["time_eval"] = eval_duration
 
     return (rmse, r2), durations
 
@@ -266,60 +214,57 @@ def execute_on_candidates(
 def execute_full_join(
     join_candidates: dict,
     source_table: pl.DataFrame,
+    test_table,
     source_metadata,
-    scenario_logger,
-    num_features,
+    aggregation,
     verbose,
     iterations,
 ):
-    raise NotImplementedError
-    results_dict = {}
+    durations = {}
+    join_durations = []
+    train_durations = []
+
+    result_list = []
+
     for index_name, index_cand in join_candidates.items():
         merged = source_table.clone().lazy()
-        hashes = []
 
         params = {
-            "source_table": source_metadata["full_path"],
+            "source_table": source_metadata.path,
             "candidate_table": "full_join",
             "left_on": "full_join",
             "right_on": "full_join",
             "size_prejoin": len(source_table),
         }
-        for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
-            cnd_md = mdata.candidate_metadata
-            hashes.append(cnd_md["hash"])
-            candidate_table = pl.read_parquet(cnd_md["full_path"])
 
-            left_on = mdata.left_on
-            right_on = mdata.right_on
-            merged = execute_join(
-                source_table,
-                candidate_table,
-                left_on=left_on,
-                right_on=right_on,
-                how="left",
-                mean=True,
-                suffix="_" + hash_[:10],
-            )
+        merged = utils.execute_join_all_candidates(merged, index_cand, aggregation)
+
         merged = merged.fill_null("")
         merged = merged.fill_nan("")
 
-        md5 = hashlib.md5()
-        md5.update(("".join(sorted(hashes))).encode())
-        digest = md5.hexdigest()
-
-        cat_features = [col for col in merged.columns if col not in num_features]
-        merged = merged.fill_null("")
-        merged = merged.fill_nan("")
-        params["size_postjoin"] = len(merged)
         run_on_table_cross_valid(
             merged,
-            num_features,
-            cat_features,
-            scenario_logger,
             verbose=verbose,
             iterations=iterations,
             additional_parameters=params,
+            run_label="full_join",
         )
 
-    return
+        start_eval_join = dt.datetime.now()
+        merged_test = utils.execute_join_all_candidates(
+            test_table, index_cand, aggregation
+        )
+        end_eval_join = dt.datetime.now()
+        eval_join_duration = (end_eval_join - start_eval_join).total_seconds()
+
+        start_eval = dt.datetime.now()
+        rmse, r2 = evaluate_model_on_test_split(merged_test, "full_join")
+        end_eval = dt.datetime.now()
+        eval_duration = (end_eval - start_eval).total_seconds()
+
+        durations["time_join"] = np.sum(join_durations)
+        durations["time_train"] = np.sum(train_durations)
+        durations["time_eval_join"] = eval_join_duration
+        durations["time_eval"] = eval_duration
+
+    return (rmse, r2), durations

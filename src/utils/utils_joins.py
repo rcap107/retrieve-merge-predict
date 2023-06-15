@@ -3,6 +3,7 @@ import pandas as pd
 
 import featuretools as ft
 from woodwork.logical_types import Categorical, Double
+from tqdm import tqdm
 
 
 def get_logical_types(df):
@@ -11,6 +12,20 @@ def get_logical_types(df):
     logical_types = {col: Categorical for col in cat_types}
     logical_types.update({col: Double for col in num_types})
     return logical_types
+
+
+def cast_features(table: pl.DataFrame, only_types=False):
+    if not only_types:
+        for col in table.columns:
+            try:
+                table = table.with_columns(pl.col(col).cast(pl.Float64))
+            except pl.ComputeError:
+                continue
+
+    cat_features = [k for k, v in table.schema.items() if str(v) == "Utf8"]
+    num_features = [k for k, v in table.schema.items() if str(v) == "Float64"]
+
+    return table, num_features, cat_features
 
 
 def prepare_dfs_table(
@@ -74,9 +89,7 @@ def prepare_dfs_table(
 
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
     augmented_table = left_table.to_pandas().merge(
-        new_df[feat_columns].reset_index(),
-        how="left",
-        on="col_to_embed"
+        new_df[feat_columns].reset_index(), how="left", on="col_to_embed"
     )
 
     pl_df = pl.from_pandas(augmented_table)
@@ -84,7 +97,7 @@ def prepare_dfs_table(
     return pl_df
 
 
-def execute_join_complete(
+def execute_join_with_aggregation(
     left_table: pl.DataFrame,
     right_table: pl.DataFrame,
     on=None,
@@ -92,7 +105,7 @@ def execute_join_complete(
     right_on=None,
     how="left",
     aggregation=None,
-    suffix=None  
+    suffix=None,
 ):
     if aggregation == "dfs":
         # logger.debug("Start DFS.")
@@ -106,23 +119,46 @@ def execute_join_complete(
         # logger.debug("End DFS.")
 
     else:
-        if aggregation == "mean":
-            dedup = True
-            jstr = how + "_mean"
-        else:
-            jstr = how + "_first"
-            dedup = False
+        aggr_right = aggegate_table(
+            right_table, right_on, aggregation_method=aggregation
+        )
 
         merged = execute_join(
             left_table,
-            right_table,
+            aggr_right,
             left_on=left_on,
             right_on=right_on,
             how=how,
-            mean=dedup,
+            # mean=dedup,
         )
     return merged
 
+
+def execute_join_all_candidates(source_table, index_cand, aggregation):
+    merged = source_table.clone()
+    hashes = []
+    for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
+        cnd_md = mdata.candidate_metadata
+        hashes.append(cnd_md["hash"])
+        candidate_table = pl.read_parquet(cnd_md["full_path"])
+
+        left_on = mdata.left_on
+        right_on = mdata.right_on
+
+        aggr_right = aggegate_table(
+            candidate_table, right_on, aggregation_method=aggregation
+        )
+
+        merged = execute_join(
+            merged,
+            aggr_right,
+            left_on=left_on,
+            right_on=right_on,
+            how="left",
+            suffix="_" + hash_[:10],
+        )
+
+    return merged
 
 
 def execute_join(
@@ -133,11 +169,11 @@ def execute_join(
     right_on=None,
     how="left",
     mean=None,
-    suffix=None
+    suffix=None,
 ):
     if suffix is None:
         suffix = ""
-    
+
     if how not in ["left", "inner", "outer"]:
         raise ValueError(f"Unknown join option {how}")
 
@@ -158,25 +194,50 @@ def execute_join(
 
         joined_table = (
             left_table.lazy()
-            .join(right_table.lazy(), left_on=left_on, right_on=right_on, how=how, suffix=suffix)
+            .join(
+                right_table.lazy(),
+                left_on=left_on,
+                right_on=right_on,
+                how=how,
+                suffix=suffix,
+            )
             .collect()
         )
 
         if mean:
-            joined_table = prepare_deduplicated_table(joined_table, left_table.columns)
+            joined_table = aggregate_mean(joined_table, left_table.columns)
         else:
-            joined_table = prepare_deduplicated_table_simple(joined_table, left_table.columns)
+            joined_table = aggregate_first(joined_table, left_table.columns)
 
     return joined_table
 
 
-def prepare_deduplicated_table(joined_table, left_columns):
+def aggegate_table(target_table, aggr_columns, aggregation_method):
+    if aggregation_method == "first":
+        aggr_table = aggregate_first(target_table, aggr_columns)
+    elif aggregation_method == "mean":
+        aggr_table = aggregate_mean(target_table, aggr_columns)
+    elif aggregation_method == "dfs":
+        raise NotImplementedError()
+    else:
+        raise ValueError(f"Unknown aggregation method {aggregation_method}")
+
+    return aggr_table
+
+
+def aggregate_mean(target_table, target_columns):
+    cat_cols = [col for col, dtype in target_table.schema.items() if dtype == pl.Utf8]
+    num_cols = [col for col in target_table.columns if col not in cat_cols]
+
     df_list = []
 
-    for gkey, group in joined_table.groupby(left_columns):
+    for _, group in target_table.groupby(target_columns):
         g = (
             group.lazy()
-            .select(pl.col(left_columns), pl.all().exclude(left_columns).mode().first())
+            .select(
+                pl.col(cat_cols).mode().first(),
+                pl.col(num_cols).mean(),
+            )
             .collect()
         )
         df_list.append(g)
@@ -184,6 +245,7 @@ def prepare_deduplicated_table(joined_table, left_columns):
     df_dedup = pl.concat(df_list).unique()
     return df_dedup
 
-def prepare_deduplicated_table_simple(joined_table: pl.DataFrame, left_columns):
-    df_dedup = joined_table.unique(left_columns, keep="first")
+
+def aggregate_first(target_table: pl.DataFrame, aggr_columns):
+    df_dedup = target_table.unique(aggr_columns, keep="first")
     return df_dedup
