@@ -15,31 +15,29 @@ repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
 
 
+def prepare_logger():
+    logger = logging.getLogger("main")
+    logger_scn = logging.getLogger("scn_logger")
+    # file handler for scenario logs
+    fh = logging.FileHandler("results/logs/main_log.log")
+    fh.setLevel(logging.DEBUG)
 
-# prepare scenario logger
-scenario_logger = logging.getLogger("scenario_logger")
-scenario_logger.setLevel(logging.DEBUG)
+    # console handler for info
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
 
-log_format = "%(message)s"
-res_formatter = logging.Formatter(fmt=log_format)
+    # set formatter
+    fh_formatter = logging.Formatter("%(message)s")
+    fh.setFormatter(fh_formatter)
 
-rfh = logging.FileHandler(filename="results/scenario_logger.log")
-rfh.setFormatter(res_formatter)
+    ch_formatter = logging.Formatter("'%(asctime)s %(message)s'")
+    ch.setFormatter(ch_formatter)
 
-scenario_logger.addHandler(rfh)
+    # add handler to logger
+    logger_scn.addHandler(fh)
+    logger.addHandler(ch)
 
-
-# preparing generic logger
-log_format = "%(asctime)s - %(message)s"
-logger = logging.getLogger("main_pipeline")
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(fmt=log_format)
-fh = logging.FileHandler(filename="results/logging_runs.log")
-fh.setFormatter(formatter)
-sh = logging.StreamHandler()
-sh.setFormatter(formatter)
-logger.addHandler(fh)
-logger.addHandler(sh)
+    return logger, logger_scn
 
 
 def parse_arguments():
@@ -151,10 +149,9 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
-    logger.info("Run start.")
-
+    logger, logger_scn = prepare_logger()
+    logger.info("Starting run.")
     args = parse_arguments()
-    logger.info(args)
     case = args.yadl_version
     # logger.info(f"Working with version `{case}`")
     metadata_dir = Path(f"data/metadata/{case}")
@@ -214,11 +211,11 @@ if __name__ == "__main__":
     else:
         query = df[query_column].drop_nulls()
 
-    # logger.info("Querying start")
+    logger.info("Start querying")
     query_results, candidates_by_index = utils.querying(
         query_metadata, query_column, query, indices, mdata_index, args.top_k
     )
-    # logger.info("Querying end")
+    logger.info("End querying")
     scl.add_timestamp("end_querying")
 
     scl.results["n_candidates"] = len(candidates_by_index["minhash"])
@@ -234,7 +231,7 @@ if __name__ == "__main__":
 
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")
-        # logger.info("Evaluating join results.")
+        logger.info("Starting evaluation.")
         utils.evaluate_joins(
             df,
             query_metadata,
@@ -247,7 +244,7 @@ if __name__ == "__main__":
             aggregation=args.aggregation,
             cuda=args.cuda,
         )
-        # logger.info("Evaluation complete.")
+        logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
 
     # results["target_dl"] = args.yadl_version
@@ -258,5 +255,5 @@ if __name__ == "__main__":
     scl.add_timestamp("end_process")
 
     scl.write_to_file("results/scenario_results.txt")
-    scenario_logger.info(scl.to_string())
+    logger_scn.debug(scl.to_string())
     logger.info("Run end.")

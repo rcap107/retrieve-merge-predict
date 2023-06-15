@@ -38,6 +38,7 @@ class ScenarioLogger:
             "end_evaluation": 0,
         }
         self.scenario_id = self.find_latest_scenario_id()
+        self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
         self.source_table = source_table
@@ -54,8 +55,8 @@ class ScenarioLogger:
         self.process_time = 0
 
     def add_timestamp(self, which_ts):
-        self.timestamps[which_ts] = dt.datetime.now() 
-        
+        self.timestamps[which_ts] = dt.datetime.now()
+
     def add_process_time(self):
         self.process_time = process_time()
 
@@ -93,6 +94,11 @@ class ScenarioLogger:
                 fp.write(f"{scenario_id}")
         return scenario_id
 
+    def get_next_run_id(self):
+        self.run_id += 1
+        next_run_id = self.run_id
+        return next_run_id
+
     def to_string(self):
         str_res = ",".join(
             map(
@@ -110,19 +116,19 @@ class ScenarioLogger:
                 ],
             )
         )
-        str_res += ','
+        str_res += ","
         for ts in self.timestamps.values():
             str_res += str(ts) + ","
-        
+
         return str_res.rstrip(",")
 
     def pretty_print(self):
-        print(f'Scenario ID: {self.scenario_id}')
-        print(f'Source table: {self.source_table}')
-        print(f'Iterations: {self.iterations}')
-        print(f'Join strategy: {self.join_strategy}')
-        print(f'Aggregation: {self.aggregation}')
-        print(f'DL Variant: {self.target_dl}')
+        print(f"Scenario ID: {self.scenario_id}")
+        print(f"Source table: {self.source_table}")
+        print(f"Iterations: {self.iterations}")
+        print(f"Join strategy: {self.join_strategy}")
+        print(f"Aggregation: {self.aggregation}")
+        print(f"DL Variant: {self.target_dl}")
 
     def write_to_file(self, out_path):
         with open(out_path, "a") as fp:
@@ -134,7 +140,7 @@ class RunLogger:
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
         self.fold_id = fold_id
-        self.run_id = self.find_latest_run_id()
+        self.run_id = scenario_logger.get_next_run_id()
         self.status = None
         self.timestamps = {}
         self.durations = {}
@@ -156,7 +162,7 @@ class RunLogger:
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
         }
-        if additional_parameters is not None:   
+        if additional_parameters is not None:
             parameters.update(additional_parameters)
 
         return parameters
@@ -167,35 +173,6 @@ class RunLogger:
 
     def set_run_status(self, status):
         self.status = status
-
-    def find_latest_run_id(self):
-        """Utility function for opening the run_id file, checking for errors and
-        incrementing it by one at the start of a run.
-
-        Raises:
-            ValueError: Raise ValueError if the read run_id is not a positive integer.
-
-        Returns:
-            int: The new (incremented) run_id.
-        """
-        if RUN_ID_PATH.exists():
-            with open(RUN_ID_PATH, "r") as fp:
-                last_run_id = fp.read().strip()
-                try:
-                    run_id = int(last_run_id) + 1
-                except ValueError:
-                    raise ValueError(
-                        f"Run ID {last_run_id} is not a positive integer. "
-                    )
-                if run_id < 0:
-                    raise ValueError(f"Run ID {run_id} is not a positive integer. ")
-            with open(RUN_ID_PATH, "w") as fp:
-                fp.write(f"{run_id}")
-        else:
-            run_id = 0
-            with open(RUN_ID_PATH, "w") as fp:
-                fp.write(f"{run_id}")
-        return run_id
 
     def add_time(self, label, value=None):
         """Add a new timestamp starting __now__, with the given label.
@@ -238,6 +215,7 @@ class RunLogger:
                 str,
                 [
                     self.scenario_id,
+                    self.run_id,
                     self.status,
                     self.parameters["target_dl"],
                     self.parameters["git_hash"],
@@ -248,15 +226,13 @@ class RunLogger:
                     self.parameters["join_strategy"],
                     self.parameters["aggregation"],
                     self.fold_id,
-                    self.durations["avg_train"],
-                    self.durations["eval"],
-                    self.durations.get("avg_join", ""),
-                    self.durations.get("eval_join", ""),
+                    self.durations["time_train"],
+                    self.durations["time_eval"],
+                    self.durations.get("time_join", ""),
+                    self.durations.get("time_eval_join", ""),
                     self.results.get("rmse", ""),
                     self.results.get("r2score", ""),
-                    
                 ],
             )
         )
         return res_str
-

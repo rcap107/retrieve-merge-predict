@@ -12,13 +12,28 @@ from src.methods import evaluation as em
 crossval_logger = logging.getLogger("pipeline_utils")
 crossval_logger.setLevel(logging.DEBUG)
 
-log_format = "%(message)s"
-res_formatter = logging.Formatter(fmt=log_format)
+def prepare_logger():
+    logger_sh = logging.getLogger("pipeline")
+    # console handler for info
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    # set formatter
+    ch_formatter = logging.Formatter("'%(asctime)s %(message)s'")
+    ch.setFormatter(ch_formatter)
 
-rfh = logging.FileHandler(filename=f"results/results_crossval.log")
-rfh.setFormatter(res_formatter)
+    logger_pipeline = logging.getLogger("run_logger")
+    # file handler for run logs
+    fh = logging.FileHandler("results/logs/runs_log.log")
+    fh.setLevel(logging.DEBUG)
+    # set formatter
+    fh_formatter = logging.Formatter("%(message)s")
+    fh.setFormatter(fh_formatter)
 
-crossval_logger.addHandler(rfh)
+    # add handler to logger
+    logger_pipeline.addHandler(fh)
+    logger_sh.addHandler(ch)
+
+    return logger_sh, logger_pipeline
 
 
 def prepare_default_configs(data_dir, selected_indices=None):
@@ -238,9 +253,11 @@ def evaluate_joins(
     aggregation="first",
     cuda=False,
 ):
+    logger_sh, logger_pipeline = prepare_logger()
     rs = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
 
     for i, (train_index, test_index) in enumerate(rs.split(base_table)):
+        logger_sh.info("Fold %d: START RUN" % (i + 1))
         left_table_train, num_features, cat_features = em.prepare_table_for_evaluation(
             base_table[train_index]
         )
@@ -252,60 +269,52 @@ def evaluate_joins(
         run_logger = RunLogger(scenario_logger, i, {"aggregation": "nojoin"})
 
         run_logger.add_time("start_training")
+        logger_sh.info("Fold %d: Start training on base table" % (i + 1))
+
         base_result, base_model = em.run_on_table_cross_valid(
             left_table_train,
-            num_features,
-            cat_features,
-            scenario_logger,
+            target_column="target",
             n_splits=n_splits,
             run_label=source_metadata.info["df_name"],
             verbose=verbose,
-            test_split=left_table_test,
             iterations=iterations,
             cuda=cuda,
         )
+        logger_sh.info("Fold %d: End training on base table" % (i + 1))
+
         run_logger.add_time("end_training")
         run_logger.add_duration("start_training", "end_training", "training_duration")
-        run_logger.durations["avg_train"] = run_logger.durations["training_duration"]
+        run_logger.durations["time_train"] = run_logger.durations["training_duration"]
 
         model_folder = Path("data/models")
         run_logger.add_time("start_eval")
         results_base = em.evaluate_model_on_test_split(left_table_test, base_result[1])
         run_logger.add_time("end_eval")
-        run_logger.add_duration("start_eval", "end_eval", "eval")
+        run_logger.add_duration("start_eval", "end_eval", "time_eval")
 
         run_logger.results["rmse"] = results_base[0]
         run_logger.results["r2score"] = results_base[1]
         run_logger.set_run_status("SUCCESS")
 
-        crossval_logger.info(run_logger.to_str())
+        logger_pipeline.debug(run_logger.to_str())
 
         # Run on all candidates
 
         add_params = {"candidate_table": "best_candidate", "index_name": "minhash"}
         run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
-
+        logger_sh.info("Fold %d: Start training on candidates" % (i + 1))
         results_best, durations = em.execute_on_candidates(
             join_candidates,
             left_table_train,
             left_table_test,
             aggregation,
-            scenario_logger,
-            num_features,
-            cat_features,
             verbose=verbose,
             iterations=iterations,
             n_splits=n_splits,
             join_strategy=join_strategy,
             cuda=cuda,
         )
-
-        print(
-            f"Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
-        )
-        print(
-            f"Join table -  RMSE {results_best[0]:.2f}  - R2 score {results_best[1]:.2f}"
-        )
+        logger_sh.info("Fold %d: End training on candidates" % (i + 1))
 
         run_logger.results["rmse"] = results_best[0]
         run_logger.results["r2score"] = results_best[1]
