@@ -321,6 +321,13 @@ def evaluate_joins(
         run_logger.durations.update(durations)
         run_logger.set_run_status("SUCCESS")
 
-        crossval_logger.info(run_logger.to_str())
+        logger_sh.info(
+            f"Fold {i+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
+        )
+        logger_sh.info(
+            f"Fold {i+1}: Join table -  RMSE {results_best[0]:.2f}  - R2 score {results_best[1]:.2f}"
+        )
+        logger_sh.info(
+        logger_pipeline.debug(run_logger.to_str())
 
     return
