@@ -119,7 +119,7 @@ def execute_join_with_aggregation(
         # logger.debug("End DFS.")
 
     else:
-        aggr_right = aggegate_table(
+        aggr_right = aggregate_table(
             right_table, right_on, aggregation_method=aggregation
         )
 
@@ -145,7 +145,7 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
         left_on = mdata.left_on
         right_on = mdata.right_on
 
-        aggr_right = aggegate_table(
+        aggr_right = aggregate_table(
             candidate_table, right_on, aggregation_method=aggregation
         )
 
@@ -212,7 +212,7 @@ def execute_join(
     return joined_table
 
 
-def aggegate_table(target_table, aggr_columns, aggregation_method):
+def aggregate_table(target_table, aggr_columns, aggregation_method):
     if aggregation_method == "first":
         aggr_table = aggregate_first(target_table, aggr_columns)
     elif aggregation_method == "mean":
