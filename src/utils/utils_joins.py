@@ -145,9 +145,18 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
         left_on = mdata.left_on
         right_on = mdata.right_on
 
-        aggr_right = aggregate_table(
-            candidate_table, right_on, aggregation_method=aggregation
-        )
+        if aggregation == "dfs":
+            aggr_right = aggregate_table(
+                candidate_table,
+                right_on,
+                aggregation_method=aggregation,
+                left_table=source_table.collect(),
+                left_on=left_on,
+            )
+        else:
+            aggr_right = aggregate_table(
+                candidate_table, right_on, aggregation_method=aggregation
+            )
 
         merged = execute_join(
             merged,
@@ -212,13 +221,24 @@ def execute_join(
     return joined_table
 
 
-def aggregate_table(target_table, aggr_columns, aggregation_method):
+def aggregate_table(
+    right_table, right_on, aggregation_method, left_table=None, left_on=None
+):
     if aggregation_method == "first":
-        aggr_table = aggregate_first(target_table, aggr_columns)
+        aggr_table = aggregate_first(right_table, right_on)
     elif aggregation_method == "mean":
-        aggr_table = aggregate_mean(target_table, aggr_columns)
+        aggr_table = aggregate_mean(right_table, right_on)
     elif aggregation_method == "dfs":
-        raise NotImplementedError()
+        aggr_table = prepare_dfs_table(
+            left_table, right_table, left_on=left_on, right_on=right_on
+        )
+        to_drop = [
+            col
+            for col in left_table.columns
+            if col not in left_on and col not in right_table.columns
+        ]
+        aggr_table = aggr_table.drop(to_drop)
+        aggr_table=aggr_table.rename({k:v for k,v in zip(left_on, right_on)})
     else:
         raise ValueError(f"Unknown aggregation method {aggregation_method}")
 
