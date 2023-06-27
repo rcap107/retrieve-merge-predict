@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+import polars.selectors as cs
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate
@@ -17,13 +18,9 @@ model_folder = Path("data/models")
 
 
 def prepare_table_for_evaluation(df):
-    df, num_features, cat_features = utils.cast_features(df)
+    df = utils.cast_features(df)
     df = df.fill_nan("null").fill_null("null")
-    return (
-        df,
-        num_features,
-        cat_features,
-    )
+    return df
 
 
 def evaluate_model_on_test_split(test_split, run_label, target_column_name=None):
@@ -57,8 +54,8 @@ def run_on_table_cross_valid(
 ):
     y = src_df[target_column].to_pandas()
     df = src_df.drop(target_column)
-    df, num_features, cat_features = utils.cast_features(df, only_types=True)
-    # df = df.fillna("null")
+    df = utils.cast_features(df)
+    cat_features = df.select(cs.string()).columns
     df = df.fill_null(value="null")
     df = df.fill_nan(value=np.nan)
     df = df.to_pandas()
@@ -129,9 +126,8 @@ def execute_on_candidates(
                 aggregation=aggregation,
             )
 
-            merged, num_features, cat_features = utils.cast_features(
-                merged, only_types=True
-            )
+            merged = utils.cast_features(merged)
+            num_features, cat_features = utils.get_cols_by_type(merged)
 
             merged[cat_features].fill_null("null")
             merged[num_features].fill_nan(np.nan)
@@ -214,7 +210,7 @@ def execute_full_join(
     join_durations = []
     train_durations = []
 
-    for index_name, index_cand in join_candidates.items():
+    for _, index_cand in join_candidates.items():
         merged = source_table.clone().lazy()
 
         params = {

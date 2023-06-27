@@ -1,5 +1,4 @@
 import featuretools as ft
-import pandas as pd
 import polars as pl
 import polars.selectors as cs
 from tqdm import tqdm
@@ -14,18 +13,39 @@ def get_logical_types(df):
     return logical_types
 
 
-def cast_features(table: pl.DataFrame, only_types=False):
-    if not only_types:
-        for col in table.columns:
-            try:
-                table = table.with_columns(pl.col(col).cast(pl.Float64))
-            except pl.ComputeError:
-                continue
+def get_cols_by_type(table: pl.DataFrame):
+    """Given a dataframe in `table`, find the numeric and string columns, then
+    return them in two separate lists.
 
-    cat_features = [k for k, v in table.schema.items() if str(v) == "Utf8"]
-    num_features = [k for k, v in table.schema.items() if str(v) == "Float64"]
+    Args:
+        table (pl.DataFrame): Input table to observe.
 
-    return table, num_features, cat_features
+    Returns:
+        (list, list): A tuple that contains the two lists of numerical and
+        categorical columns.
+    """
+    num_cols = table.select(cs.numeric()).columns
+    cat_cols = table.select(cs.string()).columns
+
+    return num_cols, cat_cols
+
+
+def cast_features(table: pl.DataFrame):
+    """Try to cast all columns in a table to float. If the casting operation
+    fails, do nothing and keep the previous type.
+
+    Args:
+        table (pl.DataFrame): Table to modify.
+
+    Returns:
+        pl.DataFrame: Table with updated types.
+    """
+    for col in table.columns:
+        try:
+            table = table.with_columns(pl.col(col).cast(pl.Float64))
+        except pl.ComputeError:
+            continue
+    return table
 
 
 def prepare_dfs_table(
@@ -35,6 +55,25 @@ def prepare_dfs_table(
     left_on=None,
     right_on=None,
 ):
+    """This function takes as input a left and right table to join on, as well
+    as the join columns (either `on`, or `left_on` and `right_on`), then uses
+    DFS to generate new features. It then returns the table with joined and
+    augmented columns.
+
+    Args:
+        left_table (pl.DataFrame): Left table to join.
+        right_table (pl.DataFrame): Right table to join.
+        on (list, optional): List of columns to use for joining. Defaults to None.
+        left_on (list, optional): List of columns in the left table to use for joining. Defaults to None.
+        right_on (list, optional): List of columns in the right table to use for joining. Defaults to None.
+
+    Raises:
+        NotImplementedError: Raise NotImplementedError if more than one column to
+        join on is provided.
+
+    Returns:
+        pl.DataFrame: The new table.
+    """
     if on is not None:
         left_on = right_on = on
 
@@ -46,8 +85,9 @@ def prepare_dfs_table(
         left_on = left_on[0]
         right_on = right_on[0]
 
+    # DFS does not support joining on columns that include duplicated values.
+    # TODO: remove hardcoded `col_to_embed`.
     left_table_dedup = left_table.unique("col_to_embed").to_pandas()
-    target_column = left_table["target"]
     right_table = right_table.with_row_count("index").to_pandas()
 
     es = ft.EntitySet()
@@ -70,6 +110,7 @@ def prepare_dfs_table(
 
     es = es.add_relationship("source_table", left_on, "candidate_table", right_on)
 
+    # `feature_matrix` is the joined table, with new features, we don't care about `feature_defs`
     feature_matrix, feature_defs = ft.dfs(
         entityset=es,
         target_dataframe_name="source_table",
@@ -87,6 +128,8 @@ def prepare_dfs_table(
     for col in num_cols:
         new_df[col] = new_df[col].astype(float)
 
+    # The following step is needed to keep the number of samples in `left_table`
+    # constant.
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
     augmented_table = left_table.to_pandas().merge(
         new_df[feat_columns].reset_index(), how="left", on="col_to_embed"
@@ -107,17 +150,20 @@ def execute_join_with_aggregation(
     aggregation=None,
     suffix=None,
 ):
+    if on is not None:
+        if left_on is None and right_on is None:
+            left_on = right_on = on
+        else:
+            raise ValueError(
+                "If `on` is provided, `left_on` and `right_on` should be left as None."
+            )
     if aggregation == "dfs":
-        # logger.debug("Start DFS.")
-
         merged = prepare_dfs_table(
             left_table,
             right_table,
             left_on=left_on,
             right_on=right_on,
         )
-        # logger.debug("End DFS.")
-
     else:
         aggr_right = aggregate_table(
             right_table, right_on, aggregation_method=aggregation
@@ -129,7 +175,6 @@ def execute_join_with_aggregation(
             left_on=left_on,
             right_on=right_on,
             how=how,
-            # mean=dedup,
         )
     return merged
 
@@ -228,7 +273,7 @@ def execute_join(
                 ),  # all columns in c must be in left_table.columns
             ]
         ):
-            raise KeyError(f"Columns in `on` were not found.")
+            raise KeyError("Columns in `on` were not found.")
         else:
             joined_table = (
                 left_table.lazy().join(right_table.lazy(), on=on, how=how).collect()
