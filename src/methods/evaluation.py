@@ -16,16 +16,6 @@ import src.utils.utils_joins as utils
 model_folder = Path("data/models")
 
 
-def measure_rmse(y_true, y_pred, squared=False):
-    rmse = mean_squared_error(y_true, y_pred, squared=squared)
-    return rmse
-
-
-def measure_r2(y_true, y_pred):
-    r2 = r2_score(y_true, y_pred)
-    return r2
-
-
 def prepare_table_for_evaluation(df):
     df, num_features, cat_features = utils.cast_features(df)
     df = df.fill_nan("null").fill_null("null")
@@ -48,8 +38,8 @@ def evaluate_model_on_test_split(test_split, run_label, target_column_name=None)
     model.load_model(model_name)
     y_pred = model.predict(test_split)
 
-    rmse = measure_rmse(y_test, y_pred)
-    r2 = measure_r2(y_test, y_pred)
+    rmse = mean_squared_error(y_test, y_pred, squared=False)
+    r2 = r2_score(y_test, y_pred)
 
     return (rmse, r2)
 
@@ -223,8 +213,6 @@ def execute_full_join(
     durations = {}
     join_durations = []
     train_durations = []
-
-    result_list = []
 
     for index_name, index_cand in join_candidates.items():
         merged = source_table.clone().lazy()
