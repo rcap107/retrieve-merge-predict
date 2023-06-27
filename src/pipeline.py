@@ -256,11 +256,11 @@ def evaluate_joins(
 
     for i, (train_index, test_index) in enumerate(rs.split(base_table)):
         logger_sh.info("Fold %d: START RUN" % (i + 1))
-        left_table_train, num_features, cat_features = em.prepare_table_for_evaluation(
+        left_table_train = em.prepare_table_for_evaluation(
             base_table[train_index]
         )
 
-        left_table_test, num_features, cat_features = em.prepare_table_for_evaluation(
+        left_table_test = em.prepare_table_for_evaluation(
             base_table[test_index]
         )
 
@@ -283,8 +283,7 @@ def evaluate_joins(
         run_logger.add_time("end_training")
         run_logger.add_duration("start_training", "end_training", "training_duration")
         run_logger.durations["time_train"] = run_logger.durations["training_duration"]
-
-        model_folder = Path("data/models")
+        
         run_logger.add_time("start_eval")
         results_base = em.evaluate_model_on_test_split(left_table_test, base_result[1])
         run_logger.add_time("end_eval")
