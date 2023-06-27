@@ -320,23 +320,23 @@ def evaluate_joins(
         run_logger.set_run_status("SUCCESS")
         logger_pipeline.debug(run_logger.to_str())
 
-        # run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
-        # logger_sh.info("Fold %d: Start training on full join" % (i + 1))
-        # results_full, durations = em.execute_full_join(
-        #     join_candidates,
-        #     left_table_train,
-        #     left_table_test,
-        #     source_metadata,
-        #     aggregation,
-        #     verbose,
-        #     iterations,
-        # )
-        # logger_sh.info("Fold %d: End training on full join" % (i + 1))
-        # run_logger.results["rmse"] = results_full[0]
-        # run_logger.results["r2score"] = results_full[1]
-        # run_logger.durations.update(durations)
-        # run_logger.set_run_status("SUCCESS")
-        # logger_pipeline.debug(run_logger.to_str())
+        run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
+        logger_sh.info("Fold %d: Start training on full join" % (i + 1))
+        results_full, durations = em.execute_full_join(
+            join_candidates,
+            left_table_train,
+            left_table_test,
+            source_metadata,
+            aggregation,
+            verbose,
+            iterations,
+        )
+        logger_sh.info("Fold %d: End training on full join" % (i + 1))
+        run_logger.results["rmse"] = results_full[0]
+        run_logger.results["r2score"] = results_full[1]
+        run_logger.durations.update(durations)
+        run_logger.set_run_status("SUCCESS")
+        logger_pipeline.debug(run_logger.to_str())
         
 
         logger_sh.info(
@@ -345,9 +345,9 @@ def evaluate_joins(
         logger_sh.info(
             f"Fold {i+1}: Join table -  RMSE {results_best[0]:.2f}  - R2 score {results_best[1]:.2f}"
         )
-        # logger_sh.info(
-        #     f"Fold {i+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
-        # )
+        logger_sh.info(
+            f"Fold {i+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
+        )
 
 
     return
