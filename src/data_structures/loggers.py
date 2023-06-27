@@ -147,7 +147,7 @@ class RunLogger:
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
         self.results = {}
 
-        self.add_time("run_start_time")
+        self.mark_time("run")
 
     def get_parameters(self, scenario_logger: ScenarioLogger, additional_parameters):
         parameters = {
@@ -172,18 +172,35 @@ class RunLogger:
             self.timestamps.update(additional_timestamps)
 
     def set_run_status(self, status):
-        self.status = status
-
-    def add_time(self, label, value=None):
-        """Add a new timestamp starting __now__, with the given label.
+        """Set run status for logging.
 
         Args:
-            label (str): Label to assign to the timestamp.
+            status (str): Status to use.
         """
-        if value is None:
-            self.timestamps[label] = dt.datetime.now()
+        self.status = status
+
+    def start_time(self, label):
+        return self.mark_time(label)
+
+    def end_time(self, label):
+        if label not in self.timestamps:
+            raise KeyError(f"Label {label} was not found.")
+        return self.mark_time(label)
+
+
+    def mark_time(self, label):
+        """Given a `label`, add a new timestamp if `label` isn't found, otherwise
+        mark the end of the timestamp and add a new duration. 
+
+        Args:
+            label (str): Label of the operation to mark. 
+        """
+        if label not in self.timestamps:
+            self.timestamps[label] = [dt.datetime.now(), None]
         else:
-            self.timestamps[label] = -1
+            self.timestamps[label][1] = dt.datetime.now()
+            this_segment = self.timestamps[label]
+            self.durations["time_" + label] = (this_segment[1] - this_segment[0]).total_seconds()
 
     def get_time(self, label):
         """Retrieve a time according to the given label.
@@ -194,20 +211,6 @@ class RunLogger:
             _type_: Retrieved timestamp.
         """
         return self.timestamps[label]
-
-    def add_duration(self, label_start=None, label_end=None, label_duration=None):
-        if label_start is None and label_end is None:
-            if label_duration is not None:
-                self.durations[label_duration] = -1
-            else:
-                raise ValueError(f"`label_duration` is required.")
-        else:
-            assert label_start in self.timestamps
-            assert label_end in self.timestamps
-
-            self.durations[label_duration] = (
-                self.timestamps[label_end] - self.timestamps[label_start]
-            ).total_seconds()
 
     def to_str(self):
         res_str = ",".join(
