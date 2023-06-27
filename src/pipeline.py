@@ -318,6 +318,7 @@ def evaluate_joins(
         run_logger.results["r2score"] = results_best[1]
         run_logger.durations.update(durations)
         run_logger.set_run_status("SUCCESS")
+        logger_pipeline.debug(run_logger.to_str())
 
         # run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
         # logger_sh.info("Fold %d: Start training on full join" % (i + 1))
@@ -335,6 +336,8 @@ def evaluate_joins(
         # run_logger.results["r2score"] = results_full[1]
         # run_logger.durations.update(durations)
         # run_logger.set_run_status("SUCCESS")
+        # logger_pipeline.debug(run_logger.to_str())
+        
 
         logger_sh.info(
             f"Fold {i+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
@@ -346,6 +349,5 @@ def evaluate_joins(
         #     f"Fold {i+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
         # )
 
-        logger_pipeline.debug(run_logger.to_str())
 
     return
