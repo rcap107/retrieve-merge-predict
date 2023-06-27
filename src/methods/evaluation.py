@@ -51,14 +51,13 @@ def run_on_table_cross_valid(
     additional_parameters=None,
     additional_timestamps=None,
     cuda=False,
+    n_jobs=1,
 ):
     y = src_df[target_column].to_pandas()
     df = src_df.drop(target_column)
     df = utils.cast_features(df)
     cat_features = df.select(cs.string()).columns
-    df = df.fill_null(value="null")
-    df = df.fill_nan(value=np.nan)
-    df = df.to_pandas()
+    df = df.fill_null(value="null").fill_nan(value=np.nan).to_pandas()
 
     if cuda:
         model = CatBoostRegressor(
@@ -78,7 +77,7 @@ def run_on_table_cross_valid(
         y=y,
         scoring=("r2", "neg_root_mean_squared_error"),
         cv=n_splits,
-        n_jobs=1,
+        n_jobs=n_jobs,
         fit_params={"verbose": verbose},
         return_estimator=True,
     )
@@ -96,6 +95,7 @@ def execute_on_candidates(
     source_table,
     test_table,
     aggregation,
+    best_candidates=1, 
     verbose=1,
     iterations=1000,
     n_splits=5,

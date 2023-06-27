@@ -319,6 +319,7 @@ def evaluate_joins(
         run_logger.set_run_status("SUCCESS")
         logger_pipeline.debug(run_logger.to_str())
 
+        add_params.update({"aggregation": "full_join"})
         run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
         logger_sh.info("Fold %d: Start training on full join" % (i + 1))
         results_full, durations = em.execute_full_join(
