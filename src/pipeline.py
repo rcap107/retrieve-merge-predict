@@ -248,6 +248,7 @@ def evaluate_joins(
     test_size=0.25,
     join_strategy="left",
     aggregation="first",
+    n_jobs=1,
     cuda=False,
 ):
     logger_sh, logger_pipeline = prepare_logger()
@@ -269,6 +270,7 @@ def evaluate_joins(
                 n_splits=n_splits,
                 cuda=cuda,
                 verbose=verbose,
+                n_jobs=n_jobs
             )
 
             # Run on all candidates
@@ -286,6 +288,7 @@ def evaluate_joins(
                 verbose=verbose,
                 cuda=cuda,
                 top_k=5,
+                n_jobs=n_jobs
             )
             # Run on full join
             results_full = em.run_on_full_join(
@@ -299,6 +302,7 @@ def evaluate_joins(
                 verbose,
                 aggregation,
                 cuda,
+                n_jobs=n_jobs
             )
             # Run on full join, supervised
             subset_candidates = {k: index_candidates[k] for k in best_k}
@@ -314,7 +318,8 @@ def evaluate_joins(
                 verbose,
                 aggregation,
                 cuda,
-                case="supervised"
+                case="supervised",
+                n_jobs=n_jobs
             )
 
             logger_sh.info(

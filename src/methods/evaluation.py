@@ -102,8 +102,9 @@ def run_on_base_table(
     target_column="target",
     iterations=500,
     n_splits=5,
-    cuda=False,
+    n_jobs=1,
     verbose=0,
+    cuda=False,
 ):
     run_logger = RunLogger(scenario_logger, fold, {"aggregation": "nojoin"})
     run_logger.start_time("run")
@@ -118,6 +119,7 @@ def run_on_base_table(
         verbose=verbose,
         iterations=iterations,
         cuda=cuda,
+        n_jobs=n_jobs
     )
     logger_sh.info("Fold %d: End training on base table" % (fold + 1))
     run_logger.end_time("train")
@@ -145,10 +147,11 @@ def run_on_candidates(
     iterations=1000,
     n_splits=5,
     join_strategy="left",
-    verbose=0,
     aggregation="first",
-    cuda=False,
     top_k=None,
+    n_jobs=1,
+    verbose=0,
+    cuda=False,
 ):
     add_params = {"candidate_table": "best_candidate", "index_name": index_name}
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
@@ -194,6 +197,8 @@ def run_on_candidates(
             n_splits=n_splits,
             iterations=iterations,
             cuda=cuda,
+            n_jobs=n_jobs
+
         )
         run_logger.end_time("train", cumulative=True)
         result_list.append(result)
@@ -245,7 +250,8 @@ def run_on_full_join(
     verbose=0,
     aggregation="first",
     cuda=False,
-    case="full"
+    case="full",
+    n_jobs=1
 ):
     """Evaluate the performance obtained by joining all the candidates provided
     by the join discovery algorithm, with no supervision.
@@ -260,6 +266,7 @@ def run_on_full_join(
         verbose (int, optional): Verbosity of the training model. Defaults to 0.
         aggregation (str, optional): Aggregation method to be used, can be either `first`, `mean` or `dfs`. Defaults to "first".
         cuda (bool, optional): Whether or not to train on GPU. Defaults to False.
+        n_jobs (int, optional): Number of CPUs to use when training. Defaults to 1. 
     """
 
     add_params = {
@@ -270,11 +277,11 @@ def run_on_full_join(
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
     run_logger.start_time("run")
 
-    run_logger.start_time("train_join")
+    run_logger.start_time("join")
     merged = left_table_train.clone().lazy()
     merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
     merged = merged.fill_null("").fill_nan("")
-    run_logger.end_time("train_join")
+    run_logger.end_time("join")
 
     run_logger.start_time("train")
     result_train = evaluate_single_table(
@@ -283,6 +290,8 @@ def run_on_full_join(
         iterations=iterations,
         run_label="full_join",
         cuda=cuda,
+        n_jobs=n_jobs
+
     )
     run_logger.end_time("train")
 
