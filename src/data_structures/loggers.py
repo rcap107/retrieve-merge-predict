@@ -179,28 +179,35 @@ class RunLogger:
         """
         self.status = status
 
-    def start_time(self, label):
-        return self.mark_time(label)
+    def start_time(self, label, cumulative=False):
+        return self.mark_time(label, cumulative)
 
-    def end_time(self, label):
+    def end_time(self, label, cumulative=False):
         if label not in self.timestamps:
             raise KeyError(f"Label {label} was not found.")
-        return self.mark_time(label)
+        return self.mark_time(label, cumulative)
 
-
-    def mark_time(self, label):
+    def mark_time(self, label, cumulative=False):
         """Given a `label`, add a new timestamp if `label` isn't found, otherwise
-        mark the end of the timestamp and add a new duration. 
+        mark the end of the timestamp and add a new duration.
 
         Args:
-            label (str): Label of the operation to mark. 
+            label (str): Label of the operation to mark.
         """
         if label not in self.timestamps:
             self.timestamps[label] = [dt.datetime.now(), None]
+            self.durations["time_" + label] = 0
         else:
             self.timestamps[label][1] = dt.datetime.now()
             this_segment = self.timestamps[label]
-            self.durations["time_" + label] = (this_segment[1] - this_segment[0]).total_seconds()
+            if cumulative:
+                self.durations["time_" + label] += (
+                    this_segment[1] - this_segment[0]
+                ).total_seconds()
+            else:
+                self.durations["time_" + label] = (
+                    this_segment[1] - this_segment[0]
+                ).total_seconds()
 
     def get_time(self, label):
         """Retrieve a time according to the given label.

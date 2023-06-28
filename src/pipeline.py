@@ -1,7 +1,7 @@
 import logging
 import pickle
 from pathlib import Path
-from catboost import CatBoostError, CatBoostRegressor
+
 from sklearn.model_selection import ShuffleSplit
 
 from src.data_structures.indices import LazoIndex, MinHashIndex
@@ -240,7 +240,6 @@ def querying(
 
 def evaluate_joins(
     base_table,
-    source_metadata,
     scenario_logger,
     join_candidates: dict,
     verbose=1,
@@ -254,100 +253,81 @@ def evaluate_joins(
     logger_sh, logger_pipeline = prepare_logger()
     rs = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
 
-    for i, (train_index, test_index) in enumerate(rs.split(base_table)):
-        logger_sh.info("Fold %d: START RUN" % (i + 1))
-        left_table_train = em.prepare_table_for_evaluation(
-            base_table[train_index]
-        )
+    for fold, (train_index, test_index) in enumerate(rs.split(base_table)):
+        logger_sh.info("Fold %d: START RUN" % (fold + 1))
+        for index_name, index_candidates in join_candidates.items():
+            left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
+            left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
 
-        left_table_test = em.prepare_table_for_evaluation(
-            base_table[test_index]
-        )
+            results_base = em.run_on_base_table(
+                scenario_logger,
+                fold,
+                left_table_train,
+                left_table_test,
+                target_column="target",
+                iterations=iterations,
+                n_splits=n_splits,
+                cuda=cuda,
+                verbose=verbose,
+            )
 
-        run_logger = RunLogger(scenario_logger, i, {"aggregation": "nojoin"})
+            # Run on all candidates
+            results_single, best_k = em.run_on_candidates(
+                scenario_logger,
+                fold,
+                index_candidates,
+                index_name,
+                left_table_train,
+                left_table_test,
+                iterations,
+                n_splits,
+                join_strategy,
+                aggregation=aggregation,
+                verbose=verbose,
+                cuda=cuda,
+                top_k=5,
+            )
+            # Run on full join
+            results_full = em.run_on_full_join(
+                scenario_logger,
+                fold,
+                index_candidates,
+                index_name,
+                left_table_train,
+                left_table_test,
+                iterations,
+                verbose,
+                aggregation,
+                cuda,
+            )
+            # Run on full join, supervised
+            subset_candidates = {k: index_candidates[k] for k in best_k}
 
-        run_logger.add_time("start_training")
-        logger_sh.info("Fold %d: Start training on base table" % (i + 1))
+            results_full_supervised = em.run_on_full_join(
+                scenario_logger,
+                fold,
+                subset_candidates,
+                index_name,
+                left_table_train,
+                left_table_test,
+                iterations,
+                verbose,
+                aggregation,
+                cuda,
+                case="supervised"
+            )
 
-        base_result, base_model = em.run_on_table_cross_valid(
-            left_table_train,
-            target_column="target",
-            n_splits=n_splits,
-            run_label=source_metadata.info["df_name"],
-            verbose=verbose,
-            iterations=iterations,
-            cuda=cuda,
-        )
-        logger_sh.info("Fold %d: End training on base table" % (i + 1))
-
-        run_logger.add_time("end_training")
-        run_logger.add_duration("start_training", "end_training", "training_duration")
-        run_logger.durations["time_train"] = run_logger.durations["training_duration"]
-        
-        run_logger.add_time("start_eval")
-        results_base = em.evaluate_model_on_test_split(left_table_test, base_result[1])
-        run_logger.add_time("end_eval")
-        run_logger.add_duration("start_eval", "end_eval", "time_eval")
-
-        run_logger.results["rmse"] = results_base[0]
-        run_logger.results["r2score"] = results_base[1]
-        run_logger.set_run_status("SUCCESS")
-
-        logger_pipeline.debug(run_logger.to_str())
-
-        # Run on all candidates
-
-        add_params = {"candidate_table": "best_candidate", "index_name": "minhash"}
-        run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
-        logger_sh.info("Fold %d: Start training on candidates" % (i + 1))
-        results_best, durations = em.execute_on_candidates(
-            join_candidates,
-            left_table_train,
-            left_table_test,
-            aggregation,
-            verbose=verbose,
-            iterations=iterations,
-            n_splits=n_splits,
-            join_strategy=join_strategy,
-            cuda=cuda,
-        )
-        logger_sh.info("Fold %d: End training on candidates" % (i + 1))
-
-        run_logger.results["rmse"] = results_best[0]
-        run_logger.results["r2score"] = results_best[1]
-        run_logger.durations.update(durations)
-        run_logger.set_run_status("SUCCESS")
-        logger_pipeline.debug(run_logger.to_str())
-
-        add_params.update({"aggregation": "full_join"})
-        run_logger = RunLogger(scenario_logger, i, additional_parameters=add_params)
-        logger_sh.info("Fold %d: Start training on full join" % (i + 1))
-        results_full, durations = em.execute_full_join(
-            join_candidates,
-            left_table_train,
-            left_table_test,
-            source_metadata,
-            aggregation,
-            verbose,
-            iterations,
-        )
-        logger_sh.info("Fold %d: End training on full join" % (i + 1))
-        run_logger.results["rmse"] = results_full[0]
-        run_logger.results["r2score"] = results_full[1]
-        run_logger.durations.update(durations)
-        run_logger.set_run_status("SUCCESS")
-        logger_pipeline.debug(run_logger.to_str())
-        
-
-        logger_sh.info(
-            f"Fold {i+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
-        )
-        logger_sh.info(
-            f"Fold {i+1}: Join table -  RMSE {results_best[0]:.2f}  - R2 score {results_best[1]:.2f}"
-        )
-        logger_sh.info(
-            f"Fold {i+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
-        )
-
+            logger_sh.info(
+                f"Fold {fold+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
+            )
+            logger_sh.info(
+                f"Fold {fold+1}: Join table -  RMSE {results_single[0]:.2f}  - R2 score {results_single[1]:.2f}"
+            )
+            logger_sh.info(
+                f"Fold {fold+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
+            )
+            logger_sh.info(
+                f"Fold {fold+1}: Full table supervised -  RMSE {results_full_supervised[0]:.2f}  - R2 score {results_full_supervised[1]:.2f}"
+            )
 
     return

@@ -234,7 +234,6 @@ if __name__ == "__main__":
         logger.info("Starting evaluation.")
         utils.evaluate_joins(
             df,
-            query_metadata,
             scl,
             join_candidates=candidates_by_index,
             verbose=0,
