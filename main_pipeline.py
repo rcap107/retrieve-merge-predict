@@ -139,6 +139,14 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--n_jobs",
+        action="store",
+        type=int,
+        default=1,
+        help="Number of parallel jobs to use during the training. `-1` to use all cores."
+    )
+
+    parser.add_argument(
         "--cuda",
         action="store_true",
         help="Run on GPU.",
@@ -234,7 +242,6 @@ if __name__ == "__main__":
         logger.info("Starting evaluation.")
         utils.evaluate_joins(
             df,
-            query_metadata,
             scl,
             join_candidates=candidates_by_index,
             verbose=0,
@@ -243,6 +250,7 @@ if __name__ == "__main__":
             join_strategy=args.join_strategy,
             aggregation=args.aggregation,
             cuda=args.cuda,
+            n_jobs=args.n_jobs,
         )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")

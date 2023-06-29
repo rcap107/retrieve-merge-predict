@@ -1,9 +1,8 @@
-import polars as pl
-import pandas as pd
-
 import featuretools as ft
-from woodwork.logical_types import Categorical, Double
+import polars as pl
+import polars.selectors as cs
 from tqdm import tqdm
+from woodwork.logical_types import Categorical, Double
 
 
 def get_logical_types(df):
@@ -14,18 +13,39 @@ def get_logical_types(df):
     return logical_types
 
 
-def cast_features(table: pl.DataFrame, only_types=False):
-    if not only_types:
-        for col in table.columns:
-            try:
-                table = table.with_columns(pl.col(col).cast(pl.Float64))
-            except pl.ComputeError:
-                continue
+def get_cols_by_type(table: pl.DataFrame):
+    """Given a dataframe in `table`, find the numeric and string columns, then
+    return them in two separate lists.
 
-    cat_features = [k for k, v in table.schema.items() if str(v) == "Utf8"]
-    num_features = [k for k, v in table.schema.items() if str(v) == "Float64"]
+    Args:
+        table (pl.DataFrame): Input table to observe.
 
-    return table, num_features, cat_features
+    Returns:
+        (list, list): A tuple that contains the two lists of numerical and
+        categorical columns.
+    """
+    num_cols = table.select(cs.numeric()).columns
+    cat_cols = table.select(cs.string()).columns
+
+    return num_cols, cat_cols
+
+
+def cast_features(table: pl.DataFrame):
+    """Try to cast all columns in a table to float. If the casting operation
+    fails, do nothing and keep the previous type.
+
+    Args:
+        table (pl.DataFrame): Table to modify.
+
+    Returns:
+        pl.DataFrame: Table with updated types.
+    """
+    for col in table.columns:
+        try:
+            table = table.with_columns(pl.col(col).cast(pl.Float64))
+        except pl.ComputeError:
+            continue
+    return table
 
 
 def prepare_dfs_table(
@@ -35,6 +55,25 @@ def prepare_dfs_table(
     left_on=None,
     right_on=None,
 ):
+    """This function takes as input a left and right table to join on, as well
+    as the join columns (either `on`, or `left_on` and `right_on`), then uses
+    DFS to generate new features. It then returns the table with joined and
+    augmented columns.
+
+    Args:
+        left_table (pl.DataFrame): Left table to join.
+        right_table (pl.DataFrame): Right table to join.
+        on (list, optional): List of columns to use for joining. Defaults to None.
+        left_on (list, optional): List of columns in the left table to use for joining. Defaults to None.
+        right_on (list, optional): List of columns in the right table to use for joining. Defaults to None.
+
+    Raises:
+        NotImplementedError: Raise NotImplementedError if more than one column to
+        join on is provided.
+
+    Returns:
+        pl.DataFrame: The new table.
+    """
     if on is not None:
         left_on = right_on = on
 
@@ -46,8 +85,9 @@ def prepare_dfs_table(
         left_on = left_on[0]
         right_on = right_on[0]
 
+    # DFS does not support joining on columns that include duplicated values.
+    # TODO: remove hardcoded `col_to_embed`.
     left_table_dedup = left_table.unique("col_to_embed").to_pandas()
-    target_column = left_table["target"]
     right_table = right_table.with_row_count("index").to_pandas()
 
     es = ft.EntitySet()
@@ -70,6 +110,7 @@ def prepare_dfs_table(
 
     es = es.add_relationship("source_table", left_on, "candidate_table", right_on)
 
+    # `feature_matrix` is the joined table, with new features, we don't care about `feature_defs`
     feature_matrix, feature_defs = ft.dfs(
         entityset=es,
         target_dataframe_name="source_table",
@@ -87,6 +128,8 @@ def prepare_dfs_table(
     for col in num_cols:
         new_df[col] = new_df[col].astype(float)
 
+    # The following step is needed to keep the number of samples in `left_table`
+    # constant.
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
     augmented_table = left_table.to_pandas().merge(
         new_df[feat_columns].reset_index(), how="left", on="col_to_embed"
@@ -107,17 +150,20 @@ def execute_join_with_aggregation(
     aggregation=None,
     suffix=None,
 ):
+    if on is not None:
+        if left_on is None and right_on is None:
+            left_on = right_on = on
+        else:
+            raise ValueError(
+                "If `on` is provided, `left_on` and `right_on` should be left as None."
+            )
     if aggregation == "dfs":
-        # logger.debug("Start DFS.")
-
         merged = prepare_dfs_table(
             left_table,
             right_table,
             left_on=left_on,
             right_on=right_on,
         )
-        # logger.debug("End DFS.")
-
     else:
         aggr_right = aggregate_table(
             right_table, right_on, aggregation_method=aggregation
@@ -129,15 +175,27 @@ def execute_join_with_aggregation(
             left_on=left_on,
             right_on=right_on,
             how=how,
-            # mean=dedup,
         )
     return merged
 
 
 def execute_join_all_candidates(source_table, index_cand, aggregation):
+    """Execute a full join on `source_table` by chain-joining and aggregating
+    all the candidates in `index_cand`, using the aggregation method specified
+    in `aggregation`.
+
+    Args:
+        source_table (pl.DataFrame): Source table to join on.
+        index_cand (_type_): Index containing info on the candidate tables.
+        aggregation (str): Aggregation function, can be either `first`, `mean`
+        or `dfs`.
+
+    Returns:
+        pl.DataFrame: The aggregated table.
+    """
     merged = source_table.clone()
     hashes = []
-    for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
+    for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand), leave=False, desc="Executing full join"):
         cnd_md = mdata.candidate_metadata
         hashes.append(cnd_md["hash"])
         candidate_table = pl.read_parquet(cnd_md["full_path"])
@@ -150,7 +208,7 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
                 candidate_table,
                 right_on,
                 aggregation_method=aggregation,
-                left_table=source_table.collect(),
+                left_table=source_table,
                 left_on=left_on,
             )
         else:
@@ -177,18 +235,45 @@ def execute_join(
     left_on=None,
     right_on=None,
     how="left",
-    mean=None,
     suffix=None,
 ):
+    """Utility function to execute the join between two tables, with error checking.
+
+    Args:
+        left_table (pl.DataFrame): Left table to join.
+        right_table (pl.DataFrame): Right table to join
+        on (list, optional): . Defaults to None.
+        left_on (list, optional): List of columns to join on in the left table. Defaults to None.
+        right_on (list, optional): List of columns to join on in the right table. Defaults to None.
+        how (str, optional): Join strategy. Can be either `left`, `inner`, `outer`. Defaults to "left".
+        suffix (str, optional): Suffix to be appended to the columns in the right table in case of overlap. Defaults to None.
+
+    Raises:
+        ValueError: Raise ValueError if the provided join strategy is unknown.
+        KeyError: Raise KeyError if any join column (in `on`, `left_on`, `right_on`)
+                    is not found in the table columns.
+
+    Returns:
+        pl.DataFrame: Joined table.
+    """
     if suffix is None:
         suffix = ""
 
     if how not in ["left", "inner", "outer"]:
-        raise ValueError(f"Unknown join option {how}")
+        raise ValueError(f"Unknown join strategy {how}")
 
     if on is not None:
-        if on not in left_table.columns or on not in right_table.columns:
-            raise ValueError(f"Columns in `on` were not found.")
+        if any(  # if any of the following two conditions is false, raise an exception
+            [
+                all(
+                    [c in left_table.columns for c in on]
+                ),  # all columns in c must be in left_table.columns
+                all(
+                    [c in right_table.columns for c in on]
+                ),  # all columns in c must be in left_table.columns
+            ]
+        ):
+            raise KeyError("Columns in `on` were not found.")
         else:
             joined_table = (
                 left_table.lazy().join(right_table.lazy(), on=on, how=how).collect()
@@ -213,10 +298,10 @@ def execute_join(
             .collect()
         )
 
-        if mean:
-            joined_table = aggregate_mean(joined_table, left_table.columns)
-        else:
-            joined_table = aggregate_first(joined_table, left_table.columns)
+        # if mean:
+        #     joined_table = aggregate_mean(joined_table, left_table.columns)
+        # else:
+        #     joined_table = aggregate_first(joined_table, left_table.columns)
 
     return joined_table
 
@@ -224,13 +309,45 @@ def execute_join(
 def aggregate_table(
     right_table, right_on, aggregation_method, left_table=None, left_on=None
 ):
+    """Perfrom aggregation on the given `right_table` by deduplicating rows
+    according to the columns specified in `right_on` by using the given
+    `aggregation_method`.
+
+    If `aggregation_method` is `dfs`, then `left_table` and `left_on` must also
+    be provided.
+
+    Args:
+        right_table (Union[pl.DataFrame, pl.LazyFrame]): Table to deduplicate.
+        right_on (list): List of columns to deduplicate over.
+        aggregation_method (str): Aggregation method to use. Can be one of
+        `first`, `mean`, `dfs`.
+        left_table (Union[pl.DataFrame, pl.LazyFrame], optional): Left table in
+        the join, needed if `aggregation_method` is `dfs`. Defaults to None.
+        left_on (list, optional): Columns to deduplicate over in the left table.
+        Required if `left_table` is provided. Defaults to None.
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        _type_: _description_
+    """
+
     if aggregation_method == "first":
         aggr_table = aggregate_first(right_table, right_on)
     elif aggregation_method == "mean":
         aggr_table = aggregate_mean(right_table, right_on)
     elif aggregation_method == "dfs":
+        if left_table is None or left_on is None:
+            raise ValueError(
+                "Expected values for `left_table` and `left_on`, "
+                f"instead found {left_table} and {left_on}."
+            )
         aggr_table = prepare_dfs_table(
-            left_table, right_table, left_on=left_on, right_on=right_on
+            left_table.lazy().collect(),  # needed because `left_table` can be either LazyFrame or DataFrame
+            right_table,
+            left_on=left_on,
+            right_on=right_on,
         )
         to_drop = [
             col
@@ -238,7 +355,7 @@ def aggregate_table(
             if col not in left_on and col not in right_table.columns
         ]
         aggr_table = aggr_table.drop(to_drop)
-        aggr_table=aggr_table.rename({k:v for k,v in zip(left_on, right_on)})
+        aggr_table = aggr_table.rename(dict(zip(left_on, right_on)))
     else:
         raise ValueError(f"Unknown aggregation method {aggregation_method}")
 
@@ -246,26 +363,34 @@ def aggregate_table(
 
 
 def aggregate_mean(target_table, target_columns):
-    cat_cols = [col for col, dtype in target_table.schema.items() if dtype == pl.Utf8]
-    num_cols = [col for col in target_table.columns if col not in cat_cols]
+    """Deduplicate all values in `target_table` that are in columns other than
+    `target_columns`. Values typed as strings are replaced by the mode of each
+    group; values typed as numbers are replaced by the mean.
 
-    df_list = []
+    Args:
+        target_table (pl.DataFrame): Table to deduplicate.
+        target_columns (list): List of columns to group by when deduplicating.
 
-    for _, group in target_table.groupby(target_columns):
-        g = (
-            group.lazy()
-            .select(
-                pl.col(cat_cols).mode().first(),
-                pl.col(num_cols).mean(),
-            )
-            .collect()
-        )
-        df_list.append(g)
-
-    df_dedup = pl.concat(df_list).unique()
+    Returns:
+        pl.DataFrame: Deduplicated dataframe.
+    """
+    df_dedup = target_table.groupby(target_columns).agg(
+        cs.string().mode().sort(descending=True).first(), cs.numeric().mean()
+    )
     return df_dedup
 
 
 def aggregate_first(target_table: pl.DataFrame, aggr_columns):
+    """Deduplicate all values in `target_table` that are in columns other than
+    `target_columns`. For all duplicated rows, keep only the first occurrence.
+
+    Args:
+        target_table (pl.DataFrame): Table to deduplicate.
+        target_columns (list): List of columns to group by when deduplicating.
+
+    Returns:
+        pl.DataFrame: Deduplicated dataframe.
+    """
+
     df_dedup = target_table.unique(aggr_columns, keep="first")
     return df_dedup

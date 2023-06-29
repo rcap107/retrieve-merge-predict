@@ -194,6 +194,14 @@ class CandidateJoin:
         md5.update(id_str)
         return md5.hexdigest()
 
+    def get_join_information(self):
+        return (
+            self.source_metadata,
+            self.candidate_metadata,
+            self.left_on,
+            self.right_on,
+        )
+
 
 class RawDataset:
     def __init__(self, full_df_path, source_dl, metadata_dir) -> None:
