@@ -14,7 +14,13 @@ mh_logger = logging.getLogger("metadata_logger")
 
 class MinHashIndex:
     def __init__(
-        self, data_dir=None, thresholds=[20], num_perm=128, num_part=32, oneshot=True, index_file=None
+        self,
+        data_dir=None,
+        thresholds=[20],
+        num_perm=128,
+        num_part=32,
+        oneshot=True,
+        index_file=None,
     ) -> None:
         """Index class based on `MinHashLSHEnsemble`. By default, it scans for metadata files
         in the provided `data_dir` and adds all them to the index.
@@ -26,8 +32,8 @@ class MinHashIndex:
         Ensembles do not support online updates, so after loading all tables in the index it is necessary
         to invoke the function `create_ensembles`. Querying without this step will raise an exception.
 
-        If `index_file` is provided, the data structures required for the index are loaded from the given 
-        index file. 
+        If `index_file` is provided, the data structures required for the index are loaded from the given
+        index file.
 
         If `oneshot` is set to True, the index will be initialized within this function.
         If `oneshot` is set to False, the index creation will not be wrapped up until the user manually
@@ -35,12 +41,12 @@ class MinHashIndex:
         while scanning `data_dir`.
 
         Args:
-            data_dir (str, optional): Path to the dir that contains the metadata of the target tables. 
+            data_dir (str, optional): Path to the dir that contains the metadata of the target tables.
             thresholds (list, optional): List of thresholds to be used by the ensemble. Defaults to [20].
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
             oneshot (bool, optional): If False, index will have to be finalized by the user. Defaults to True.
-            index_file (str, optional): Path to a pickle containing a pre-computed index. 
+            index_file (str, optional): Path to a pickle containing a pre-computed index.
         """
         self.index_name = "minhash"
 
@@ -54,7 +60,7 @@ class MinHashIndex:
         if index_file is not None:
             self.load_index(index_file)
             self.initialized = True
-            
+
         elif data_dir is not None:
             self.data_dir = Path(data_dir)
             if not self.data_dir.exists():
@@ -68,7 +74,6 @@ class MinHashIndex:
         else:
             # Do nothing, the user will load the data manually.
             pass
-
 
     def _index_single_table(self, df: pl.DataFrame, tab_name) -> dict:
         """Generate the minhashes for a single dataframe.
@@ -100,7 +105,11 @@ class MinHashIndex:
         total_files = sum(1 for f in data_path.glob("*.json"))
 
         if total_files > 0:
-            for path in tqdm(data_path.glob("*.json"), total=total_files, desc="Loading metadata in index"):
+            for path in tqdm(
+                data_path.glob("*.json"),
+                total=total_files,
+                desc="Loading metadata in index",
+            ):
                 mdata_dict = json.load(open(path, "r"))
                 ds_hash = mdata_dict["hash"]
                 df = pl.read_parquet(mdata_dict["full_path"])
@@ -155,8 +164,8 @@ class MinHashIndex:
         r = {}
         for result in query_result:
             t, c = result.split("__")
-            
-            r[t,c] = threshold
+
+            r[t, c] = threshold
         return r
 
     def query_index(self, query, threshold=None, to_dataframe=False):
@@ -196,7 +205,6 @@ class MinHashIndex:
                 for threshold, ens in self.ensembles.items():
                     res = list(ens.query(m_query, len(query)))
                     query_dict.update(self.prepare_result(res, threshold))
-
 
             if to_dataframe:
                 query_results = pl.from_records(
@@ -242,7 +250,7 @@ class MinHashIndex:
                     self.num_part = index_dict["num_part"]
                     self.thresholds = index_dict["thresholds"]
                     self.ensembles = index_dict["ensembles"]
-                    self.initialized = True 
+                    self.initialized = True
             else:
                 raise FileNotFoundError(f"File `{index_file}` not found.")
         elif index_dict is not None:
@@ -254,7 +262,6 @@ class MinHashIndex:
             self.initialized = True
         else:
             raise ValueError("Either `index_file` or `index_dict` must be provided.")
-
 
 
 class LazoIndex:
@@ -274,7 +281,7 @@ class LazoIndex:
 
         Args:
             data_dir (str, optional): If provided, create and initialize the index scanning the
-            given `data_dir`. 
+            given `data_dir`.
             partition_size (int, optional): Due to how protobuf works, column domains will be
             partitioned in lists of size `partition_size`. Defaults to 50_000.
             host (str, optional): Lazo server host address. Defaults to "localhost".
@@ -290,14 +297,15 @@ class LazoIndex:
             self.host = host
             self.port = port
             self.partition_size = partition_size
-        
-        self.lazo_client = lazo_index_service.LazoIndexClient(host=self.host, port=self.port)
-        
+
+        self.lazo_client = lazo_index_service.LazoIndexClient(
+            host=self.host, port=self.port
+        )
+
         if data_dir is not None:
             data_dir = Path(data_dir)
             self.add_tables_from_path(data_dir)
             self.data_dir = data_dir
-        
 
     def _index_single_table(self, df: pl.DataFrame, tab_name: str):
         for col in df.columns:
@@ -345,7 +353,12 @@ class LazoIndex:
         if total_files == 0:
             raise RuntimeError(f"No json files found in {data_path}.")
 
-        for path in tqdm(data_path.glob("*.json"), total=total_files, leave=False, desc="Adding tables to index"):
+        for path in tqdm(
+            data_path.glob("*.json"),
+            total=total_files,
+            leave=False,
+            desc="Adding tables to index",
+        ):
             mdata_dict = json.load(open(path, "r"))
             ds_hash = mdata_dict["hash"]
             df = pl.read_parquet(mdata_dict["full_path"])
@@ -388,7 +401,7 @@ class LazoIndex:
                 params = pickle.load(fp)
                 self.host = params["host"]
                 self.port = params["port"]
-                self.partition_size = params["partition_size"]        
+                self.partition_size = params["partition_size"]
         else:
             raise FileNotFoundError(f"File {index_file} not found.")
 
