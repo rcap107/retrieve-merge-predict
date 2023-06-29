@@ -235,8 +235,7 @@ def run_on_candidates(
         if top_k < 0:
             raise ValueError("`top_k` must be positive.")
         return results_best, [r[0] for r in result_list[:top_k]]
-    else:
-        return results_best
+    return results_best
 
 
 def run_on_full_join(
@@ -276,6 +275,14 @@ def run_on_full_join(
     }
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
     run_logger.start_time("run")
+    logger_sh.info("Fold %d: Start training on full join" % (fold + 1))
+
+    if aggregation == "dfs":
+        logger_sh.error("Fold %d: Full join not available with DFS." % (fold + 1))
+        run_logger.end_time("run")
+        run_logger.set_run_status("FAILURE")
+        return [0, 0]
+        
 
     run_logger.start_time("join")
     merged = left_table_train.clone().lazy()
@@ -308,5 +315,7 @@ def run_on_full_join(
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
     run_logger.end_time("run")
+    logger_sh.info("Fold %d: End training on full join" % (fold + 1))
+
     logger_pipeline.debug(run_logger.to_str())
     return results
