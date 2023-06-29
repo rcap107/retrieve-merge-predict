@@ -159,7 +159,7 @@ def run_on_candidates(
     logger_sh.info("Fold %d: Start training on candidates" % (fold + 1))
 
     result_list = []
-    for hash_, mdata in tqdm(join_candidates.items(), total=len(join_candidates)):
+    for hash_, mdata in tqdm(join_candidates.items(), total=len(join_candidates), leave=False, desc="Training on candidates"):
         src_md, cnd_md, left_on, right_on = mdata.get_join_information()
         candidate_table = pl.read_parquet(cnd_md["full_path"])
 

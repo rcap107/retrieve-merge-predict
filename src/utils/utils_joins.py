@@ -195,7 +195,7 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
     """
     merged = source_table.clone()
     hashes = []
-    for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand)):
+    for hash_, mdata in tqdm(index_cand.items(), total=len(index_cand), leave=False, desc="Executing full join"):
         cnd_md = mdata.candidate_metadata
         hashes.append(cnd_md["hash"])
         candidate_table = pl.read_parquet(cnd_md["full_path"])
