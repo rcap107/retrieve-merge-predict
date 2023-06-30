@@ -260,6 +260,7 @@ def evaluate_joins(
             left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
             left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
 
+            # Run on single table, no joins
             results_base = em.run_on_base_table(
                 scenario_logger,
                 fold,
@@ -273,7 +274,7 @@ def evaluate_joins(
                 n_jobs=n_jobs
             )
 
-            # Run on all candidates
+            # Join on each candidate, one at a time
             results_single, best_k = em.run_on_candidates(
                 scenario_logger,
                 fold,
@@ -290,7 +291,7 @@ def evaluate_joins(
                 top_k=5,
                 n_jobs=n_jobs
             )
-            # Run on full join
+            # Join all candidates at the same time
             results_full = em.run_on_full_join(
                 scenario_logger,
                 fold,
@@ -304,10 +305,10 @@ def evaluate_joins(
                 cuda,
                 n_jobs=n_jobs
             )
-            # Run on full join, supervised
+            # Join only a subset of candidates, taking the best individual candidates from step 2.
             subset_candidates = {k: index_candidates[k] for k in best_k}
 
-            results_full_supervised = em.run_on_full_join(
+            results_full_sampled = em.run_on_full_join(
                 scenario_logger,
                 fold,
                 subset_candidates,
@@ -318,7 +319,7 @@ def evaluate_joins(
                 verbose,
                 aggregation,
                 cuda,
-                case="supervised",
+                case="sampled",
                 n_jobs=n_jobs
             )
 
@@ -332,7 +333,7 @@ def evaluate_joins(
                 f"Fold {fold+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
             )
             logger_sh.info(
-                f"Fold {fold+1}: Full table supervised -  RMSE {results_full_supervised[0]:.2f}  - R2 score {results_full_supervised[1]:.2f}"
+                f"Fold {fold+1}: Full table sampled -  RMSE {results_full_sampled[0]:.2f}  - R2 score {results_full_sampled[1]:.2f}"
             )
 
     return

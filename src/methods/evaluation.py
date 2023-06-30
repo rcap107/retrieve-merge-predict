@@ -181,18 +181,6 @@ def run_on_candidates(
 
         merged = prepare_table_for_evaluation(merged)
         run_logger.end_time("join", cumulative=True)
-
-        additional_parameters = {
-            "source_table": Path(src_md["full_path"]).stem,
-            "candidate_table": cnd_md["full_path"],
-            "index_name": index_name,
-            "left_on": left_on,
-            "right_on": right_on,
-            "similarity": mdata.similarity_score,
-            "size_prejoin": len(left_table_train),
-            "size_postjoin": len(merged),
-        }
-
         run_logger.start_time("train", cumulative=True)
         # Result has format (run_label, best_estimator, best_R2score)
         result = evaluate_single_table(
@@ -273,9 +261,9 @@ def run_on_full_join(
     """
 
     add_params = {
-        "candidate_table": "full_join",
+        "candidate_table": case,
         "index_name": index_name,
-        "aggregation": case,
+        "aggregation": aggregation,
     }
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
     run_logger.start_time("run")
