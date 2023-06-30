@@ -4,6 +4,7 @@ import pandas as pd
 from typing import Iterable, Union, List
 from pathlib import Path
 
+
 def execute_dummy_join(
     left_table: pl.DataFrame,
     right_table: pl.DataFrame,
@@ -196,7 +197,7 @@ def measure_join_quality(
 
 
 def profile_joins(join_candidates: dict, logger):
-    
+
     tot_dict = []
     for index_name, candidates in join_candidates.items():
 
@@ -248,6 +249,6 @@ def profile_joins(join_candidates: dict, logger):
             tot_dict.append(prof_dict)
 
     logger.add_dict("profiling_results", tot_dict)
-    
+
     prof_df = pl.from_dicts(tot_dict)
     return prof_df.to_pandas()

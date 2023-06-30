@@ -271,7 +271,7 @@ def evaluate_joins(
                 n_splits=n_splits,
                 cuda=cuda,
                 verbose=verbose,
-                n_jobs=n_jobs
+                n_jobs=n_jobs,
             )
 
             # Join on each candidate, one at a time
@@ -289,7 +289,7 @@ def evaluate_joins(
                 verbose=verbose,
                 cuda=cuda,
                 top_k=5,
-                n_jobs=n_jobs
+                n_jobs=n_jobs,
             )
             # Join all candidates at the same time
             results_full = em.run_on_full_join(
@@ -303,7 +303,7 @@ def evaluate_joins(
                 verbose,
                 aggregation,
                 cuda,
-                n_jobs=n_jobs
+                n_jobs=n_jobs,
             )
             # Join only a subset of candidates, taking the best individual candidates from step 2.
             subset_candidates = {k: index_candidates[k] for k in best_k}
@@ -320,7 +320,7 @@ def evaluate_joins(
                 aggregation,
                 cuda,
                 case="sampled",
-                n_jobs=n_jobs
+                n_jobs=n_jobs,
             )
 
             logger_sh.info(

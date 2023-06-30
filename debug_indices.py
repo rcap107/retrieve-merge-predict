@@ -1,6 +1,6 @@
 # %%
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 import polars as pl
 from pathlib import Path
 from src.candidate_discovery.utils_minhash import MinHashIndex
@@ -17,7 +17,7 @@ metadata_path = Path("data/metadata/debug")
 df_dict = {}
 
 # %%
-mh_index = MinHashIndex(thresholds=[20,40])
+mh_index = MinHashIndex(thresholds=[20, 40])
 
 # Count the number of total files in the glob
 total_files = sum(1 for f in metadata_path.glob("*.json"))
@@ -70,14 +70,3 @@ pickle.dump(
 # %%
 # Load index from pickle
 mh_index = pickle.load(open("mh_index.pickle", "rb"))
-
-# %%
-for res in mh_result:
-    
-    cj = CandidateJoin(
-        source_table = tab_name,
-        candidate_table
-    )
-
-
-cj = CandidateJoin()

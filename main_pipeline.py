@@ -143,7 +143,7 @@ def parse_arguments():
         action="store",
         type=int,
         default=1,
-        help="Number of parallel jobs to use during the training. `-1` to use all cores."
+        help="Number of parallel jobs to use during the training. `-1` to use all cores.",
     )
 
     parser.add_argument(

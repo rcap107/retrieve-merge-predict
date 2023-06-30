@@ -1,4 +1,4 @@
-'''Time and prepare minhash index with different parameters'''
+"""Time and prepare minhash index with different parameters"""
 
 
 import datetime
@@ -45,10 +45,10 @@ index_dir = Path("data/metadata/_indices/testing_minhash/partitions")
 
 n_perm = 64
 for case in ["binary", "wordnet"]:
-# for case in ["binary"]:
+    # for case in ["binary"]:
     for n_part in [16, 32, 64]:
         metadata_dir = Path(f"data/metadata/{case}")
-        mh_config= {
+        mh_config = {
             "data_dir": metadata_dir,
             "thresholds": [10, 20, 80],
             "oneshot": True,
@@ -58,16 +58,15 @@ for case in ["binary", "wordnet"]:
         start_time = datetime.datetime.now()
         index = MinHashIndex(**mh_config)
         end_time = datetime.datetime.now()
-        
+
         index_name = f"minhash_{case}_part_{n_part}"
-        
+
         indices[index_name] = index
-        
+
         log_str = f"{case},{mh_config['thresholds']},{mh_config['num_perm']},{n_part},{start_time},{end_time},{(end_time-start_time).total_seconds()}"
 
         logger.info("%s", log_str)
-        
-        
+
 
 from src.pipeline import save_indices
 
