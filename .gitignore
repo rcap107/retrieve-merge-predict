@@ -8,6 +8,7 @@ data/
 catboost_info/
 results/
 *.tex
+notebooks/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
