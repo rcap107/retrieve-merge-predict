@@ -52,4 +52,21 @@ Running the indexing step on the given tables takes about ~15 minutes on our clu
 The sample script `example_config.sh` runs a single, shortened run: the results will not necessarily be accurate, but it
 simplifies debugging.
 
-To run the experiments reported in the paper, run the `./run_experiments.sh` script.
+To run the experiments reported in the paper, run the `./run_experiments.sh` script. Note that running all the experiments
+can take a very long time.
+
+## Studying the results
+Results are stored in the `results/logs` folder.
+
+`main_log.log` keeps track of each "high level execution" (as invoked
+from the command line), mainly logging run-level parameters and timers.
+
+`runs_log.log` keeps track of each singular fold (i.e. train/test split over the base table), and the main steps in the
+training: results using only the base table, best result when joining a single candidate, join over all candidates and
+join over the top `k` candidates.
+
+Each outer fold will run the sequence "base table", "candidates", "full join", "sampled full join" on the same train/test
+split.
+
+Results were prepared using Google Sheets:
+https://docs.google.com/spreadsheets/d/1a8YcpMxhr5MXkOLGepAZyDWcikySoL0zvqgWv1-Uv4c/edit?usp=sharing
