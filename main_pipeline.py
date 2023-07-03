@@ -157,11 +157,12 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
+    utils.prepare_dirtree()
+
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
     args = parse_arguments()
     case = args.yadl_version
-    # logger.info(f"Working with version `{case}`")
     metadata_dir = Path(f"data/metadata/{case}")
     metadata_index_path = Path(f"data/metadata/_mdi/md_index_{case}.pickle")
     index_dir = Path(f"data/metadata/_indices/{case}")
@@ -182,15 +183,12 @@ if __name__ == "__main__":
         n_splits=args.n_splits,
     )
 
-    # logger.info(f"Reading metadata from {metadata_index_path}")
     if not metadata_index_path.exists():
         raise FileNotFoundError(
             f"Path to metadata index {metadata_index_path} is invalid."
         )
     else:
         mdata_index = MetadataIndex(index_path=metadata_index_path)
-
-    # print("Loading indices.")
     scl.add_timestamp("start_load_index")
     indices = utils.load_indices(index_dir)
     scl.add_timestamp("end_load_index")
@@ -198,13 +196,9 @@ if __name__ == "__main__":
     scl.pretty_print()
 
     # Query index
-    # print("Querying.")
-
     # I am removing all duplicate rows
     scl.add_timestamp("start_querying")
     df = pl.read_parquet(query_data_path).unique()
-    # TODO: Fix logging
-    # logger.info(f"Querying from dataset {query_data_path}")
     query_metadata = RawDataset(
         query_data_path.resolve(), "queries", "data/metadata/queries"
     )

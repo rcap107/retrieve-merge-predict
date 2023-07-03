@@ -1,6 +1,7 @@
 import logging
 import pickle
 from pathlib import Path
+import os
 
 from sklearn.model_selection import ShuffleSplit
 
@@ -32,6 +33,12 @@ def prepare_logger():
     logger_sh.addHandler(ch)
 
     return logger_sh, logger_pipeline
+
+
+def prepare_dirtree():
+    os.makedirs("results/logs", exist_ok=True)
+    os.makedirs("results/generated_candidates", exist_ok=True)
+    os.makedirs("data/metadata", exist_ok=True)
 
 
 def prepare_default_configs(data_dir, selected_indices=None):
