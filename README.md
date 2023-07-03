@@ -28,6 +28,7 @@ pip install -r requirements.txt
 ```
 
 # Running the pipeline
+## Creating the indices
 Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake.
 
 Extract the variants to folder `data/yadl/`, then run the script `prepare_metadata.py`.
@@ -39,8 +40,16 @@ python prepare_metadata.py -s CASE PATH
 `PATH` is the path to the root folder containing all the tables (saved in parquet) to be added to the metadata index and
 to the indices.
 
-The actual pipeline is run on a single `CASE` at a time.
+```
+# wordnet case
+python prepare_metadata.py -s wordnet data/wordnet_big/
+# binary case
+python prepare_metadata.py -s binary data/binary/
+```
+Running the indexing step on the given tables takes about ~15 minutes on our cluster.
 
-The
+## Running the experiments
+The sample script `example_config.sh` runs a single, shortened run: the results will not necessarily be accurate, but it
+simplifies debugging.
 
 To run the experiments reported in the paper, run the `./run_experiments.sh` script.
