@@ -20,11 +20,11 @@ We strongly recommend to use conda environments to fetch the required packages. 
 required dependencies and allows to create directly a conda environment:
 ```
 conda env create --file=environment.yaml
+conda activate bench-repro
 ```
-
-To install lazo dependencies, use pip instead:
+Then, install the remaining dependencies with pip:
 ```
-pip install lazo-index-service
+pip install -r requirements.txt
 ```
 
 # Running the pipeline
@@ -40,5 +40,7 @@ python prepare_metadata.py -s CASE PATH
 to the indices.
 
 The actual pipeline is run on a single `CASE` at a time.
+
+The
 
 To run the experiments reported in the paper, run the `./run_experiments.sh` script.
