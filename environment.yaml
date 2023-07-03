@@ -18,3 +18,4 @@ dependencies:
   - tqdm==4.65.0
   - jupyter
   - featuretools==1.26.0
+  - pyarrow==12.0
