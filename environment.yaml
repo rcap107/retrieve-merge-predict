@@ -3,8 +3,8 @@ name: bench-repro
 channels:
   - conda-forge
 dependencies:
+  - protobuf==3.20.3
   - python>=3.9
-  - anaconda
   - pip
   - polars==0.18.4
   - pandas==1.5.3

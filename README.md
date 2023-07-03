@@ -15,6 +15,17 @@ are available on Zenodo: https://zenodo.org/record/8015298
 
 The code for preparing the YADL variants can be found in this repo: https://github.com/rcap107/prepare-data-lakes
 
+# Installing the requirements
+We strongly recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the
+required dependencies and allows to create directly a conda environment:
+```
+conda env create --file=environment.yaml
+```
+
+To install lazo dependencies, use pip instead:
+```
+pip install lazo-index-service
+```
 
 # Running the pipeline
 Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake.
