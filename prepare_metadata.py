@@ -65,6 +65,7 @@ def prepare_metadata_from_case(case, data_folder, save_to_full=False):
     data_folder = Path(data_folder)
     if data_folder.exists():
         os.makedirs(f"data/metadata/{case}", exist_ok=True)
+        os.makedirs(f"data/metadata/_mdi", exist_ok=True)
         for dataset_path in data_folder.glob("**/*.parquet"):
             ds = RawDataset(dataset_path, "yadl", f"data/metadata/{case}")
             ds.save_metadata_to_json(f"data/metadata/{case}")
