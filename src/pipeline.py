@@ -38,7 +38,7 @@ def prepare_logger():
 def prepare_dirtree():
     os.makedirs("results/logs", exist_ok=True)
     os.makedirs("results/generated_candidates", exist_ok=True)
-    os.makedirs("data/metadata", exist_ok=True)
+    os.makedirs("data/metadata/queries", exist_ok=True)
 
 
 def prepare_default_configs(data_dir, selected_indices=None):
