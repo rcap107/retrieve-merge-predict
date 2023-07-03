@@ -196,7 +196,7 @@ if __name__ == "__main__":
     scl.pretty_print()
 
     # Query index
-    # I am removing all duplicate rows
+    # Removing duplicate rows
     scl.add_timestamp("start_querying")
     df = pl.read_parquet(query_data_path).unique()
     query_metadata = RawDataset(
@@ -249,11 +249,6 @@ if __name__ == "__main__":
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
 
-    # results["target_dl"] = args.yadl_version
-    # results_path = Path("results/run_results.csv")
-    # results.to_csv(
-    #     results_path, mode="a", index=False, header=not results_path.exists()
-    # )
     scl.add_timestamp("end_process")
 
     scl.write_to_file("results/scenario_results.txt")
