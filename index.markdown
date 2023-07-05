@@ -4,8 +4,6 @@
 
 layout: home
 ---
-Benchmarking learning on data lakes with YADL
-===
 This repository contains the code for implementing and running the pipeline described in the paper "A Benchmarking Data
 Lake for Join Discovery and Learning with Relational Data".
 
