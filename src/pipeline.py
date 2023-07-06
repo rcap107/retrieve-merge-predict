@@ -47,7 +47,7 @@ def prepare_default_configs(data_dir, selected_indices=None):
 
     Args:
         data_dir (str): Path to the directory that contains the metadata.
-        selected_indices (str): If provided, prepare and run only the selected indices.
+        selected_indices (str, optional): If provided, prepare and run only the selected indices.
 
     Raises:
         IOError: Raise IOError if `data_dir` is incorrect.
@@ -124,11 +124,12 @@ def save_indices(index_dict, index_dir):
         raise ValueError(f"Invalid `index_dir` {index_dir}")
 
 
-def load_indices(index_dir):
+def load_indices(index_dir, selected_indices=["minhash"]):
     """Given `index_dir`, scan the directory and load all the indices in an index dictionary.
 
     Args:
         index_dir (str): Path to the directory containing the indices.
+        selected_indices (list, optional): If provided, select only the provided indices.
 
     Raises:
         IOError: Raise IOError if the index dir does not exist.
@@ -145,16 +146,17 @@ def load_indices(index_dir):
         with open(index_path, "rb") as fp:
             input_dict = pickle.load(fp)
             iname = input_dict["index_name"]
-            if iname == "minhash":
-                index = MinHashIndex()
-                index.load_index(index_dict=input_dict)
-            elif iname == "lazo":
-                index = LazoIndex()
-                index.load_index(index_path)
-            else:
-                raise ValueError(f"Unknown index {iname}.")
+            if iname in selected_indices:
+                if iname == "minhash":
+                    index = MinHashIndex()
+                    index.load_index(index_dict=input_dict)
+                elif iname == "lazo":
+                    index = LazoIndex()
+                    index.load_index(index_path)
+                else:
+                    raise ValueError(f"Unknown index {iname}.")
 
-            index_dict[iname] = index
+                index_dict[iname] = index
 
     return index_dict
 

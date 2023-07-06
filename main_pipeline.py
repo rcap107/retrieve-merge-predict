@@ -162,16 +162,16 @@ if __name__ == "__main__":
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
     args = parse_arguments()
-    case = args.yadl_version
-    metadata_dir = Path(f"data/metadata/{case}")
-    metadata_index_path = Path(f"data/metadata/_mdi/md_index_{case}.pickle")
-    index_dir = Path(f"data/metadata/_indices/{case}")
+    yadl_version = args.yadl_version
+    metadata_dir = Path(f"data/metadata/{yadl_version}")
+    metadata_index_path = Path(f"data/metadata/_mdi/md_index_{yadl_version}.pickle")
+    index_dir = Path(f"data/metadata/_indices/{yadl_version}")
 
-    query_data_path = Path(args.source_table_path)
-    if not query_data_path.exists():
-        raise FileNotFoundError(f"File {query_data_path} not found.")
+    query_tab_path = Path(args.source_table_path)
+    if not query_tab_path.exists():
+        raise FileNotFoundError(f"File {query_tab_path} not found.")
 
-    tab_name = query_data_path.stem
+    tab_name = query_tab_path.stem
 
     scl = ScenarioLogger(
         source_table=tab_name,
@@ -187,8 +187,8 @@ if __name__ == "__main__":
         raise FileNotFoundError(
             f"Path to metadata index {metadata_index_path} is invalid."
         )
-    else:
-        mdata_index = MetadataIndex(index_path=metadata_index_path)
+    mdata_index = MetadataIndex(index_path=metadata_index_path)
+
     scl.add_timestamp("start_load_index")
     indices = utils.load_indices(index_dir)
     scl.add_timestamp("end_load_index")
@@ -198,11 +198,11 @@ if __name__ == "__main__":
     # Query index
     # Removing duplicate rows
     scl.add_timestamp("start_querying")
-    df = pl.read_parquet(query_data_path).unique()
-    query_metadata = RawDataset(
-        query_data_path.resolve(), "queries", "data/metadata/queries"
+    df = pl.read_parquet(query_tab_path).unique()
+    query_tab_metadata = RawDataset(
+        query_tab_path.resolve(), "queries", "data/metadata/queries"
     )
-    query_metadata.save_metadata_to_json()
+    query_tab_metadata.save_metadata_to_json()
 
     query_column = args.query_column
     if query_column not in df.columns:
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     logger.info("Start querying")
     query_results, candidates_by_index = utils.querying(
-        query_metadata, query_column, query, indices, mdata_index, args.top_k
+        query_tab_metadata, query_column, query, indices, mdata_index, args.top_k
     )
     logger.info("End querying")
     scl.add_timestamp("end_querying")
