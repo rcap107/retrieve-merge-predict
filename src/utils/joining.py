@@ -54,6 +54,7 @@ def prepare_dfs_table(
     on=None,
     left_on=None,
     right_on=None,
+    target_column="col_to_embed",
 ):
     """This function takes as input a left and right table to join on, as well
     as the join columns (either `on`, or `left_on` and `right_on`), then uses
@@ -86,8 +87,7 @@ def prepare_dfs_table(
         right_on = right_on[0]
 
     # DFS does not support joining on columns that include duplicated values.
-    # TODO: remove hardcoded `col_to_embed`.
-    left_table_dedup = left_table.unique("col_to_embed").to_pandas()
+    left_table_dedup = left_table.unique(target_column).to_pandas()
     right_table = right_table.with_row_count("index").to_pandas()
 
     es = ft.EntitySet()
@@ -110,7 +110,7 @@ def prepare_dfs_table(
 
     es = es.add_relationship("source_table", left_on, "candidate_table", right_on)
 
-    # `feature_matrix` is the joined table, with new features, we don't care about `feature_defs`
+    # `feature_matrix` is the joined table, with new features
     feature_matrix, feature_defs = ft.dfs(
         entityset=es,
         target_dataframe_name="source_table",
@@ -132,7 +132,7 @@ def prepare_dfs_table(
     # constant.
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
     augmented_table = left_table.to_pandas().merge(
-        new_df[feat_columns].reset_index(), how="left", on="col_to_embed"
+        new_df[feat_columns].reset_index(), how="left", on=target_column
     )
 
     pl_df = pl.from_pandas(augmented_table)
