@@ -136,7 +136,13 @@ class ScenarioLogger:
 
 
 class RunLogger:
-    def __init__(self, scenario_logger: ScenarioLogger, fold_id, additional_parameters):
+    def __init__(
+        self,
+        scenario_logger: ScenarioLogger,
+        fold_id: int,
+        additional_parameters: dict,
+        json_path="results/json",
+    ):
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
         self.fold_id = fold_id
@@ -146,6 +152,7 @@ class RunLogger:
         self.durations = {}
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
         self.results = {}
+        self.json_path = json_path
 
         self.mark_time("run")
 
@@ -180,6 +187,13 @@ class RunLogger:
         self.status = status
 
     def start_time(self, label, cumulative=False):
+        """Wrapper around the `mark_time` function for better clarity.
+
+        Args:
+            label (str): Label of the operation to mark.
+            cumulative (bool, optional): If set to true, all operations performed with the same label
+            will add up to a total duration rather than being marked independently. Defaults to False.
+        """
         return self.mark_time(label, cumulative)
 
     def end_time(self, label, cumulative=False):
@@ -193,6 +207,9 @@ class RunLogger:
 
         Args:
             label (str): Label of the operation to mark.
+            cumulative (bool, optional): If set to true, all operations performed with the same label
+            will add up to a total duration rather than being marked independently. Defaults to False.
+
         """
         if label not in self.timestamps:
             self.timestamps[label] = [dt.datetime.now(), None]
@@ -242,7 +259,11 @@ class RunLogger:
                     self.durations.get("time_eval_join", ""),
                     self.results.get("rmse", ""),
                     self.results.get("r2score", ""),
+                    self.results.get("n_cols", ""),
                 ],
             )
         )
         return res_str
+
+    def to_json(self):
+        raise NotImplementedError

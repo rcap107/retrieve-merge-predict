@@ -1,5 +1,4 @@
 """Evaluation methods"""
-# TODO: Fix imports
 import datetime as dt
 import hashlib
 import logging
@@ -19,7 +18,7 @@ from src.data_structures.loggers import RunLogger, ScenarioLogger
 logger_sh = logging.getLogger("pipeline")
 logger_pipeline = logging.getLogger("run_logger")
 
-import src.utils.utils_joins as utils
+import src.utils.joining as utils
 
 # TODO: move this somewhere else
 model_folder = Path("data/models")
@@ -127,6 +126,7 @@ def run_on_base_table(
     run_logger.start_time("eval")
     eval_results = evaluate_model_on_test_split(left_table_test, base_result[1])
     run_logger.results["rmse"], run_logger.results["r2score"] = eval_results
+    run_logger.results["n_cols"] = len(left_table_train.schema)
 
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
@@ -218,6 +218,7 @@ def run_on_candidates(
     results_best = evaluate_model_on_test_split(merged_test, best_candidate_model)
     run_logger.end_time("eval")
     run_logger.results["rmse"], run_logger.results["r2score"] = results_best
+    run_logger.results["n_cols"] = len(merged_test.schema)
 
     run_logger.set_run_status("SUCCESS")
     logger_pipeline.debug(run_logger.to_str())
@@ -279,6 +280,7 @@ def run_on_full_join(
     merged = left_table_train.clone().lazy()
     merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
     merged = merged.fill_null("").fill_nan("")
+    run_logger.results["n_cols"] = len(merged.schema)
     run_logger.end_time("join")
 
     run_logger.start_time("train")
