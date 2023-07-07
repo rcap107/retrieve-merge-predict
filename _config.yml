@@ -19,14 +19,14 @@
 # in the templates via {{ site.myvariable }}.
 
 title: Benchmarking learning on data lakes with YADL
-email: riccardo.cappuzzo[at]inria.fr
+# email: riccardo.cappuzzo[at]inria.fr
 description: >- # this means to ignore newlines until "baseurl:"
   This is the website of YADL, a reproducible data lake based on the YAGO 3 
   knowledge base. In this website we describe the data lake and provide useful 
   information on how to use it.
 # baseurl: "" # the subpath of your site, e.g. /blog
 # url: "" # the base hostname & protocol for your site, e.g. http://example.com
-github_username:  rcap107
+# github_username:  rcap107
 
 # Build settings
 theme: minima
