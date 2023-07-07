@@ -27,6 +27,13 @@ Then, install the remaining dependencies with pip:
 pip install -r requirements.txt
 ```
 
+# Downloading YADL
+It is possible to download YADL from zenodo using `wget` in the root folder:
+```
+wget -O data/YADL_binary.tar.gz https://zenodo.org/record/8015298/files/YADL_binary.tar.gz
+wget -O data/YADL_wordnet.tar.gz https://zenodo.org/record/8015298/files/YADL_wordnet.tar.gz
+```
+
 # Running the pipeline
 ## Creating the indices
 Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake.
@@ -46,7 +53,7 @@ python prepare_metadata.py -s wordnet data/wordnet_big/
 # binary case
 python prepare_metadata.py -s binary data/binary/
 ```
-Running the indexing step on the given tables takes about ~15 minutes on our cluster.
+Running the indexing step takes about ~15 minutes on our cluster.
 
 ## Running the experiments
 The sample script `example_config.sh` runs a single, shortened run: the results will not necessarily be accurate, but it
