@@ -27,6 +27,13 @@ Then, install the remaining dependencies with pip:
 pip install -r requirements.txt
 ```
 
+# Downloading YADL
+It is possible to download YADL from zenodo using `wget` in the root folder:
+```
+wget -O data/YADL_binary.tar.gz https://zenodo.org/record/8015298/files/YADL_binary.tar.gz
+wget -O data/YADL_wordnet.tar.gz https://zenodo.org/record/8015298/files/YADL_wordnet.tar.gz
+```
+
 # Running the pipeline
 ## Creating the indices
 Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake.
@@ -46,13 +53,13 @@ python prepare_metadata.py -s wordnet data/wordnet_big/
 # binary case
 python prepare_metadata.py -s binary data/binary/
 ```
-Running the indexing step on the given tables takes about ~15 minutes on our cluster.
+Running the indexing step for `wordnet` takes about ~30 minutes on our cluster.
 
 ## Running the experiments
 The sample script `example_config.sh` runs a single, shortened run: the results will not necessarily be accurate, but it
-simplifies debugging.
+simplifies debugging. If all the previous steps were successful, the script should run without errors in a few minutes.
 
-To run the experiments reported in the paper, run the `./run_experiments.sh` script. Note that running all the experiments
+To run the experiments reported in the paper, use the `./run_experiments.sh` script. Note that running all the experiments
 can take a very long time.
 
 ## Studying the results
@@ -68,5 +75,4 @@ join over the top `k` candidates.
 Each outer fold will run the sequence "base table", "candidates", "full join", "sampled full join" on the same train/test
 split.
 
-Results were prepared using Google Sheets:
-https://docs.google.com/spreadsheets/d/1a8YcpMxhr5MXkOLGepAZyDWcikySoL0zvqgWv1-Uv4c/edit?usp=sharing
+Results are available in [this spreadsheet](https://docs.google.com/spreadsheets/d/1a8YcpMxhr5MXkOLGepAZyDWcikySoL0zvqgWv1-Uv4c/edit?usp=sharing).
