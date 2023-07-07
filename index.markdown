@@ -44,11 +44,11 @@ We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge
 # Accessing the resources
 ## Code repositories
 The repository containing the pipeline and the code required to run the experiments 
-can be found in the [pipeline repository](pipeline_repo).
+can be found in the [pipeline repository][pipeline_repo].
 The code for preparing the YADL variants can be found in the [preparation repository][prepare_repo]. 
 
 ## Base tables
-The base tables used for the experiments are available in the [pipeline repository](pipeline_repo), in folder `data/source_tables`.
+The base tables used for the experiments are available in the [pipeline repository][pipeline_repo], in folder `data/source_tables`.
 
 ## YADL
 The YADL variants used in the paper are [available on Zenodo][zenodo_link]. 
