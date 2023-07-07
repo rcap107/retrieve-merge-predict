@@ -14,6 +14,7 @@ logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter(fmt=log_format)
 
+os.makedirs("results/", exist_ok=True)
 fh = logging.FileHandler(filename="results/logging_metadata.log")
 fh.setFormatter(formatter)
 sh = logging.StreamHandler()
