@@ -53,13 +53,13 @@ python prepare_metadata.py -s wordnet data/wordnet_big/
 # binary case
 python prepare_metadata.py -s binary data/binary/
 ```
-Running the indexing step takes about ~15 minutes on our cluster.
+Running the indexing step for `wordnet` takes about ~30 minutes on our cluster.
 
 ## Running the experiments
 The sample script `example_config.sh` runs a single, shortened run: the results will not necessarily be accurate, but it
-simplifies debugging.
+simplifies debugging. If all the previous steps were successful, the script should run without errors in a few minutes.
 
-To run the experiments reported in the paper, run the `./run_experiments.sh` script. Note that running all the experiments
+To run the experiments reported in the paper, use the `./run_experiments.sh` script. Note that running all the experiments
 can take a very long time.
 
 ## Studying the results
@@ -75,5 +75,4 @@ join over the top `k` candidates.
 Each outer fold will run the sequence "base table", "candidates", "full join", "sampled full join" on the same train/test
 split.
 
-Results were prepared using Google Sheets:
-https://docs.google.com/spreadsheets/d/1a8YcpMxhr5MXkOLGepAZyDWcikySoL0zvqgWv1-Uv4c/edit?usp=sharing
+Results are available in [this spreadsheet](https://docs.google.com/spreadsheets/d/1a8YcpMxhr5MXkOLGepAZyDWcikySoL0zvqgWv1-Uv4c/edit?usp=sharing).
