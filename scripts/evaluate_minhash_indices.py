@@ -10,7 +10,7 @@ from src.data_structures.indices import MinHashIndex
 from src.pipeline import generate_candidates
 
 from src.data_structures.metadata import CandidateJoin, RawDataset, MetadataIndex
-import src.methods.join_profiling as jp
+import src.methods.profiling as jp
 from sklearn.metrics import mean_squared_error
 
 # %%
