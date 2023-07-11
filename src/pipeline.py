@@ -1,12 +1,11 @@
 import logging
+import os
 import pickle
 from pathlib import Path
-import os
-
+import polars as pl
 from sklearn.model_selection import ShuffleSplit
 
-from src.data_structures.indices import LazoIndex, MinHashIndex
-from src.data_structures.loggers import RunLogger
+from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
 from src.data_structures.metadata import CandidateJoin, MetadataIndex
 from src.methods import evaluation as em
 
@@ -82,6 +81,18 @@ def prepare_default_configs(data_dir, selected_indices=None):
         raise IOError(f"Invalid path {data_dir}")
 
 
+def prepare_config_manual(base_table_path, mdata_path, n_jobs):
+    base_table = pl.read_parquet(base_table_path)
+    return {
+        "manual": {
+            "df_base": base_table,
+            "tab_name": Path(base_table_path).stem,
+            "mdata_path": mdata_path,
+            "n_jobs": n_jobs,
+        }
+    }
+
+
 def prepare_indices(index_configurations: dict):
     """Given a dict of index configurations, initialize the required indices.
 
@@ -100,6 +111,8 @@ def prepare_indices(index_configurations: dict):
             index_dict[index] = LazoIndex(**config)
         elif index == "minhash":
             index_dict[index] = MinHashIndex(**config)
+        elif index == "manual":
+            index_dict[index] = ManualIndex(**config)
         else:
             raise NotImplementedError
 
@@ -124,7 +137,7 @@ def save_indices(index_dict, index_dir):
         raise ValueError(f"Invalid `index_dir` {index_dir}")
 
 
-def load_indices(index_dir, selected_indices=["minhash"]):
+def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
     """Given `index_dir`, scan the directory and load all the indices in an index dictionary.
 
     Args:
@@ -153,6 +166,12 @@ def load_indices(index_dir, selected_indices=["minhash"]):
                 elif iname == "lazo":
                     index = LazoIndex()
                     index.load_index(index_path)
+                elif iname == "manual":
+                    if "manual_" + tab_name in index_path.stem:
+                        index = ManualIndex()
+                        index.load_index(index_path=index_path)
+                    else:
+                        continue
                 else:
                     raise ValueError(f"Unknown index {iname}.")
 
