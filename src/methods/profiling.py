@@ -1,8 +1,15 @@
-import polars as pl
-from src.utils import data_structures as ds
-import pandas as pd
-from typing import Iterable, Union, List
+import json
 from pathlib import Path
+from typing import Iterable, List, Union
+
+import pandas as pd
+import polars as pl
+from joblib import Parallel, delayed
+from tqdm import tqdm
+
+import sklearn.metrics as metrics
+
+from src.data_structures.indices import MinHashIndex
 
 
 def execute_dummy_join(
@@ -63,6 +70,7 @@ def find_unique_keys(df, key_cols):
     try:
         unique_keys = df[key_cols].unique()
     except pl.DuplicateError:
+        # Raise exception if a column name is duplicated
         unique_keys = None
 
     return unique_keys
@@ -144,6 +152,16 @@ def measure_containment(
     return len(intersection) / len(unique_source)
 
 
+def measure_containment_join(
+    source_table: pl.DataFrame, candidate_table: pl.DataFrame, left_on, right_on
+):
+    unique_source = find_unique_keys(source_table, left_on)
+    intersection = source_table[left_on].join(
+        candidate_table[right_on], left_on=left_on, right_on=right_on, how="inner"
+    )
+    return len(intersection) / len(unique_source)
+
+
 def measure_cardinality_proportion(
     source_table: pl.DataFrame, candidate_table: pl.DataFrame, left_on, right_on
 ):
@@ -163,16 +181,32 @@ def measure_join_quality(
     candidate_table,
     left_on,
     right_on,
-    constants={
-        "C_H": 0.75,
-        "C_G": 0.5,
-        "C_M": 0.25,
-        "C_P": 0.1,
-        "K_H": 0.25,
-        "K_G": 0.125,
-        "K_M": 1 / 12,
-    },
+    constants=None,
 ):
+    """Measure the `join quality` of a join according to the metric described in the NextiaJD paper
+    ().
+
+    Args:
+        source_table (pl.DataFrame): Left table.
+        candidate_table (pl.DataFrame): Right table.
+        left_on (list): List of columns to use for joining in the left table.
+        right_on (list): List of columns to use for joining in the right table.
+        constants (dict, optional): Coefficients to use when measuring the quality. Defaults to
+        the values provided in the paper.
+
+    Returns:
+        int: The join quality score, between 0 (lowest) and 4 (highest).
+    """
+    if constants == None:
+        constants = {
+            "C_H": 0.75,
+            "C_G": 0.5,
+            "C_M": 0.25,
+            "C_P": 0.1,
+            "K_H": 0.25,
+            "K_G": 0.125,
+            "K_M": 1 / 12,
+        }
     unique_source = find_unique_keys(source_table, left_on)
     unique_cand = find_unique_keys(candidate_table, right_on)
     containment = measure_containment(unique_source, unique_cand, left_on, right_on)
@@ -183,24 +217,21 @@ def measure_join_quality(
     if containment >= constants["C_H"] and card_prop >= constants["K_H"]:
         return 4
 
-    elif containment >= constants["C_G"] and card_prop >= constants["K_G"]:
+    if containment >= constants["C_G"] and card_prop >= constants["K_G"]:
         return 3
 
-    elif containment >= constants["C_M"] and card_prop >= constants["K_M"]:
+    if containment >= constants["C_M"] and card_prop >= constants["K_M"]:
         return 2
 
-    elif containment >= constants["C_P"]:
+    if containment >= constants["C_P"]:
         return 1
 
-    else:
-        return 0
+    return 0
 
 
 def profile_joins(join_candidates: dict, logger):
-
     tot_dict = []
     for index_name, candidates in join_candidates.items():
-
         for hash_, mdata in candidates.items():
             prof_dict = {}
             source_metadata = mdata.source_metadata
@@ -252,3 +283,105 @@ def profile_joins(join_candidates: dict, logger):
 
     prof_df = pl.from_dicts(tot_dict)
     return prof_df.to_pandas()
+
+
+def evaluate_one_table(fpath, df_base):
+    overlap_dict = {}
+    with open(fpath) as fp:
+        mdata = json.load(fp)
+        cnd_path = mdata["full_path"]
+        cnd_hash = mdata["hash"]
+        df_cnd = pl.read_parquet(cnd_path)
+        for col in df_cnd.columns:
+            pair = (cnd_hash, col)
+            cont = measure_containment(
+                df_base, df_cnd, left_on=["col_to_embed"], right_on=[col]
+            )
+            overlap_dict[pair] = cont
+    return overlap_dict
+
+
+def measure_exact_overlap(df_base, mdata_path, n_jobs=1):
+    # Building the pairwise distance with joblib
+    r = Parallel(n_jobs=n_jobs, verbose=0)(
+        delayed(evaluate_one_table)(fpath, df_base)
+        for idx, fpath in tqdm(
+            enumerate(mdata_path.glob("*.json")),
+            position=0,
+            leave=False,
+            total=sum((1 for _ in mdata_path.glob("*.json"))),
+        )
+    )
+
+    overlap_dict = {key: val for result in r for key, val in result.items()}
+    df_overlap = pl.from_dict(
+        {"key": list(overlap_dict.keys()), "overlap": list(overlap_dict.values())}
+    )
+    df_overlap = df_overlap.with_columns(
+        pl.col("key").list.to_struct().struct.rename_fields(["hash", "col"])
+    ).unnest("key")
+    df_overlap = df_overlap.sort("overlap", descending=True)
+
+    return df_overlap
+
+
+def measure_differences(df_results):
+    # Measure precision, recall, f1 metrics
+    f1 = metrics.f1_score(df_results["mask_true"], df_results["mask_pred"])
+    recall = metrics.recall_score(df_results["mask_true"], df_results["mask_pred"])
+    precision = metrics.precision_score(
+        df_results["mask_true"], df_results["mask_pred"]
+    )
+
+    # Preparing confusion matrix
+    conf_m = metrics.confusion_matrix(df_results["mask_true"], df_results["mask_pred"])
+    tn, fp, fn, tp = conf_m.ravel()
+
+    # Print results
+    print(f"{'F1 score:':<30} {f1:.3f}")
+    print(f"{'True Negative:':<30}{tn:>6}")
+    print(f"{'False Positive:':<30}{fp:>6}")
+    print(f"{'False Negative:':<30}{fn:>6}")
+    print(f"{'True Positive:':<30}{tp:>6}")
+    print(f"{'Recall:':<30}{recall:.3f}")
+    print(f"{'Precision:':<30}{precision:.3f}")
+
+
+def compare_overlap_with_index(
+    df_base,
+    mdata_path,
+    index_to_evaluate: MinHashIndex,
+    threshold=0.1,
+    query_column="col_to_embed",
+):
+    query_result = index_to_evaluate.query_index(df_base[query_column].to_list())
+    df_true_overlap = measure_exact_overlap(df_base, mdata_path)
+
+    # Prepare the same dataframe as before for prediction
+    ll = [[row[i] for row in query_result] for i in range(3)]
+    df_pred = pl.from_dict(dict(zip(["hash", "col", "score"], ll)))
+
+    # Add a column that marks as "true" all columns with overlap higher than `threshold`
+    df_true = df_true_overlap.with_columns(
+        pl.when(
+            pl.col("overlap") >= threshold,
+        )
+        .then(1)
+        .otherwise(0)
+        .alias("mask_true")
+    )
+
+    # Join the two tables to measure recall
+    combined = df_true.join(df_pred, on=["hash", "col"], how="left").with_columns(
+        pl.when(
+            pl.col("score").is_not_null(),
+        )
+        .then(1)
+        .otherwise(0)
+        .alias("mask_pred")
+    )
+
+    # Prepare a simplified df
+    c_df = combined.select(pl.col("mask_true"), pl.col("mask_pred")).to_pandas()
+
+    measure_differences(c_df)
