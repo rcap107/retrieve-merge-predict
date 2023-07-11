@@ -75,6 +75,10 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--selected_indices", action="store", default="minhash", nargs="*", type=str
+    )
+
+    parser.add_argument(
         "--sampling_seed",
         action="store",
         type=int,
@@ -190,7 +194,10 @@ if __name__ == "__main__":
     mdata_index = MetadataIndex(index_path=metadata_index_path)
 
     scl.add_timestamp("start_load_index")
-    indices = utils.load_indices(index_dir)
+    indices = utils.load_indices(
+        index_dir, selected_indices=args.selected_indices, tab_name=tab_name
+    )
+
     scl.add_timestamp("end_load_index")
 
     scl.pretty_print()
@@ -220,7 +227,8 @@ if __name__ == "__main__":
     logger.info("End querying")
     scl.add_timestamp("end_querying")
 
-    scl.results["n_candidates"] = len(candidates_by_index["minhash"])
+    # scl.results["n_candidates"] = len(candidates_by_index["minhash"])
+    scl.results["n_candidates"] = ""
 
     if args.query_result_path is not None:
         with open(args.query_result_path, "wb") as fp:
