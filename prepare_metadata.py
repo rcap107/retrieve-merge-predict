@@ -1,7 +1,10 @@
 import logging
 import os
 from pathlib import Path
+
 import argparse
+
+import datetime as dt
 
 import src.pipeline as utils
 from src.data_structures.metadata import MetadataIndex
@@ -95,8 +98,9 @@ def prepare_indices(case, selected_indices=["minhash"]):
 
 if __name__ == "__main__":
     args = parse_args()
-    logger.info("START - Metadata creation - %s" % args.case)
 
+    start_time = dt.datetime.now()
+    logger.info("START - Metadata creation - %s" % args.case)
     prepare_metadata_from_case(args.case, args.data_folder, args.save_to_full)
     logger.info("END - Metadata creation - %s" % args.case)
 
@@ -104,3 +108,7 @@ if __name__ == "__main__":
         logger.info("START - Index creation")
         prepare_indices(args.case)
         logger.info("END - Preparing indices")
+    end_time = dt.datetime.now()
+    logger.info(
+        f"SUMMARY - Time required (s): {(end_time - start_time).total_seconds():.2f}"
+    )
