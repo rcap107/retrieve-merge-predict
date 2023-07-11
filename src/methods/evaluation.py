@@ -178,8 +178,8 @@ def run_on_candidates(
             how=join_strategy,
             aggregation=aggregation,
         )
-        cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
-        frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
+        # cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
+        # frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
         merged = prepare_table_for_evaluation(merged)
         run_logger.end_time("join", cumulative=True)
         run_logger.start_time("train", cumulative=True)
@@ -196,7 +196,7 @@ def run_on_candidates(
         run_logger.end_time("train", cumulative=True)
         result_list.append(result)
         tqdm.write(cnd_md["df_name"])
-        tqdm.write(f"Frac nulls: {frac_nulls:.2f}")
+        # tqdm.write(f"Frac nulls: {frac_nulls:.2f}")
         tqdm.write(f"Result: {result[2]:.2f}")
     result_list.sort(key=lambda x: x[2], reverse=True)
 
