@@ -40,6 +40,8 @@ python prepare_metadata.py -s CASE PATH
 `PATH` is the path to the root folder containing all the tables (saved in parquet) to be added to the metadata index and
 to the indices.
 
+`-s` is needed to save the indices after preparing the metadata.
+
 ```
 # wordnet case
 python prepare_metadata.py -s wordnet data/wordnet_big/
