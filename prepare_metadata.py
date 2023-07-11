@@ -53,6 +53,28 @@ def parse_args():
         help="Save the current set of mdata to the full index. ",
     )
 
+    parser.add_argument(
+        "--selected_indices",
+        action="store",
+        choices=["manual", "minhash", "lazo"],
+        nargs="*",
+        default="minhash",
+        help="Indices to prepare. ",
+    )
+
+    parser.add_argument(
+        "--base_table",
+        action="store",
+        default=None,
+    )
+
+    parser.add_argument(
+        "--n_jobs",
+        action="store",
+        default=1,
+        help="Base table for querying: required when building overlap index.",
+    )
+
     args = parser.parse_args()
 
     return args
@@ -80,20 +102,30 @@ def prepare_metadata_from_case(case, data_folder, save_to_full=False):
         raise FileNotFoundError(f"Invalid path {data_folder}")
 
 
-def prepare_indices(case, selected_indices=["minhash"]):
-    logger.info("Preparing minhash indices")
+def prepare_indices(
+    case,
+    selected_indices=["minhash"],
+    base_table_path=None,
+    n_jobs=1,
+):
+    logger.info("Preparing indices")
     index_dir = Path(f"data/metadata/_indices/{case}")
-    logger.info("Minhash: start %s", case)
+    logger.info("Indices: start %s", case)
     metadata_dir = Path(f"data/metadata/{case}")
     case_dir = Path(index_dir, case)
     os.makedirs(case_dir, exist_ok=True)
 
     index_configurations = utils.prepare_default_configs(metadata_dir, selected_indices)
+    if "manual" in selected_indices:
+        config_manual = utils.prepare_config_manual(
+            base_table_path, metadata_dir, n_jobs
+        )
+        index_configurations.update(config_manual)
     print("Preparing indices.")
     indices = utils.prepare_indices(index_configurations)
     print("Saving indices.")
     utils.save_indices(indices, index_dir)
-    logger.info("Minhash: end %s", case)
+    logger.info("Indices: end %s", case)
 
 
 if __name__ == "__main__":
@@ -106,7 +138,7 @@ if __name__ == "__main__":
 
     if args.save_indices:
         logger.info("START - Index creation")
-        prepare_indices(args.case)
+        prepare_indices(args.case, args.selected_indices, args.base_table)
         logger.info("END - Preparing indices")
     end_time = dt.datetime.now()
     logger.info(
