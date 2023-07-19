@@ -13,6 +13,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate
 from tqdm import tqdm
 
+from src._join_aggregator import JoinAggregator
+
 from src.data_structures.loggers import RunLogger, ScenarioLogger
 
 logger_sh = logging.getLogger("pipeline")
@@ -170,14 +172,30 @@ def run_on_candidates(
 
         # Join source table with candidate
         run_logger.start_time("join", cumulative=True)
-        merged = utils.execute_join_with_aggregation(
-            left_table_train,
-            candidate_table,
-            left_on=left_on,
-            right_on=right_on,
-            how=join_strategy,
-            aggregation=aggregation,
+
+        print(left_table_train.columns)
+        ja = JoinAggregator(
+            tables=[
+                (
+                    candidate_table,
+                    right_on,
+                    [col for col in candidate_table.columns if col not in left_on],
+                )
+            ],
+            main_key="col_to_embed",
+            agg_ops=["mean", "min", "max", "mode"],
         )
+
+        merged = ja.fit_transform(left_table_train)
+
+        # merged = utils.execute_join_with_aggregation(
+        #     left_table_train,
+        #     candidate_table,
+        #     left_on=left_on,
+        #     right_on=right_on,
+        #     how=join_strategy,
+        #     aggregation=aggregation,
+        # )
         # cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
         # frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
         merged = prepare_table_for_evaluation(merged)
@@ -208,14 +226,28 @@ def run_on_candidates(
     candidate_table = pl.read_parquet(cnd_md["full_path"])
 
     run_logger.start_time("eval_join")
-    merged_test = utils.execute_join_with_aggregation(
-        left_table_test,
-        candidate_table,
-        left_on=left_on,
-        right_on=right_on,
-        how=join_strategy,
-        aggregation=aggregation,
+    ja = JoinAggregator(
+        tables=[
+            (
+                candidate_table,
+                right_on,
+                [col for col in candidate_table.columns if col not in left_on],
+            )
+        ],
+        main_key="col_to_embed",
+        agg_ops=["mean", "min", "max", "mode"],
     )
+
+    merged_test = ja.fit_transform(left_table_test)
+
+    # merged_test = utils.execute_join_with_aggregation(
+    #     left_table_test,
+    #     candidate_table,
+    #     left_on=left_on,
+    #     right_on=right_on,
+    #     how=join_strategy,
+    #     aggregation=aggregation,
+    # )
     run_logger.end_time("eval_join")
     run_logger.start_time("eval")
     results_best = evaluate_model_on_test_split(merged_test, best_candidate_model)
