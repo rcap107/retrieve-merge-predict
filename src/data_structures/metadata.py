@@ -216,7 +216,7 @@ class RawDataset:
         self.source_dl = source_dl
         self.path_metadata = Path(metadata_dir, self.hash + ".json")
 
-        self.info = {
+        self.metadata = {
             "full_path": str(self.path),
             "hash": self.hash,
             "df_name": self.df_name,
@@ -246,7 +246,7 @@ class RawDataset:
         else:
             pth_md = Path(metadata_dir, self.hash + ".json")
         with open(pth_md, "w") as fp:
-            json.dump(self.info, fp, indent=2)
+            json.dump(self.metadata, fp, indent=2)
 
     def prepare_metadata(self):
         pass

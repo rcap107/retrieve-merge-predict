@@ -210,7 +210,7 @@ def generate_candidates(
         mdata_cand = metadata_index.query_by_hash(hash_)
         cjoin = CandidateJoin(
             indexing_method=index_name,
-            source_table_metadata=mdata_source.info,
+            source_table_metadata=mdata_source,
             candidate_table_metadata=mdata_cand,
             how="left",
             left_on=query_column,
@@ -232,7 +232,7 @@ def generate_candidates(
 
 def querying(
     mdata_source: dict,
-    source_column: str,
+    query_column: str,
     query: list,
     indices: dict,
     mdata_index: MetadataIndex,
@@ -242,7 +242,7 @@ def querying(
 
     Args:
         mdata_source (dict): Metadata of the source table.
-        source_column (str): Column that is the target of the query.
+        query_column (str): Column that is the target of the query.
         query (list): List of values in the query column.
         indices (dict): Dictionary containing all the indices.
         mdata_index (MetadataIndex): Metadata Index that contains information on tables in the data lake.
@@ -259,7 +259,7 @@ def querying(
     candidates_by_index = {}
     for index, index_res in query_results.items():
         candidates = generate_candidates(
-            index, index_res, mdata_index, mdata_source, source_column, top_k
+            index, index_res, mdata_index, mdata_source, query_column, top_k
         )
         candidates_by_index[index] = candidates
 
