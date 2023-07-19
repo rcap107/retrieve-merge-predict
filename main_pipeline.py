@@ -40,7 +40,7 @@ def prepare_logger():
     return logger, logger_scn
 
 
-def parse_arguments():
+def parse_arguments(default=None):
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -160,7 +160,7 @@ def parse_arguments():
     return args
 
 
-if __name__ == "__main__":
+def main():
     utils.prepare_dirtree()
 
     logger, logger_scn = prepare_logger()
@@ -222,12 +222,18 @@ if __name__ == "__main__":
 
     logger.info("Start querying")
     query_results, candidates_by_index = utils.querying(
-        query_tab_metadata, query_column, query, indices, mdata_index, args.top_k
+        query_tab_metadata.metadata,
+        query_column,
+        query,
+        indices,
+        mdata_index,
+        args.top_k,
     )
     logger.info("End querying")
     scl.add_timestamp("end_querying")
 
     # scl.results["n_candidates"] = len(candidates_by_index["minhash"])
+    # TODO: move n_candidates from scl to run_logger
     scl.results["n_candidates"] = ""
 
     if args.query_result_path is not None:
@@ -262,3 +268,7 @@ if __name__ == "__main__":
     scl.write_to_file("results/scenario_results.txt")
     logger_scn.debug(scl.to_string())
     logger.info("Run end.")
+
+
+if __name__ == "__main__":
+    main()
