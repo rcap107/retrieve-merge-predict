@@ -152,6 +152,7 @@ def run_on_candidates(
     aggregation="first",
     top_k=None,
     n_jobs=1,
+    target_column="target",
     verbose=0,
     cuda=False,
 ):
@@ -159,6 +160,9 @@ def run_on_candidates(
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
     run_logger.start_time("run")
     logger_sh.info("Fold %d: Start training on candidates" % (fold + 1))
+
+    y_train = left_table_train[target_column].cast(pl.Float64).to_numpy()
+    y_test = left_table_test[target_column].cast(pl.Float64).to_numpy()
 
     result_list = []
     for hash_, mdata in tqdm(
@@ -172,8 +176,6 @@ def run_on_candidates(
 
         # Join source table with candidate
         run_logger.start_time("join", cumulative=True)
-
-        print(left_table_train.columns)
         ja = JoinAggregator(
             tables=[
                 (
@@ -186,7 +188,7 @@ def run_on_candidates(
             agg_ops=["mean", "min", "max", "mode"],
         )
 
-        merged = ja.fit_transform(left_table_train)
+        merged = ja.fit_transform(left_table_train, y=y_train)
 
         # merged = utils.execute_join_with_aggregation(
         #     left_table_train,
@@ -226,19 +228,20 @@ def run_on_candidates(
     candidate_table = pl.read_parquet(cnd_md["full_path"])
 
     run_logger.start_time("eval_join")
-    ja = JoinAggregator(
-        tables=[
-            (
-                candidate_table,
-                right_on,
-                [col for col in candidate_table.columns if col not in left_on],
-            )
-        ],
-        main_key="col_to_embed",
-        agg_ops=["mean", "min", "max", "mode"],
-    )
 
-    merged_test = ja.fit_transform(left_table_test)
+    # ja = JoinAggregator(
+    #     tables=[
+    #         (
+    #             candidate_table,
+    #             right_on,
+    #             [col for col in candidate_table.columns if col not in left_on],
+    #         )
+    #     ],
+    #     main_key="col_to_embed",
+    #     agg_ops=["mean", "min", "max", "mode"],
+    # )
+
+    merged_test = ja.transform(left_table_test)
 
     # merged_test = utils.execute_join_with_aggregation(
     #     left_table_test,
