@@ -6,6 +6,7 @@ import pandas as pd
 
 try:
     import polars as pl
+    import polars.selectors as cs
 
     # TODO: Enable polars accross the library
     POLARS_SETUP = True
@@ -14,6 +15,7 @@ except ImportError:
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
+import sklearn.feature_selection as fs
 import sklearn.metrics as metrics
 from difflib import SequenceMatcher
 
@@ -296,8 +298,8 @@ class JoinAggregator(BaseEstimator, TransformerMixin):
         self.assembly_engine = dispatch_assembling_engine(self.tables)
 
         self.agg_tables_ = []
-        for (table, cols_to_join, cols_to_agg), suffix in zip(
-            self.tables, self.suffixes_
+        for (table, cols_to_join, cols_to_agg), suffix, main_key in zip(
+            self.tables, self.suffixes_, self.main_keys_
         ):
             agg_table = self.assembly_engine.agg(
                 table,
@@ -306,7 +308,7 @@ class JoinAggregator(BaseEstimator, TransformerMixin):
                 agg_ops,
                 suffix,
             )
-            agg_table = self._screen(agg_table, y)
+            agg_table = self._screen(agg_table, y, X, main_key, cols_to_join)
 
             self.agg_tables_.append((agg_table, cols_to_join))
 
@@ -334,25 +336,92 @@ class JoinAggregator(BaseEstimator, TransformerMixin):
 
         return X
 
-    def _screen(self, agg_table, y):
+    def _screen(
+        self, agg_table, y, X: pl.DataFrame, left_on, right_on, threshold=50, top_k=None
+    ):
         """Only keep aggregated features which correlation with
         y is above some threshold.
         """
 
-        def metric_corr(col, y):
-            pass
+        def metric_selection(
+            agg_table: pl.DataFrame, y: pl.Series, target_columns: pl.Series
+        ):
+            header = ["col_name", "type", "metric"]
+            metrics_list = []
+            num_cols = agg_table.select(cs.numeric() & cs.by_name(target_columns))
+            cat_cols = agg_table.select(cs.string() & cs.by_name(target_columns))
 
-        def metric_mutual_info(col, y):
-            return metrics.adjusted_mutual_info_score(col, y)
+            for col in num_cols:
+                metrics_list.append(
+                    dict(zip(header, (col.name, "numeric", metric_numerical(col, y))))
+                )
 
-        def metric_syntactic(col, y):
-            return SequenceMatcher(None, col, y).ratio()
+            for col in cat_cols:
+                metrics_list.append(
+                    dict(zip(header, (col.name, "discrete", metric_discrete(col, y))))
+                )
+            df_measures = pl.from_dicts(metrics_list)
+            return df_measures
 
-        def combine_metrics(metrics):
-            # TODO: do something better than just the average
-            return np.mean(metrics)
+        def metric_numerical(col, y):
+            is_null = col.is_null().to_numpy()
+            if sum(is_null) == len(col):
+                return 0
+            filled_null = col.fill_null(strategy="mean").to_numpy()
 
-        return agg_table
+            _, p_nulls = fs.f_regression(is_null.reshape(-1, 1), y)
+            _, p_filled = fs.f_regression(filled_null.reshape(-1, 1), y)
+
+            return np.mean([-np.log(p_nulls), -np.log(p_filled)])
+
+        def metric_discrete(col, y):
+            is_null = col.is_null().to_numpy()
+            if sum(is_null) == len(col):
+                return 0
+            filled_null = (
+                col.fill_null("null").cast(pl.Categorical).cast(pl.Int16).to_numpy()
+            )
+
+            _, p_nulls = fs.f_classif(is_null.reshape(-1, 1), y)
+            _, p_filled = fs.f_classif(filled_null.reshape(-1, 1), y)
+
+            if p_filled == 0:
+                p_filled = [1]
+            if p_nulls == 0:
+                p_nulls = [1]
+
+            return np.mean([-np.log(p_nulls), -np.log(p_filled)])
+
+        if y is None:
+            return agg_table
+
+        join_partial = X.select(pl.col(left_on)).join(
+            agg_table,
+            left_on=left_on,
+            right_on=right_on,
+            how="left",
+        )
+
+        cols_to_measure = [
+            col for col in join_partial.columns if col not in left_on + right_on
+        ]
+
+        if top_k is None:
+            top_k = len(cols_to_measure)
+
+        df_measures = metric_selection(join_partial, y, cols_to_measure)
+
+        selected_columns = (
+            df_measures.filter(pl.col("metric") >= threshold)
+            .top_k(k=top_k, by="metric")
+            .select(pl.col("col_name"))
+        )
+
+        cols_to_drop = [
+            col for col in cols_to_measure if col not in selected_columns["col_name"]
+        ]
+
+        return agg_table.drop(cols_to_drop)
 
     def check_cols(self, X):
         """Check that all columns to join and columns to aggregate
@@ -375,7 +444,9 @@ class JoinAggregator(BaseEstimator, TransformerMixin):
 
         # Ensure n_main_keys == n_tables
         if n_main_keys == 1:
-            main_keys = main_keys * n_tables
+            main_keys = [
+                main_keys,
+            ] * n_tables
 
         self.main_keys_ = main_keys
 
