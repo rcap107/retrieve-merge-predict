@@ -64,7 +64,7 @@ def prepare_default_configs(data_dir, selected_indices=None):
             },
             "minhash": {
                 "data_dir": data_dir,
-                "thresholds": [10, 20, 80],
+                "thresholds": [20],
                 "oneshot": True,
                 "num_perm": 128,
             },
