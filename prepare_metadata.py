@@ -72,7 +72,6 @@ def parse_args():
         "--n_jobs",
         action="store",
         default=1,
-        help="Base table for querying: required when building overlap index.",
     )
 
     args = parser.parse_args()
