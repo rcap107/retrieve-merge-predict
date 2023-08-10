@@ -143,13 +143,19 @@ def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
     Args:
         index_dir (str): Path to the directory containing the indices.
         selected_indices (list, optional): If provided, select only the provided indices.
+        tab_name (str, optional): Name of the table, required when using `manual` index.
 
     Raises:
         IOError: Raise IOError if the index dir does not exist.
+        RuntimeError: Raise RuntimeError if `manual` is required as index and `tab_name` is `None`.
 
     Returns:
         dict: The `index_dict` containing the loaded indices.
     """
+
+    if "manual" in selected_indices and tab_name is None:
+        raise RuntimeError("'manual' index requires 'tab_name' to be non-null.")
+
     index_dir = Path(index_dir)
     if not index_dir.exists():
         raise IOError(f"Index dir {index_dir} does not exist.")
