@@ -6,7 +6,7 @@ import argparse
 
 import datetime as dt
 
-import src.pipeline as utils
+import src.pipeline as pipeline
 from src.data_structures.metadata import MetadataIndex
 from src.data_structures.metadata import RawDataset
 
@@ -114,16 +114,18 @@ def prepare_indices(
     case_dir = Path(index_dir, case)
     os.makedirs(case_dir, exist_ok=True)
 
-    index_configurations = utils.prepare_default_configs(metadata_dir, selected_indices)
+    index_configurations = pipeline.prepare_default_configs(
+        metadata_dir, selected_indices
+    )
     if "manual" in selected_indices:
-        config_manual = utils.prepare_config_manual(
+        config_manual = pipeline.prepare_config_manual(
             base_table_path, metadata_dir, n_jobs
         )
         index_configurations.update(config_manual)
     print("Preparing indices.")
-    indices = utils.prepare_indices(index_configurations)
+    indices = pipeline.prepare_indices(index_configurations)
     print("Saving indices.")
-    utils.save_indices(indices, index_dir)
+    pipeline.save_indices(indices, index_dir)
     logger.info("Indices: end %s", case)
 
 
