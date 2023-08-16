@@ -294,12 +294,23 @@ class MinHashIndex:
 
     @staticmethod
     def prepare_result(query_result, threshold):
-        r = {}
-        for result in query_result:
-            t, c = result.split("__")
+        """Given the `query_result` and the `threshold`, reformat the content
+        of `query_result` according to the format required for the later steps
+        in the pipeline.
 
-            r[t, c] = threshold
-        return r
+        Args:
+            query_result (_type_): Result of querying the datasketch ensembles.
+            threshold (int): Threshold used for the ensemble.
+
+        Returns:
+            dict: A dictionary with keys (table, column) and value `threshold`.
+        """
+        result_dict = {}
+        for result in query_result:
+            table, column = result.split("__")
+
+            result_dict[(table, column)] = threshold
+        return result_dict
 
     def query_index(self, query, threshold=None, to_dataframe=False):
         """Query the index with a list of values and return a dictionary that contains all columns

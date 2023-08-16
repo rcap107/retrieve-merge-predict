@@ -137,6 +137,29 @@ def save_indices(index_dict, index_dir):
         raise ValueError(f"Invalid `index_dir` {index_dir}")
 
 
+def load_index(index_path, tab_name=None):
+    index_path = Path(index_path)
+    if not index_path.exists():
+        raise IOError(f"Index {index_path} does not exist.")
+    with open(index_path, "rb") as fp:
+        input_dict = pickle.load(fp)
+        iname = input_dict["index_name"]
+        if iname == "minhash":
+            index = MinHashIndex()
+            index.load_index(index_dict=input_dict)
+        elif iname == "lazo":
+            index = LazoIndex()
+            index.load_index(index_path)
+        elif iname == "manual":
+            if "manual_" + tab_name in index_path.stem:
+                index = ManualIndex()
+                index.load_index(index_path=index_path)
+        else:
+            raise ValueError(f"Unknown index {iname}.")
+
+    return index
+
+
 def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
     """Given `index_dir`, scan the directory and load all the indices in an index dictionary.
 
