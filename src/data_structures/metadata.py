@@ -202,6 +202,22 @@ class CandidateJoin:
             self.right_on,
         )
 
+    def get_joinpath_str(self, sep=","):
+        if len(self.left_on) == 1:
+            jps = sep.join(
+                [
+                    self.source_metadata["full_path"],
+                    self.source_metadata["df_name"],
+                    self.left_on[0],
+                    self.candidate_metadata["full_path"],
+                    self.candidate_metadata["df_name"],
+                    self.right_on[0],
+                ]
+            )
+            return jps
+        else:
+            raise NotImplementedError
+
 
 class RawDataset:
     def __init__(self, full_df_path, source_dl, metadata_dir) -> None:
