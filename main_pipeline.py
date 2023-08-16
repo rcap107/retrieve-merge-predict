@@ -7,7 +7,7 @@ from pathlib import Path
 import git
 import polars as pl
 
-import src.pipeline as utils
+import src.pipeline as pipeline
 from src.data_structures.metadata import MetadataIndex, RawDataset
 from src.data_structures.loggers import ScenarioLogger
 
@@ -161,7 +161,7 @@ def parse_arguments(default=None):
 
 
 def main():
-    utils.prepare_dirtree()
+    pipeline.prepare_dirtree()
 
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
@@ -194,7 +194,7 @@ def main():
     mdata_index = MetadataIndex(index_path=metadata_index_path)
 
     scl.add_timestamp("start_load_index")
-    indices = utils.load_indices(
+    indices = pipeline.load_indices(
         index_dir, selected_indices=args.selected_indices, tab_name=tab_name
     )
 
@@ -221,7 +221,7 @@ def main():
         query = df[query_column].drop_nulls()
 
     logger.info("Start querying")
-    query_results, candidates_by_index = utils.querying(
+    query_results, candidates_by_index = pipeline.querying(
         query_tab_metadata.metadata,
         query_column,
         query,
@@ -248,7 +248,7 @@ def main():
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")
         logger.info("Starting evaluation.")
-        utils.evaluate_joins(
+        pipeline.evaluate_joins(
             df,
             scl,
             join_candidates=candidates_by_index,
