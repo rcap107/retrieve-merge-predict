@@ -342,6 +342,7 @@ class JoinAggregator(BaseEstimator, TransformerMixin):
         """Only keep aggregated features which correlation with
         y is above some threshold.
         """
+        return agg_table
 
         def metric_selection(
             agg_table: pl.DataFrame, y: pl.Series, target_columns: pl.Series

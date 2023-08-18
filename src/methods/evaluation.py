@@ -188,16 +188,16 @@ def run_on_candidates(
             agg_ops=["mean", "min", "max", "mode"],
         )
 
-        merged = ja.fit_transform(left_table_train, y=y_train)
+        # merged = ja.fit_transform(left_table_train, y=y_train)
 
-        # merged = utils.execute_join_with_aggregation(
-        #     left_table_train,
-        #     candidate_table,
-        #     left_on=left_on,
-        #     right_on=right_on,
-        #     how=join_strategy,
-        #     aggregation=aggregation,
-        # )
+        merged = utils.execute_join_with_aggregation(
+            left_table_train,
+            candidate_table,
+            left_on=left_on,
+            right_on=right_on,
+            how=join_strategy,
+            aggregation=aggregation,
+        )
         # cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
         # frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
         merged = prepare_table_for_evaluation(merged)
@@ -229,28 +229,16 @@ def run_on_candidates(
 
     run_logger.start_time("eval_join")
 
-    # ja = JoinAggregator(
-    #     tables=[
-    #         (
-    #             candidate_table,
-    #             right_on,
-    #             [col for col in candidate_table.columns if col not in left_on],
-    #         )
-    #     ],
-    #     main_key="col_to_embed",
-    #     agg_ops=["mean", "min", "max", "mode"],
-    # )
+    # merged_test = ja.transform(left_table_test)
 
-    merged_test = ja.transform(left_table_test)
-
-    # merged_test = utils.execute_join_with_aggregation(
-    #     left_table_test,
-    #     candidate_table,
-    #     left_on=left_on,
-    #     right_on=right_on,
-    #     how=join_strategy,
-    #     aggregation=aggregation,
-    # )
+    merged_test = utils.execute_join_with_aggregation(
+        left_table_test,
+        candidate_table,
+        left_on=left_on,
+        right_on=right_on,
+        how=join_strategy,
+        aggregation=aggregation,
+    )
     run_logger.end_time("eval_join")
     run_logger.start_time("eval")
     results_best = evaluate_model_on_test_split(merged_test, best_candidate_model)
