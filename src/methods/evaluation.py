@@ -122,7 +122,6 @@ def run_on_base_table(
         cuda=cuda,
         n_jobs=n_jobs,
     )
-    logger_sh.info("Fold %d: End training on base table" % (fold + 1))
     run_logger.end_time("train")
 
     run_logger.start_time("eval")
@@ -133,7 +132,8 @@ def run_on_base_table(
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
     run_logger.end_time("run")
-
+    print(f"Base table R2: {run_logger.results['r2score']}")
+    logger_sh.info("Fold %d: End training on base table" % (fold + 1))
     logger_pipeline.debug(run_logger.to_str())
 
     return eval_results
@@ -197,6 +197,7 @@ def run_on_candidates(
             right_on=right_on,
             how=join_strategy,
             aggregation=aggregation,
+            suffix="_right",
         )
         # cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
         # frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
@@ -215,7 +216,9 @@ def run_on_candidates(
         )
         run_logger.end_time("train", cumulative=True)
         result_list.append(result)
-        tqdm.write(cnd_md["df_name"])
+        tqdm.write(
+            f'{cnd_md["df_name"]} - Base|Merged columns {len(left_table_train.columns)}|{len(merged.columns)}'
+        )
         # tqdm.write(f"Frac nulls: {frac_nulls:.2f}")
         tqdm.write(f"Result: {result[2]:.2f}")
     result_list.sort(key=lambda x: x[2], reverse=True)
@@ -238,6 +241,7 @@ def run_on_candidates(
         right_on=right_on,
         how=join_strategy,
         aggregation=aggregation,
+        suffix="_right",
     )
     run_logger.end_time("eval_join")
     run_logger.start_time("eval")
