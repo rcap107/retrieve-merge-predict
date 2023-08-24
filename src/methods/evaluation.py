@@ -176,17 +176,17 @@ def run_on_candidates(
 
         # Join source table with candidate
         run_logger.start_time("join", cumulative=True)
-        ja = JoinAggregator(
-            tables=[
-                (
-                    candidate_table,
-                    right_on,
-                    [col for col in candidate_table.columns if col not in left_on],
-                )
-            ],
-            main_key="col_to_embed",
-            agg_ops=["mean", "min", "max", "mode"],
-        )
+        # ja = JoinAggregator(
+        #     tables=[
+        #         (
+        #             candidate_table,
+        #             right_on,
+        #             [col for col in candidate_table.columns if col not in left_on],
+        #         )
+        #     ],
+        #     main_key="col_to_embed",
+        #     agg_ops=["mean", "min", "max", "mode"],
+        # )
 
         # merged = ja.fit_transform(left_table_train, y=y_train)
 
