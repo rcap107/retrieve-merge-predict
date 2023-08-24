@@ -175,6 +175,7 @@ def execute_join_with_aggregation(
             left_on=left_on,
             right_on=right_on,
             how=how,
+            suffix=suffix,
         )
     return merged
 
