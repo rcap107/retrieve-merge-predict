@@ -10,7 +10,7 @@ import polars as pl
 import polars.selectors as cs
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_validate, GroupKFold
 from tqdm import tqdm
 
 from src._join_aggregator import JoinAggregator
@@ -51,6 +51,7 @@ def evaluate_model_on_test_split(test_split, model, target_column_name=None):
 def evaluate_single_table(
     src_df: pl.DataFrame,
     target_column="target",
+    group_column="col_to_embed",
     run_label=None,
     verbose=0,
     iterations=1000,
@@ -62,6 +63,10 @@ def evaluate_single_table(
     df = src_df.drop(target_column)
     df = utils.cast_features(df)
     cat_features = df.select(cs.string()).columns
+    groups = df.select(
+        pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
+    ).to_numpy()
+
     df = df.fill_null(value="null").fill_nan(value=np.nan).to_pandas()
 
     if cuda:
@@ -76,12 +81,16 @@ def evaluate_single_table(
             cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01
         )
 
+    gkf = GroupKFold(n_splits)
+
     results = cross_validate(
         model,
         X=df,
         y=y,
         scoring=("r2", "neg_root_mean_squared_error"),
-        cv=n_splits,
+        cv=gkf,
+        # cv=n_splits,
+        groups=groups,
         n_jobs=n_jobs,
         fit_params={"verbose": verbose},
         return_estimator=True,

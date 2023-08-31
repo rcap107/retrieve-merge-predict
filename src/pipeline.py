@@ -3,7 +3,7 @@ import os
 import pickle
 from pathlib import Path
 import polars as pl
-from sklearn.model_selection import ShuffleSplit
+from sklearn.model_selection import ShuffleSplit, GroupShuffleSplit
 
 from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
 from src.data_structures.metadata import CandidateJoin, MetadataIndex
@@ -307,11 +307,20 @@ def evaluate_joins(
     aggregation="first",
     n_jobs=1,
     cuda=False,
+    group_column="col_to_embed",
 ):
     logger_sh, logger_pipeline = prepare_logger()
-    rs = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
 
-    for fold, (train_index, test_index) in enumerate(rs.split(base_table)):
+    groups = base_table.select(
+        pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
+    ).to_numpy()
+    gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+    ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+    # TODO: cleanup
+    # for fold, (train_index, test_index) in enumerate(ss.split(base_table)):
+    for fold, (train_index, test_index) in enumerate(
+        gss.split(base_table, groups=groups)
+    ):
         logger_sh.info("Fold %d: START RUN" % (fold + 1))
         for index_name, index_candidates in join_candidates.items():
             left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
