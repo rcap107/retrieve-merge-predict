@@ -298,7 +298,7 @@ def querying(
 def evaluate_joins(
     base_table,
     scenario_logger,
-    join_candidates: dict,
+    candidates_by_index: dict,
     verbose=1,
     iterations=1000,
     n_splits=5,

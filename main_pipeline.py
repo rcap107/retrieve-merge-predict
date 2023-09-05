@@ -162,7 +162,6 @@ def parse_arguments(default=None):
 
 def main():
     pipeline.prepare_dirtree()
-
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
     args = parse_arguments()
@@ -251,7 +250,7 @@ def main():
         pipeline.evaluate_joins(
             df,
             scl,
-            join_candidates=candidates_by_index,
+            candidates_by_index=candidates_by_index,
             verbose=0,
             iterations=args.iterations,
             n_splits=args.n_splits,
