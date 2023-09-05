@@ -5,6 +5,8 @@ from pathlib import Path
 import polars as pl
 from sklearn.model_selection import ShuffleSplit, GroupShuffleSplit
 
+import wandb
+
 from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
 from src.data_structures.metadata import CandidateJoin, MetadataIndex
 from src.methods import evaluation as em
@@ -308,38 +310,49 @@ def evaluate_joins(
     n_jobs=1,
     cuda=False,
     group_column="col_to_embed",
+    target_column="target",
+    skip_full_join=True,
 ):
     logger_sh, logger_pipeline = prepare_logger()
 
     groups = base_table.select(
         pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
     ).to_numpy()
-    gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
-    ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
-    # TODO: cleanup
-    # for fold, (train_index, test_index) in enumerate(ss.split(base_table)):
+    # Passing random_state to fix splits across different steps
+    gss = GroupShuffleSplit(
+        n_splits=n_splits, test_size=test_size, train_size=None, random_state=42
+    )
+    params = scenario_logger.get_parameters()
+    params.update({"target_column": target_column})
+
+    wandb.init(project="debug-bench", config=params)
+
+    wandb.define_metric("best_r2", summary="max")
+
     for fold, (train_index, test_index) in enumerate(
         gss.split(base_table, groups=groups)
     ):
         logger_sh.info("Fold %d: START RUN" % (fold + 1))
-        for index_name, index_candidates in join_candidates.items():
-            left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
-            left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
+        left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
+        left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
 
-            # Run on single table, no joins
-            results_base = em.run_on_base_table(
-                scenario_logger,
-                fold,
-                left_table_train,
-                left_table_test,
-                target_column="target",
-                iterations=iterations,
-                n_splits=n_splits,
-                cuda=cuda,
-                verbose=verbose,
-                n_jobs=n_jobs,
-            )
+        wandb.log({"fold": fold})
 
+        # Run on single table, no joins
+        results_base = em.run_on_base_table(
+            scenario_logger,
+            fold,
+            left_table_train,
+            left_table_test,
+            target_column=target_column,
+            iterations=iterations,
+            n_splits=n_splits,
+            cuda=cuda,
+            verbose=verbose,
+            n_jobs=n_jobs,
+        )
+
+        for index_name, index_candidates in candidates_by_index.items():
             # Join on each candidate, one at a time
             results_single, best_k = em.run_on_candidates(
                 scenario_logger,
@@ -356,50 +369,54 @@ def evaluate_joins(
                 cuda=cuda,
                 top_k=5,
                 n_jobs=n_jobs,
+                target_column=target_column,
             )
             # Join all candidates at the same time
-            results_full = em.run_on_full_join(
-                scenario_logger,
-                fold,
-                index_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations,
-                verbose,
-                aggregation,
-                cuda,
-                n_jobs=n_jobs,
-            )
-            # Join only a subset of candidates, taking the best individual candidates from step 2.
-            subset_candidates = {k: index_candidates[k] for k in best_k}
+            if not skip_full_join:
+                results_full = em.run_on_full_join(
+                    scenario_logger,
+                    fold,
+                    index_candidates,
+                    index_name,
+                    left_table_train,
+                    left_table_test,
+                    iterations,
+                    verbose,
+                    aggregation,
+                    cuda,
+                    n_jobs=n_jobs,
+                )
+                # Join only a subset of candidates, taking the best individual candidates from step 2.
+                subset_candidates = {k: index_candidates[k] for k in best_k}
 
-            results_full_sampled = em.run_on_full_join(
-                scenario_logger,
-                fold,
-                subset_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations,
-                verbose,
-                aggregation,
-                cuda,
-                case="sampled",
-                n_jobs=n_jobs,
-            )
+                results_full_sampled = em.run_on_full_join(
+                    scenario_logger,
+                    fold,
+                    subset_candidates,
+                    index_name,
+                    left_table_train,
+                    left_table_test,
+                    iterations,
+                    verbose,
+                    aggregation,
+                    cuda,
+                    case="sampled",
+                    n_jobs=n_jobs,
+                )
 
             logger_sh.info(
-                f"Fold {fold+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
+                f"Fold {fold+1}: {index_name} Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
             )
             logger_sh.info(
-                f"Fold {fold+1}: Join table -  RMSE {results_single[0]:.2f}  - R2 score {results_single[1]:.2f}"
+                f"Fold {fold+1}: {index_name} Join table -  RMSE {results_single[0]:.2f}  - R2 score {results_single[1]:.2f}"
             )
-            logger_sh.info(
-                f"Fold {fold+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
-            )
-            logger_sh.info(
-                f"Fold {fold+1}: Full table sampled -  RMSE {results_full_sampled[0]:.2f}  - R2 score {results_full_sampled[1]:.2f}"
-            )
+
+            if not skip_full_join:
+                logger_sh.info(
+                    f"Fold {fold+1}: {index_name} Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
+                )
+                logger_sh.info(
+                    f"Fold {fold+1}: {index_name} Full table sampled -  RMSE {results_full_sampled[0]:.2f}  - R2 score {results_full_sampled[1]:.2f}"
+                )
 
     return

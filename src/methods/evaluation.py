@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 
+import wandb
 import numpy as np
 import polars as pl
 import polars.selectors as cs
@@ -58,6 +59,7 @@ def evaluate_single_table(
     n_splits=5,
     cuda=False,
     n_jobs=1,
+    fold=None,
 ):
     y = src_df[target_column].to_pandas()
     df = src_df.drop(target_column)
@@ -121,6 +123,9 @@ def run_on_base_table(
     run_logger.start_time("train")
     logger_sh.info("Fold %d: Start training on base table" % (fold + 1))
 
+    wandb.log({f"base/n_cols": len(left_table_train.schema)})
+    run_logger.results["n_cols"] = len(left_table_train.schema)
+
     base_result = evaluate_single_table(
         left_table_train,
         target_column=target_column,
@@ -130,21 +135,35 @@ def run_on_base_table(
         iterations=iterations,
         cuda=cuda,
         n_jobs=n_jobs,
+        fold=fold,
     )
     run_logger.end_time("train")
+    wandb.log(
+        {
+            f"base/best_train_r2": base_result[2],
+            f"base/train_duration": run_logger.get_duration("time_train"),
+        }
+    )
 
     run_logger.start_time("eval")
     eval_results = evaluate_model_on_test_split(left_table_test, base_result[1])
     run_logger.results["rmse"], run_logger.results["r2score"] = eval_results
-    run_logger.results["n_cols"] = len(left_table_train.schema)
-
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
     run_logger.end_time("run")
+
+    wandb.log(
+        {
+            f"base/best_r2": run_logger.results["r2score"],
+            f"base/best_rmse": run_logger.results["rmse"],
+            f"base/eval_duration": run_logger.get_duration("time_eval"),
+        }
+    )
+
     print(f"Base table R2: {run_logger.results['r2score']}")
     logger_sh.info("Fold %d: End training on base table" % (fold + 1))
     logger_pipeline.debug(run_logger.to_str())
-
+    # wandb.finish()
     return eval_results
 
 
@@ -182,22 +201,10 @@ def run_on_candidates(
     ):
         src_md, cnd_md, left_on, right_on = mdata.get_join_information()
         candidate_table = pl.read_parquet(cnd_md["full_path"])
+        candidate_hash = hash_
 
         # Join source table with candidate
         run_logger.start_time("join", cumulative=True)
-        # ja = JoinAggregator(
-        #     tables=[
-        #         (
-        #             candidate_table,
-        #             right_on,
-        #             [col for col in candidate_table.columns if col not in left_on],
-        #         )
-        #     ],
-        #     main_key="col_to_embed",
-        #     agg_ops=["mean", "min", "max", "mode"],
-        # )
-
-        # merged = ja.fit_transform(left_table_train, y=y_train)
 
         merged = utils.execute_join_with_aggregation(
             left_table_train,
@@ -208,10 +215,17 @@ def run_on_candidates(
             aggregation=aggregation,
             suffix="_right",
         )
-        # cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
-        # frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
+
         merged = prepare_table_for_evaluation(merged)
         run_logger.end_time("join", cumulative=True)
+
+        wandb.log(
+            {
+                f"{candidate_hash}/n_col": len(merged.columns),
+                f"{candidate_hash}/time_join": run_logger.get_duration("time_join"),
+            }
+        )
+
         run_logger.start_time("train", cumulative=True)
         # Result has format (run_label, best_estimator, best_R2score)
         result = evaluate_single_table(
@@ -223,25 +237,43 @@ def run_on_candidates(
             cuda=cuda,
             n_jobs=n_jobs,
         )
+
+        wandb.log(
+            {
+                f"{candidate_hash}/n_col": len(merged.columns),
+                f"{candidate_hash}/time_join": run_logger.get_duration("time_join"),
+                f"{candidate_hash}/best_r2": result[2],
+                f"{candidate_hash}/cnd_md": cnd_md,
+                f"{candidate_hash}/left_on": left_on,
+                f"{candidate_hash}/right_on": right_on,
+            }
+        )
+
         run_logger.end_time("train", cumulative=True)
         result_list.append(result)
         tqdm.write(
             f'{cnd_md["df_name"]} - Base|Merged columns {len(left_table_train.columns)}|{len(merged.columns)}'
         )
-        # tqdm.write(f"Frac nulls: {frac_nulls:.2f}")
         tqdm.write(f"Result: {result[2]:.2f}")
     result_list.sort(key=lambda x: x[2], reverse=True)
 
     best_candidate = result_list[0]
-    best_candidate_hash, best_candidate_model, _ = best_candidate
+    best_candidate_hash, best_candidate_model, best_train_r2 = best_candidate
 
     best_candidate_mdata = join_candidates[best_candidate_hash]
     src_md, cnd_md, left_on, right_on = best_candidate_mdata.get_join_information()
     candidate_table = pl.read_parquet(cnd_md["full_path"])
 
-    run_logger.start_time("eval_join")
+    wandb.log(
+        {
+            f"best_candidate/n_col": len(merged.columns),
+            f"best_candidate/cnd_md": cnd_md,
+            f"best_candidate/left_on": left_on,
+            f"best_candidate/right_on": right_on,
+        }
+    )
 
-    # merged_test = ja.transform(left_table_test)
+    run_logger.start_time("eval_join")
 
     merged_test = utils.execute_join_with_aggregation(
         left_table_test,
@@ -252,17 +284,29 @@ def run_on_candidates(
         aggregation=aggregation,
         suffix="_right",
     )
+
     run_logger.end_time("eval_join")
+
     run_logger.start_time("eval")
     results_best = evaluate_model_on_test_split(merged_test, best_candidate_model)
     run_logger.end_time("eval")
     run_logger.results["rmse"], run_logger.results["r2score"] = results_best
     run_logger.results["n_cols"] = len(merged_test.schema)
 
+    wandb.log(
+        {
+            f"best_candidate/time_eval_join": run_logger.get_duration("time_eval_join"),
+            f"best_candidate/best_r2": run_logger.results["r2score"],
+            f"best_candidate/best_rmse": run_logger.results["rmse"],
+            f"best_candidate/eval_duration": run_logger.get_duration("time_eval"),
+        }
+    )
+
     run_logger.set_run_status("SUCCESS")
     logger_pipeline.debug(run_logger.to_str())
     logger_sh.info("Fold %d: End training on candidates" % (fold + 1))
 
+    # wandb.finish()
     if top_k is not None:
         if top_k < 0:
             raise ValueError("`top_k` must be positive.")
