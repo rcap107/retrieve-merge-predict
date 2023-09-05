@@ -94,6 +94,16 @@ class ScenarioLogger:
                 fp.write(f"{scenario_id}")
         return scenario_id
 
+    def get_parameters(self):
+        return {
+            "source_table": self.source_table,
+            "iterations": self.iterations,
+            "join_strategy": self.join_strategy,
+            "aggregation": self.aggregation,
+            "target_dl": self.target_dl,
+            "n_splits": self.n_splits,
+        }
+
     def get_next_run_id(self):
         self.run_id += 1
         next_run_id = self.run_id
@@ -234,7 +244,26 @@ class RunLogger:
         Returns:
             _type_: Retrieved timestamp.
         """
-        return self.timestamps[label]
+        if label in self.timestamps:
+            return self.timestamps[label]
+        else:
+            raise KeyError(f"Label {label} not found in timestamps.")
+
+    def get_duration(self, label):
+        """Retrieve a duration according to the given label.
+
+        Args:
+            label (str): Label of the duration to be retrieved.
+        Returns:
+            _type_: Retrieved duration.
+
+        Raises:
+            KeyError if the provided label is not found.
+        """
+        if label in self.durations:
+            return self.durations[label]
+        else:
+            raise KeyError(f"Label {label} not found in durations.")
 
     def to_str(self):
         res_str = ",".join(
