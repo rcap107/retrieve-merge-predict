@@ -1,8 +1,6 @@
-import featuretools as ft
 import polars as pl
 import polars.selectors as cs
 from tqdm import tqdm
-from woodwork.logical_types import Categorical, Double
 
 
 def get_logical_types(df):
@@ -75,6 +73,9 @@ def prepare_dfs_table(
     Returns:
         pl.DataFrame: The new table.
     """
+    import featuretools as ft
+    from woodwork.logical_types import Categorical, Double
+
     if on is not None:
         left_on = right_on = on
 
