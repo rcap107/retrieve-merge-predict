@@ -1,6 +1,4 @@
 """Evaluation methods"""
-import datetime as dt
-import hashlib
 import logging
 import os
 from pathlib import Path
@@ -12,10 +10,9 @@ from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate, GroupKFold
 from tqdm import tqdm
+from sklearn.feature_selection import SelectFromModel
 
-from src._join_aggregator import JoinAggregator
-
-from src.data_structures.loggers import RunLogger, ScenarioLogger
+from src.data_structures.loggers import RunLogger
 
 logger_sh = logging.getLogger("pipeline")
 logger_pipeline = logging.getLogger("run_logger")
@@ -164,6 +161,8 @@ def run_on_candidates(
     target_column="target",
     verbose=0,
     cuda=False,
+    feature_selection=False,
+    fs_iterations=50,
 ):
     add_params = {"candidate_table": "best_candidate", "index_name": index_name}
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
@@ -173,6 +172,11 @@ def run_on_candidates(
     y_train = left_table_train[target_column].cast(pl.Float64).to_numpy()
     y_test = left_table_test[target_column].cast(pl.Float64).to_numpy()
 
+    best_candidate_hash = None
+    best_candidate_model = None
+    best_candidate_r2 = -np.inf
+    best_candidate_features = None
+
     result_list = []
     for hash_, mdata in tqdm(
         join_candidates.items(),
@@ -181,7 +185,7 @@ def run_on_candidates(
         desc="Training on candidates",
     ):
         src_md, cnd_md, left_on, right_on = mdata.get_join_information()
-        candidate_table = pl.read_parquet(cnd_md["full_path"])
+        best_cnd_table = pl.read_parquet(cnd_md["full_path"])
 
         # Join source table with candidate
         run_logger.start_time("join", cumulative=True)
@@ -201,7 +205,7 @@ def run_on_candidates(
 
         merged = utils.execute_join_with_aggregation(
             left_table_train,
-            candidate_table,
+            best_cnd_table,
             left_on=left_on,
             right_on=right_on,
             how=join_strategy,
@@ -211,6 +215,13 @@ def run_on_candidates(
         # cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
         # frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
         merged = prepare_table_for_evaluation(merged)
+
+        if feature_selection:
+            selected_features = perform_feature_selection(
+                merged, target_column, fs_iterations
+            )
+            merged = merged[selected_features]
+
         run_logger.end_time("join", cumulative=True)
         run_logger.start_time("train", cumulative=True)
         # Result has format (run_label, best_estimator, best_R2score)
@@ -228,16 +239,20 @@ def run_on_candidates(
         tqdm.write(
             f'{cnd_md["df_name"]} - Base|Merged columns {len(left_table_train.columns)}|{len(merged.columns)}'
         )
-        # tqdm.write(f"Frac nulls: {frac_nulls:.2f}")
         tqdm.write(f"Result: {result[2]:.2f}")
+
+        if result[2] > best_candidate_r2:
+            best_candidate_hash, best_candidate_model, best_candidate_r2 = result
+            best_candidate_features = selected_features
+
     result_list.sort(key=lambda x: x[2], reverse=True)
 
-    best_candidate = result_list[0]
-    best_candidate_hash, best_candidate_model, _ = best_candidate
+    # best_candidate = result_list[0]
+    # best_candidate_hash, best_candidate_model, _ = best_candidate
 
     best_candidate_mdata = join_candidates[best_candidate_hash]
     src_md, cnd_md, left_on, right_on = best_candidate_mdata.get_join_information()
-    candidate_table = pl.read_parquet(cnd_md["full_path"])
+    best_cnd_table = pl.read_parquet(cnd_md["full_path"])
 
     run_logger.start_time("eval_join")
 
@@ -245,13 +260,17 @@ def run_on_candidates(
 
     merged_test = utils.execute_join_with_aggregation(
         left_table_test,
-        candidate_table,
+        best_cnd_table,
         left_on=left_on,
         right_on=right_on,
         how=join_strategy,
         aggregation=aggregation,
         suffix="_right",
     )
+
+    if feature_selection:
+        merged_test = merged_test[best_candidate_features]
+
     run_logger.end_time("eval_join")
     run_logger.start_time("eval")
     results_best = evaluate_model_on_test_split(merged_test, best_candidate_model)
@@ -277,12 +296,15 @@ def run_on_full_join(
     index_name,
     left_table_train,
     left_table_test,
+    target_column="target",
     iterations=1000,
     verbose=0,
     aggregation="first",
     cuda=False,
     case="full",
     n_jobs=1,
+    feature_selection=False,
+    fs_iterations=50,
 ):
     """Evaluate the performance obtained by joining all the candidates provided
     by the join discovery algorithm, with no supervision.
@@ -319,6 +341,13 @@ def run_on_full_join(
     merged = left_table_train.clone().lazy()
     merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
     merged = merged.fill_null("").fill_nan("")
+
+    if feature_selection:
+        selected_features = perform_feature_selection(
+            merged, target_column, fs_iterations
+        )
+        merged = merged[selected_features]
+
     run_logger.results["n_cols"] = len(merged.schema)
     run_logger.end_time("join")
 
@@ -339,6 +368,9 @@ def run_on_full_join(
     )
     run_logger.end_time("eval_join")
 
+    if feature_selection:
+        merged_test = merged_test[selected_features]
+
     run_logger.start_time("eval")
     result_model = result_train[1]
     results = evaluate_model_on_test_split(merged_test, result_model)
@@ -350,3 +382,21 @@ def run_on_full_join(
 
     logger_pipeline.debug(run_logger.to_str())
     return results
+
+
+def perform_feature_selection(df: pl.DataFrame, target_column, iterations=50):
+    # X = df.drop(target_column).to_pandas()
+    X = df.drop(target_column).to_pandas()
+    cat_features = df.select(cs.string()).columns
+
+    y = df.select(pl.col(target_column)).to_numpy()
+
+    model = CatBoostRegressor(
+        cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01
+    )
+
+    selector = SelectFromModel(model)
+
+    selector.fit(X, y)
+    selected_features = list(X.columns[selector.get_support()]) + [target_column]
+    return selected_features

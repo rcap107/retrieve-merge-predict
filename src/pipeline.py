@@ -322,7 +322,7 @@ def evaluate_joins(
         gss.split(base_table, groups=groups)
     ):
         logger_sh.info("Fold %d: START RUN" % (fold + 1))
-        for index_name, index_candidates in join_candidates.items():
+        for index_name, index_candidates in candidates_by_index.items():
             left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
             left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
 
@@ -356,6 +356,7 @@ def evaluate_joins(
                 cuda=cuda,
                 top_k=5,
                 n_jobs=n_jobs,
+                feature_selection=True,
             )
             # Join all candidates at the same time
             results_full = em.run_on_full_join(
@@ -370,6 +371,7 @@ def evaluate_joins(
                 aggregation,
                 cuda,
                 n_jobs=n_jobs,
+                feature_selection=True,
             )
             # Join only a subset of candidates, taking the best individual candidates from step 2.
             subset_candidates = {k: index_candidates[k] for k in best_k}
