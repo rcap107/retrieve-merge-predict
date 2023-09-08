@@ -11,6 +11,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate, GroupKFold
 from tqdm import tqdm
 from sklearn.feature_selection import SelectFromModel
+from sklearn.model_selection import GridSearchCV
+
 
 from src.data_structures.loggers import RunLogger
 
@@ -75,30 +77,37 @@ def evaluate_single_table(
         )
     else:
         model = CatBoostRegressor(
-            cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01
+            cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01, verbose=verbose
         )
 
     gkf = GroupKFold(n_splits)
 
-    results = cross_validate(
-        model,
-        X=df,
-        y=y,
-        scoring=("r2", "neg_root_mean_squared_error"),
-        cv=gkf,
-        # cv=n_splits,
-        groups=groups,
-        n_jobs=n_jobs,
-        fit_params={"verbose": verbose},
-        return_estimator=True,
-    )
+    parameters = {}
+    clf = GridSearchCV(model, parameters, cv=gkf, n_jobs=n_jobs)
 
-    best_res = np.argmax(results["test_r2"])
+    results = clf.fit(X=df, y=y, groups=groups)
+    best_estimator = results.best_estimator_
+    best_score = results.best_score_
 
-    best_estimator = results["estimator"][best_res]
+    # results = cross_validate(
+    #     model,
+    #     X=df,
+    #     y=y,
+    #     scoring=("r2", "neg_root_mean_squared_error"),
+    #     cv=gkf,
+    #     # cv=n_splits,
+    #     groups=groups,
+    #     n_jobs=n_jobs,
+    #     return_estimator=True,
+    # )
+
+    # best_res = np.argmax(results["test_r2"])
+
+    # best_estimator = results["estimator"][best_res]
     best_estimator.save_model(Path(model_folder, run_label))
 
-    return (run_label, best_estimator, max(results["test_r2"]))
+    # return (run_label, best_estimator, max(results["test_r2"]))
+    return (run_label, best_estimator, best_score)
 
 
 def run_on_base_table(
@@ -185,7 +194,7 @@ def run_on_candidates(
         desc="Training on candidates",
     ):
         src_md, cnd_md, left_on, right_on = mdata.get_join_information()
-        best_cnd_table = pl.read_parquet(cnd_md["full_path"])
+        cnd_table = pl.read_parquet(cnd_md["full_path"])
 
         # Join source table with candidate
         run_logger.start_time("join", cumulative=True)
@@ -205,15 +214,13 @@ def run_on_candidates(
 
         merged = utils.execute_join_with_aggregation(
             left_table_train,
-            best_cnd_table,
+            cnd_table,
             left_on=left_on,
             right_on=right_on,
             how=join_strategy,
             aggregation=aggregation,
             suffix="_right",
         )
-        # cols_to_mean = [_ for _ in candidate_table.columns if _ not in right_on]
-        # frac_nulls = (merged[cols_to_mean].null_count().mean(axis=1))[0] / len(merged)
         merged = prepare_table_for_evaluation(merged)
 
         if feature_selection:
@@ -221,6 +228,8 @@ def run_on_candidates(
                 merged, target_column, fs_iterations
             )
             merged = merged[selected_features]
+        else:
+            selected_features = merged.columns
 
         run_logger.end_time("join", cumulative=True)
         run_logger.start_time("train", cumulative=True)
@@ -247,9 +256,6 @@ def run_on_candidates(
 
     result_list.sort(key=lambda x: x[2], reverse=True)
 
-    # best_candidate = result_list[0]
-    # best_candidate_hash, best_candidate_model, _ = best_candidate
-
     best_candidate_mdata = join_candidates[best_candidate_hash]
     src_md, cnd_md, left_on, right_on = best_candidate_mdata.get_join_information()
     best_cnd_table = pl.read_parquet(cnd_md["full_path"])
@@ -268,8 +274,10 @@ def run_on_candidates(
         suffix="_right",
     )
 
+    print(f"Merged: {len(merged_test.columns)} features")
     if feature_selection:
         merged_test = merged_test[best_candidate_features]
+        print(f"Merged selected: {len(merged_test.columns)} features")
 
     run_logger.end_time("eval_join")
     run_logger.start_time("eval")
@@ -384,15 +392,15 @@ def run_on_full_join(
     return results
 
 
-def perform_feature_selection(df: pl.DataFrame, target_column, iterations=50):
-    # X = df.drop(target_column).to_pandas()
+def perform_feature_selection(df: pl.DataFrame, target_column, iterations=20):
     X = df.drop(target_column).to_pandas()
-    cat_features = df.select(cs.string()).columns
+    # X = df.to_pandas()
+    cat_features = df.drop(target_column).select(cs.string()).columns
 
     y = df.select(pl.col(target_column)).to_numpy()
 
     model = CatBoostRegressor(
-        cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01
+        cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01, verbose=0
     )
 
     selector = SelectFromModel(model)

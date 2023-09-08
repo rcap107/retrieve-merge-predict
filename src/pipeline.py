@@ -308,6 +308,7 @@ def evaluate_joins(
     n_jobs=1,
     cuda=False,
     group_column="col_to_embed",
+    feature_selection=False,
 ):
     logger_sh, logger_pipeline = prepare_logger()
 
@@ -356,7 +357,7 @@ def evaluate_joins(
                 cuda=cuda,
                 top_k=5,
                 n_jobs=n_jobs,
-                feature_selection=True,
+                feature_selection=feature_selection,
             )
             # Join all candidates at the same time
             results_full = em.run_on_full_join(
@@ -366,12 +367,12 @@ def evaluate_joins(
                 index_name,
                 left_table_train,
                 left_table_test,
-                iterations,
-                verbose,
-                aggregation,
-                cuda,
+                iterations=iterations,
+                verbose=verbose,
+                aggregation=aggregation,
+                cuda=cuda,
                 n_jobs=n_jobs,
-                feature_selection=True,
+                feature_selection=feature_selection,
             )
             # Join only a subset of candidates, taking the best individual candidates from step 2.
             subset_candidates = {k: index_candidates[k] for k in best_k}
@@ -383,12 +384,13 @@ def evaluate_joins(
                 index_name,
                 left_table_train,
                 left_table_test,
-                iterations,
-                verbose,
-                aggregation,
-                cuda,
-                case="sampled",
+                iterations=iterations,
+                verbose=verbose,
+                aggregation=aggregation,
+                cuda=cuda,
                 n_jobs=n_jobs,
+                feature_selection=True,
+                case="sampled",
             )
 
             logger_sh.info(
