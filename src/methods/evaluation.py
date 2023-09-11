@@ -27,8 +27,8 @@ os.makedirs(model_folder, exist_ok=True)
 
 
 def prepare_table_for_evaluation(df):
-    df = utils.cast_features(df)
     df = df.fill_nan("null").fill_null("null")
+    df = utils.cast_features(df)
     return df
 
 
@@ -57,7 +57,7 @@ def evaluate_single_table(
     n_splits=5,
     cuda=False,
     n_jobs=1,
-    with_model_selection=True
+    with_model_selection=True,
 ):
     y = src_df[target_column].to_pandas()
     df = src_df.drop(target_column)
@@ -78,7 +78,10 @@ def evaluate_single_table(
         )
     else:
         model = CatBoostRegressor(
-            cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01, verbose=verbose
+            cat_features=cat_features,
+            iterations=iterations,
+            l2_leaf_reg=0.01,
+            verbose=verbose,
         )
 
     gkf = GroupKFold(n_splits)
@@ -106,8 +109,6 @@ def evaluate_single_table(
         best_estimator = results["estimator"][best_res]
         best_estimator.save_model(Path(model_folder, run_label))
         return (run_label, best_estimator, max(results["test_r2"]))
- 
-
 
 
 def run_on_base_table(
@@ -121,7 +122,7 @@ def run_on_base_table(
     n_jobs=1,
     verbose=0,
     cuda=False,
-    with_model_selection=True
+    with_model_selection=True,
 ):
     run_logger = RunLogger(scenario_logger, fold, {"aggregation": "nojoin"})
     run_logger.start_time("run")
@@ -137,7 +138,7 @@ def run_on_base_table(
         iterations=iterations,
         cuda=cuda,
         n_jobs=n_jobs,
-        with_model_selection=with_model_selection
+        with_model_selection=with_model_selection,
     )
     run_logger.end_time("train")
 
@@ -174,8 +175,7 @@ def run_on_candidates(
     cuda=False,
     feature_selection=False,
     fs_iterations=50,
-    with_model_selection=True
-
+    with_model_selection=True,
 ):
     add_params = {"candidate_table": "best_candidate", "index_name": index_name}
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
@@ -278,6 +278,8 @@ def run_on_candidates(
         suffix="_right",
     )
 
+    merged_test = prepare_table_for_evaluation(merged_test)
+
     print(f"Merged: {len(merged_test.columns)} features")
     if feature_selection:
         merged_test = merged_test[best_candidate_features]
@@ -317,7 +319,7 @@ def run_on_full_join(
     n_jobs=1,
     feature_selection=False,
     fs_iterations=50,
-    with_model_selection=True
+    with_model_selection=True,
 ):
     """Evaluate the performance obtained by joining all the candidates provided
     by the join discovery algorithm, with no supervision.
@@ -353,7 +355,7 @@ def run_on_full_join(
     run_logger.start_time("join")
     merged = left_table_train.clone().lazy()
     merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
-    merged = merged.fill_null("").fill_nan("")
+    merged = prepare_table_for_evaluation(merged)
 
     if feature_selection:
         selected_features = perform_feature_selection(
@@ -372,7 +374,7 @@ def run_on_full_join(
         run_label="full_join",
         cuda=cuda,
         n_jobs=n_jobs,
-        with_model_selection=with_model_selection
+        with_model_selection=with_model_selection,
     )
     run_logger.end_time("train")
 
@@ -380,6 +382,7 @@ def run_on_full_join(
     merged_test = utils.execute_join_all_candidates(
         left_table_test, join_candidates, aggregation
     )
+    merged_test = prepare_table_for_evaluation(merged_test)
     run_logger.end_time("eval_join")
 
     if feature_selection:
