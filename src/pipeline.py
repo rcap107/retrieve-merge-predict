@@ -393,7 +393,7 @@ def evaluate_joins(
                 aggregation=aggregation,
                 cuda=cuda,
                 n_jobs=n_jobs,
-                feature_selection=True,
+                feature_selection=feature_selection,
                 case="sampled",
                 with_model_selection=with_model_selection,
             )
