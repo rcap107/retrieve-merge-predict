@@ -57,6 +57,7 @@ def evaluate_single_table(
     n_splits=5,
     cuda=False,
     n_jobs=1,
+    with_model_selection=True
 ):
     y = src_df[target_column].to_pandas()
     df = src_df.drop(target_column)
@@ -81,33 +82,32 @@ def evaluate_single_table(
         )
 
     gkf = GroupKFold(n_splits)
+    if with_model_selection:
+        parameters = {}
+        clf = GridSearchCV(model, parameters, cv=gkf, n_jobs=n_jobs)
+        results = clf.fit(X=df, y=y, groups=groups)
+        best_estimator = results.best_estimator_
+        best_score = results.best_score_
+        best_estimator.save_model(Path(model_folder, run_label))
+        return (run_label, best_estimator, best_score)
+    else:
+        results = cross_validate(
+            model,
+            X=df,
+            y=y,
+            scoring=("r2", "neg_root_mean_squared_error"),
+            cv=gkf,
+            # cv=n_splits,
+            groups=groups,
+            n_jobs=n_jobs,
+            return_estimator=True,
+        )
+        best_res = np.argmax(results["test_r2"])
+        best_estimator = results["estimator"][best_res]
+        best_estimator.save_model(Path(model_folder, run_label))
+        return (run_label, best_estimator, max(results["test_r2"]))
+ 
 
-    parameters = {}
-    clf = GridSearchCV(model, parameters, cv=gkf, n_jobs=n_jobs)
-
-    results = clf.fit(X=df, y=y, groups=groups)
-    best_estimator = results.best_estimator_
-    best_score = results.best_score_
-
-    # results = cross_validate(
-    #     model,
-    #     X=df,
-    #     y=y,
-    #     scoring=("r2", "neg_root_mean_squared_error"),
-    #     cv=gkf,
-    #     # cv=n_splits,
-    #     groups=groups,
-    #     n_jobs=n_jobs,
-    #     return_estimator=True,
-    # )
-
-    # best_res = np.argmax(results["test_r2"])
-
-    # best_estimator = results["estimator"][best_res]
-    best_estimator.save_model(Path(model_folder, run_label))
-
-    # return (run_label, best_estimator, max(results["test_r2"]))
-    return (run_label, best_estimator, best_score)
 
 
 def run_on_base_table(
@@ -121,6 +121,7 @@ def run_on_base_table(
     n_jobs=1,
     verbose=0,
     cuda=False,
+    with_model_selection=True
 ):
     run_logger = RunLogger(scenario_logger, fold, {"aggregation": "nojoin"})
     run_logger.start_time("run")
@@ -136,6 +137,7 @@ def run_on_base_table(
         iterations=iterations,
         cuda=cuda,
         n_jobs=n_jobs,
+        with_model_selection=with_model_selection
     )
     run_logger.end_time("train")
 
@@ -172,6 +174,8 @@ def run_on_candidates(
     cuda=False,
     feature_selection=False,
     fs_iterations=50,
+    with_model_selection=True
+
 ):
     add_params = {"candidate_table": "best_candidate", "index_name": index_name}
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
@@ -313,6 +317,7 @@ def run_on_full_join(
     n_jobs=1,
     feature_selection=False,
     fs_iterations=50,
+    with_model_selection=True
 ):
     """Evaluate the performance obtained by joining all the candidates provided
     by the join discovery algorithm, with no supervision.
@@ -367,6 +372,7 @@ def run_on_full_join(
         run_label="full_join",
         cuda=cuda,
         n_jobs=n_jobs,
+        with_model_selection=with_model_selection
     )
     run_logger.end_time("train")
 

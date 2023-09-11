@@ -143,6 +143,18 @@ def parse_arguments(default=None):
     )
 
     parser.add_argument(
+        "--feature_selection",
+        action="store_true",
+        help="If true, perform feature selection.",
+    )
+
+    parser.add_argument(
+        "--model_selection",
+        action="store_true",
+        help="If true, perform model selection.",
+    )
+
+    parser.add_argument(
         "--n_jobs",
         action="store",
         type=int,
@@ -184,6 +196,9 @@ def main():
         aggregation=args.aggregation,
         target_dl=args.yadl_version,
         n_splits=args.n_splits,
+        top_k=args.top_k,
+        feature_selection=args.feature_selection,
+        model_selection=args.model_selection,
     )
 
     if not metadata_index_path.exists():
@@ -258,6 +273,8 @@ def main():
             aggregation=args.aggregation,
             cuda=args.cuda,
             n_jobs=args.n_jobs,
+            feature_selection=args.feature_selection,
+            with_model_selection=args.model_selection,
         )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")

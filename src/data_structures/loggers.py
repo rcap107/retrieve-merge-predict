@@ -26,6 +26,9 @@ class ScenarioLogger:
         aggregation,
         target_dl,
         n_splits,
+        top_k,
+        feature_selection,
+        model_selection
     ) -> None:
         self.timestamps = {
             "start_process": dt.datetime.now(),
@@ -51,6 +54,9 @@ class ScenarioLogger:
             self.aggregation = aggregation
         self.target_dl = target_dl
         self.n_splits = n_splits
+        self.model_selection = model_selection
+        self.feature_selection = feature_selection
+        self.top_k = top_k
         self.results = {}
         self.process_time = 0
 
@@ -102,6 +108,9 @@ class ScenarioLogger:
             "aggregation": self.aggregation,
             "target_dl": self.target_dl,
             "n_splits": self.n_splits,
+            "model_selection": self.model_selection,
+            "feature_selection": self.feature_selection,
+            "top_k": self.top_k,
         }
 
     def get_next_run_id(self):
@@ -122,6 +131,9 @@ class ScenarioLogger:
                     self.aggregation,
                     self.target_dl,
                     self.n_splits,
+                    self.top_k,
+                    self.feature_selection,
+                    self.model_selection,
                     self.results["n_candidates"],
                 ],
             )
@@ -178,6 +190,8 @@ class RunLogger:
             "join_strategy": scenario_logger.join_strategy,
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
+            "model_selection": scenario_logger.model_selection,
+            "feature_selection": scenario_logger.feature_selection,
         }
         if additional_parameters is not None:
             parameters.update(additional_parameters)
@@ -281,14 +295,16 @@ class RunLogger:
                     self.parameters["iterations"],
                     self.parameters["join_strategy"],
                     self.parameters["aggregation"],
+                    self.parameters["feature_selection"],
+                    self.parameters["model_selection"],
                     self.fold_id,
                     self.durations["time_train"],
                     self.durations["time_eval"],
                     self.durations.get("time_join", ""),
                     self.durations.get("time_eval_join", ""),
+                    self.results.get("n_cols", ""),
                     self.results.get("rmse", ""),
                     self.results.get("r2score", ""),
-                    self.results.get("n_cols", ""),
                 ],
             )
         )
