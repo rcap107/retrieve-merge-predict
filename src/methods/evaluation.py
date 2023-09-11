@@ -18,6 +18,7 @@ from src.data_structures.loggers import RunLogger
 
 logger_sh = logging.getLogger("pipeline")
 logger_pipeline = logging.getLogger("run_logger")
+logger_cand = logging.getLogger("cand_logger")
 
 import src.utils.joining as utils
 
@@ -127,7 +128,7 @@ def run_on_base_table(
     run_logger = RunLogger(scenario_logger, fold, {"aggregation": "nojoin"})
     run_logger.start_time("run")
     run_logger.start_time("train")
-    logger_sh.info("Fold %d: Start training on base table" % (fold + 1))
+    # logger_sh.info("Fold %d: Start training on base table" % (fold + 1))
 
     base_result = evaluate_single_table(
         left_table_train,
@@ -150,8 +151,8 @@ def run_on_base_table(
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
     run_logger.end_time("run")
-    print(f"Base table R2: {run_logger.results['r2score']}")
-    logger_sh.info("Fold %d: End training on base table" % (fold + 1))
+    print(f"Base table R2: {run_logger.results['r2score']:.4f}")
+    # logger_sh.info("Fold %d: End training on base table" % (fold + 1))
     logger_pipeline.debug(run_logger.to_str())
 
     return eval_results
@@ -180,7 +181,7 @@ def run_on_candidates(
     add_params = {"candidate_table": "best_candidate", "index_name": index_name}
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
     run_logger.start_time("run")
-    logger_sh.info("Fold %d: Start training on candidates" % (fold + 1))
+    # logger_sh.info("Fold %d: Start training on candidates" % (fold + 1))
 
     y_train = left_table_train[target_column].cast(pl.Float64).to_numpy()
     y_test = left_table_test[target_column].cast(pl.Float64).to_numpy()
@@ -198,10 +199,19 @@ def run_on_candidates(
         desc="Training on candidates",
     ):
         src_md, cnd_md, left_on, right_on = mdata.get_join_information()
+        cand_parameters = {
+            "candidate_table": hash_,
+            "index_name": index_name,
+            "left_on": left_on,
+            "right_on": right_on,
+        }
+        cand_logger = RunLogger(scenario_logger, fold, cand_parameters)
         cnd_table = pl.read_parquet(cnd_md["full_path"])
 
         # Join source table with candidate
         run_logger.start_time("join", cumulative=True)
+        cand_logger.start_time("join")
+
         # ja = JoinAggregator(
         #     tables=[
         #         (
@@ -236,7 +246,9 @@ def run_on_candidates(
             selected_features = merged.columns
 
         run_logger.end_time("join", cumulative=True)
+        cand_logger.end_time("join")
         run_logger.start_time("train", cumulative=True)
+        cand_logger.start_time("train")
         # Result has format (run_label, best_estimator, best_R2score)
         result = evaluate_single_table(
             merged,
@@ -248,15 +260,21 @@ def run_on_candidates(
             n_jobs=n_jobs,
         )
         run_logger.end_time("train", cumulative=True)
+        cand_logger.end_time("train")
         result_list.append(result)
-        tqdm.write(
-            f'{cnd_md["df_name"]} - Base|Merged columns {len(left_table_train.columns)}|{len(merged.columns)}'
-        )
-        tqdm.write(f"Result: {result[2]:.2f}")
+        # tqdm.write(
+        #     f'{cnd_md["df_name"]} - Base|Merged columns {len(left_table_train.columns)}|{len(merged.columns)}'
+        # )
+        # tqdm.write(f"Result: {result[2]:.2f}")
 
         if result[2] > best_candidate_r2:
             best_candidate_hash, best_candidate_model, best_candidate_r2 = result
             best_candidate_features = selected_features
+
+        cand_logger.results["r2score"] = result[2]
+        cand_logger.set_run_status("SUCCESS")
+
+        logger_cand.debug(cand_logger.to_str())
 
     result_list.sort(key=lambda x: x[2], reverse=True)
 
@@ -294,7 +312,7 @@ def run_on_candidates(
 
     run_logger.set_run_status("SUCCESS")
     logger_pipeline.debug(run_logger.to_str())
-    logger_sh.info("Fold %d: End training on candidates" % (fold + 1))
+    # logger_sh.info("Fold %d: End training on candidates" % (fold + 1))
 
     if top_k is not None:
         if top_k < 0:
@@ -344,10 +362,10 @@ def run_on_full_join(
     }
     run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
     run_logger.start_time("run")
-    logger_sh.info("Fold %d: Start training on full join" % (fold + 1))
+    # logger_sh.info("Fold %d: Start training on full join" % (fold + 1))
 
     if aggregation == "dfs":
-        logger_sh.error("Fold %d: Full join not available with DFS." % (fold + 1))
+        # logger_sh.error("Fold %d: Full join not available with DFS." % (fold + 1))
         run_logger.end_time("run")
         run_logger.set_run_status("FAILURE")
         return [0, 0]
@@ -395,7 +413,7 @@ def run_on_full_join(
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
     run_logger.end_time("run")
-    logger_sh.info("Fold %d: End training on full join" % (fold + 1))
+    # logger_sh.info("Fold %d: End training on full join" % (fold + 1))
 
     logger_pipeline.debug(run_logger.to_str())
     return results

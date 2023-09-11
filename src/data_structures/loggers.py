@@ -28,7 +28,7 @@ class ScenarioLogger:
         n_splits,
         top_k,
         feature_selection,
-        model_selection
+        model_selection,
     ) -> None:
         self.timestamps = {
             "start_process": dt.datetime.now(),
@@ -299,7 +299,7 @@ class RunLogger:
                     self.parameters["model_selection"],
                     self.fold_id,
                     self.durations["time_train"],
-                    self.durations["time_eval"],
+                    self.durations.get("time_eval", ""),
                     self.durations.get("time_join", ""),
                     self.durations.get("time_eval_join", ""),
                     self.results.get("n_cols", ""),

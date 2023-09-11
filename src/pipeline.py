@@ -16,7 +16,7 @@ def prepare_logger():
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     # set formatter
-    ch_formatter = logging.Formatter("'%(asctime)s %(message)s'")
+    ch_formatter = logging.Formatter("'%(asctime)s - %(message)s'")
     ch.setFormatter(ch_formatter)
 
     logger_pipeline = logging.getLogger("run_logger")
@@ -27,11 +27,20 @@ def prepare_logger():
     fh_formatter = logging.Formatter("%(message)s")
     fh.setFormatter(fh_formatter)
 
+    cand_logger = logging.getLogger("cand_logger")
+    # file handler for run logs
+    fh2 = logging.FileHandler("results/logs/candidate_runs.log")
+    fh2.setLevel(logging.DEBUG)
+    # set formatter
+    fh2_formatter = logging.Formatter("%(message)s")
+    fh2.setFormatter(fh2_formatter)
+
     # add handler to logger
     logger_pipeline.addHandler(fh)
     logger_sh.addHandler(ch)
+    cand_logger.addHandler(fh2)
 
-    return logger_sh, logger_pipeline
+    return logger_sh, logger_pipeline, cand_logger
 
 
 def prepare_dirtree():
@@ -312,7 +321,7 @@ def evaluate_joins(
     with_model_selection=True,
     split_kind="group_shuffle",
 ):
-    logger_sh, logger_pipeline = prepare_logger()
+    logger_sh, logger_pipeline, cand_logger = prepare_logger()
 
     groups = base_table.select(
         pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
@@ -447,19 +456,6 @@ def evaluate_joins(
                     "r2": results_full_sampled[1],
                 }
             )
-
-            # logger_sh.info(
-            #     f"Fold {fold+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
-            # )
-            # logger_sh.info(
-            #     f"Fold {fold+1}: Join table -  RMSE {results_single[0]:.2f}  - R2 score {results_single[1]:.2f}"
-            # )
-            # logger_sh.info(
-            #     f"Fold {fold+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
-            # )
-            # logger_sh.info(
-            #     f"Fold {fold+1}: Full table sampled -  RMSE {results_full_sampled[0]:.2f}  - R2 score {results_full_sampled[1]:.2f}"
-            # )
 
     summary = pl.from_dicts(summary_results)
     aggr = summary.groupby(["index", "case"]).agg(
