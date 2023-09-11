@@ -310,38 +310,56 @@ def evaluate_joins(
     group_column="col_to_embed",
     feature_selection=False,
     with_model_selection=True,
+    split_kind="group_shuffle",
 ):
     logger_sh, logger_pipeline = prepare_logger()
 
     groups = base_table.select(
         pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
     ).to_numpy()
-    gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
-    ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
-    # TODO: cleanup
-    # for fold, (train_index, test_index) in enumerate(ss.split(base_table)):
-    for fold, (train_index, test_index) in enumerate(
-        gss.split(base_table, groups=groups)
-    ):
-        logger_sh.info("Fold %d: START RUN" % (fold + 1))
-        for index_name, index_candidates in candidates_by_index.items():
-            left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
-            left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
 
-            # Run on single table, no joins
-            results_base = em.run_on_base_table(
-                scenario_logger,
-                fold,
-                left_table_train,
-                left_table_test,
-                target_column="target",
-                iterations=iterations,
-                n_splits=n_splits,
-                cuda=cuda,
-                verbose=verbose,
-                n_jobs=n_jobs,
-                with_model_selection=with_model_selection,
-            )
+    if split_kind == "group_shuffle":
+        gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+        splits = gss.split(base_table, groups=groups)
+    elif split_kind == "shuffle":
+        ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+        splits = ss.split(base_table)
+    else:
+        raise ValueError(f"Inappropriate value {split_kind} for `split_kind`.")
+
+    summary_results = []
+
+    for fold, (train_index, test_index) in enumerate(splits):
+        logger_sh.info("Fold %d: START RUN" % (fold + 1))
+        left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
+        left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
+
+        # Run on single table, no joins
+        results_base = em.run_on_base_table(
+            scenario_logger,
+            fold,
+            left_table_train,
+            left_table_test,
+            target_column="target",
+            iterations=iterations,
+            n_splits=n_splits,
+            cuda=cuda,
+            verbose=verbose,
+            n_jobs=n_jobs,
+            with_model_selection=with_model_selection,
+        )
+
+        summary_results.append(
+            {
+                "fold": fold,
+                "index": "base_table",
+                "case": "base_table",
+                "rmse": results_base[0],
+                "r2": results_base[1],
+            }
+        )
+
+        for index_name, index_candidates in candidates_by_index.items():
 
             # Join on each candidate, one at a time
             results_single, best_k = em.run_on_candidates(
@@ -362,6 +380,17 @@ def evaluate_joins(
                 feature_selection=feature_selection,
                 with_model_selection=with_model_selection,
             )
+
+            summary_results.append(
+                {
+                    "fold": fold,
+                    "index": index_name,
+                    "case": "single_join",
+                    "rmse": results_single[0],
+                    "r2": results_single[1],
+                }
+            )
+
             # Join all candidates at the same time
             results_full = em.run_on_full_join(
                 scenario_logger,
@@ -378,6 +407,17 @@ def evaluate_joins(
                 feature_selection=feature_selection,
                 with_model_selection=with_model_selection,
             )
+
+            summary_results.append(
+                {
+                    "fold": fold,
+                    "index": index_name,
+                    "case": "full_join",
+                    "rmse": results_full[0],
+                    "r2": results_full[1],
+                }
+            )
+
             # Join only a subset of candidates, taking the best individual candidates from step 2.
             subset_candidates = {k: index_candidates[k] for k in best_k}
 
@@ -398,17 +438,32 @@ def evaluate_joins(
                 with_model_selection=with_model_selection,
             )
 
-            logger_sh.info(
-                f"Fold {fold+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
-            )
-            logger_sh.info(
-                f"Fold {fold+1}: Join table -  RMSE {results_single[0]:.2f}  - R2 score {results_single[1]:.2f}"
-            )
-            logger_sh.info(
-                f"Fold {fold+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
-            )
-            logger_sh.info(
-                f"Fold {fold+1}: Full table sampled -  RMSE {results_full_sampled[0]:.2f}  - R2 score {results_full_sampled[1]:.2f}"
+            summary_results.append(
+                {
+                    "fold": fold,
+                    "index": index_name,
+                    "case": "sampled_full_join",
+                    "rmse": results_full_sampled[0],
+                    "r2": results_full_sampled[1],
+                }
             )
 
+            # logger_sh.info(
+            #     f"Fold {fold+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
+            # )
+            # logger_sh.info(
+            #     f"Fold {fold+1}: Join table -  RMSE {results_single[0]:.2f}  - R2 score {results_single[1]:.2f}"
+            # )
+            # logger_sh.info(
+            #     f"Fold {fold+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
+            # )
+            # logger_sh.info(
+            #     f"Fold {fold+1}: Full table sampled -  RMSE {results_full_sampled[0]:.2f}  - R2 score {results_full_sampled[1]:.2f}"
+            # )
+
+    summary = pl.from_dicts(summary_results)
+    aggr = summary.groupby(["index", "case"]).agg(
+        pl.mean("rmse").alias("avg_rmse"), pl.mean("r2").alias("avg_r2")
+    )
+    print(aggr)
     return
