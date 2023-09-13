@@ -229,7 +229,7 @@ def single_run(args):
     if query_column not in df.columns:
         raise pl.ColumnNotFoundError()
 
-    if args.sample_size is not None:
+    if args.sample_size is not None and args.sample_size > 0:
         query = df[query_column].sample(int(args.sample_size)).drop_nulls()
     else:
         query = df[query_column].drop_nulls()
@@ -250,7 +250,7 @@ def single_run(args):
     # TODO: move n_candidates from scl to run_logger
     scl.results["n_candidates"] = ""
 
-    if args.query_result_path is not None:
+    if args.query_result_path and args.query_result_path is not None:
         with open(args.query_result_path, "wb") as fp:
             pickle.dump(candidates_by_index, fp)
     else:

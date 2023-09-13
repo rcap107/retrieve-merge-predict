@@ -458,6 +458,7 @@ def evaluate_joins(
             )
 
     summary = pl.from_dicts(summary_results)
+    print(f'SOURCE TABLE: {scenario_logger.get_parameters()["source_table"]}')
     aggr = summary.groupby(["index", "case"]).agg(
         pl.mean("rmse").alias("avg_rmse"), pl.mean("r2").alias("avg_r2")
     )
