@@ -37,13 +37,17 @@ def parse_args():
 def generate_run_variants(base_config):
     config_dict = base_config["DEFAULT"]
     run_sets = [k for k in base_config.keys() if k != "DEFAULT"]
+    all_run_variants = []
     for k in run_sets:
         config_dict.update(base_config[k])
-    config_dict = {k: (v if type(v) == list else [v]) for k, v in config_dict.items()}
+        config_dict = {
+            k: (v if type(v) == list else [v]) for k, v in config_dict.items()
+        }
 
-    keys, values = zip(*config_dict.items())
-    run_variants = [dict(zip(keys, v)) for v in itertools.product(*values)]
-    return run_variants
+        keys, values = zip(*config_dict.items())
+        run_variants = [dict(zip(keys, v)) for v in itertools.product(*values)]
+        all_run_variants += run_variants
+    return all_run_variants
 
 
 if __name__ == "__main__":
