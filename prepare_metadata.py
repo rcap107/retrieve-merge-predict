@@ -1,14 +1,11 @@
+import argparse
+import datetime as dt
 import logging
 import os
 from pathlib import Path
 
-import argparse
-
-import datetime as dt
-
 import src.pipeline as pipeline
-from src.data_structures.metadata import MetadataIndex
-from src.data_structures.metadata import RawDataset
+from src.data_structures.metadata import MetadataIndex, RawDataset
 
 log_format = "%(asctime)s - %(message)s"
 
