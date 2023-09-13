@@ -10,6 +10,8 @@ import os
 import random
 import string
 
+from src.data_structures.loggers import setup_run_logging
+
 logger_sh = logging.getLogger("pipeline")
 # console handler for info
 ch = logging.StreamHandler()
@@ -24,12 +26,7 @@ if __name__ == "__main__":
     os.makedirs("results/logs", exist_ok=True)
     os.makedirs("results/json", exist_ok=True)
 
-    alphabet = string.ascii_lowercase + string.digits
-    run_name = "".join(random.choices(alphabet, k=8))
-    os.makedirs(f"results/json/{run_name}")
-    os.makedirs(f"results/logs/{run_name}")
-    os.makedirs(f"results/logs/{run_name}/run_logs")
-    os.makedirs(f"results/logs/{run_name}/candidate_logs")
+    run_name = setup_run_logging()
 
     cfg = toml.load("config.ini")
     config_dict = cfg["DEFAULT"]

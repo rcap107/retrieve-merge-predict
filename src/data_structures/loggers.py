@@ -4,6 +4,9 @@ import polars as pl
 import datetime as dt
 import json
 import copy
+import string
+import random
+import os
 
 from time import process_time
 
@@ -18,8 +21,15 @@ logging.basicConfig(
 )
 
 
-def prepare_loggers():
-    pass
+def setup_run_logging():
+    alphabet = string.ascii_lowercase + string.digits
+    run_name = "".join(random.choices(alphabet, k=8))
+    os.makedirs(f"results/json/{run_name}")
+    os.makedirs(f"results/logs/{run_name}")
+    os.makedirs(f"results/logs/{run_name}/run_logs")
+    os.makedirs(f"results/logs/{run_name}/candidate_logs")
+
+    return run_name
 
 
 class ScenarioLogger:
@@ -47,6 +57,7 @@ class ScenarioLogger:
             "start_evaluation": 0,
             "end_evaluation": 0,
         }
+        self.run_name = run_name
         self.scenario_id = self.find_latest_scenario_id(run_name)
         self.prepare_logger(run_name)
         self.run_id = 0
@@ -68,33 +79,11 @@ class ScenarioLogger:
         self.results = None
         self.process_time = 0
 
-    def prepare_logger(self, run_name):
-        scenario_id = self.scenario_id
-        logger_pipeline = logging.getLogger("run_logger")
-        logger_pipeline.propagate = False
-        # file handler for run logs
-        fh = logging.FileHandler(f"results/logs/{run_name}/run_logs/{scenario_id}.log")
-        fh.setLevel(logging.DEBUG)
-        # set formatter
-        fh_formatter = logging.Formatter("%(message)s")
-        fh.setFormatter(fh_formatter)
-
-        # file handler for run logs
-        cand_logger = logging.getLogger("cand_logger")
-        cand_logger.propagate = False
-        fh2 = logging.FileHandler(
-            f"results/logs/{run_name}/candidate_logs/{scenario_id}.log"
+    def prepare_logger(self, run_name=None):
+        self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
+        self.path_candidate_logs = (
+            f"results/logs/{run_name}/candidate_logs/{self.scenario_id}.log"
         )
-        fh2.setLevel(logging.DEBUG)
-        # set formatter
-        fh2_formatter = logging.Formatter("%(message)s")
-        fh2.setFormatter(fh2_formatter)
-
-        # add handler to logger
-        logger_pipeline.addHandler(fh)
-        cand_logger.addHandler(fh2)
-
-        return
 
     def add_timestamp(self, which_ts):
         self.timestamps[which_ts] = dt.datetime.now()
@@ -186,6 +175,8 @@ class ScenarioLogger:
         return str_res.rstrip(",")
 
     def pretty_print(self):
+
+        print(f"Run name: {self.run_name}")
         print(f"Scenario ID: {self.scenario_id}")
         print(f"Source table: {self.source_table}")
         print(f"Iterations: {self.iterations}")
@@ -222,6 +213,8 @@ class RunLogger:
     ):
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
+        self.path_run_logs = scenario_logger.path_run_logs
+        self.path_candidate_logs = scenario_logger.path_candidate_logs
         self.fold_id = fold_id
         self.run_id = scenario_logger.get_next_run_id()
         self.status = None
@@ -364,6 +357,16 @@ class RunLogger:
             )
         )
         return res_str
+
+    def to_candidate_log_file(self):
+        self.to_logfile(self.path_candidate_logs)
+
+    def to_run_log_file(self):
+        self.to_logfile(self.path_run_logs)
+
+    def to_logfile(self, path_logfile):
+        with open(path_logfile, "a") as fp:
+            fp.write(self.to_str() + "\n")
 
     def to_json(self):
         raise NotImplementedError

@@ -13,12 +13,9 @@ from tqdm import tqdm
 from sklearn.feature_selection import SelectFromModel
 from sklearn.model_selection import GridSearchCV
 
-
 from src.data_structures.loggers import RunLogger
 
 logger_sh = logging.getLogger("pipeline")
-logger_pipeline = logging.getLogger("run_logger")
-logger_cand = logging.getLogger("cand_logger")
 
 import src.utils.joining as utils
 
@@ -153,7 +150,7 @@ def run_on_base_table(
     run_logger.end_time("run")
     print(f"Base table R2: {run_logger.results['r2score']:.4f}")
     # logger_sh.info("Fold %d: End training on base table" % (fold + 1))
-    logger_pipeline.debug(run_logger.to_str())
+    run_logger.to_run_log_file()
 
     return eval_results
 
@@ -271,7 +268,7 @@ def run_on_candidates(
         cand_logger.results["r2score"] = result[2]
         cand_logger.set_run_status("SUCCESS")
 
-        logger_cand.debug(cand_logger.to_str())
+        cand_logger.to_candidate_log_file()
         cand_count += 1
 
     result_list.sort(key=lambda x: x[2], reverse=True)
@@ -309,7 +306,7 @@ def run_on_candidates(
     run_logger.results["n_cols"] = len(merged_test.schema)
 
     run_logger.set_run_status("SUCCESS")
-    logger_pipeline.debug(run_logger.to_str())
+    run_logger.to_run_log_file()
     # logger_sh.info("Fold %d: End training on candidates" % (fold + 1))
 
     print(f"Best single candidate R2: {run_logger.results['r2score']:.4f}")
@@ -420,7 +417,7 @@ def run_on_full_join(
 
     print(f"Best {case} join R2: {run_logger.results['r2score']:.4f}")
 
-    logger_pipeline.debug(run_logger.to_str())
+    run_logger.to_run_log_file()
     return results
 
 

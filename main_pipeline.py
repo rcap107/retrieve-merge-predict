@@ -8,7 +8,7 @@ import git
 import polars as pl
 
 import src.pipeline as pipeline
-from src.data_structures.loggers import ScenarioLogger
+from src.data_structures.loggers import ScenarioLogger, setup_run_logging
 from src.data_structures.metadata import MetadataIndex, RawDataset
 
 repo = git.Repo(search_parent_directories=True)
@@ -285,4 +285,5 @@ def single_run(args, run_name=None):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    single_run(args)
+    run_name = setup_run_logging()
+    single_run(args, run_name)
