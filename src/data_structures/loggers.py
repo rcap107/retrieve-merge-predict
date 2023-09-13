@@ -348,7 +348,7 @@ class RunLogger:
                     self.parameters["feature_selection"],
                     self.parameters["model_selection"],
                     self.fold_id,
-                    self.durations["time_train"],
+                    self.durations.get("time_train", ""),
                     self.durations.get("time_eval", ""),
                     self.durations.get("time_join", ""),
                     self.durations.get("time_eval_join", ""),

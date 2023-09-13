@@ -348,7 +348,7 @@ def run_on_full_join(
         iterations (int, optional): Number of iterations to be used by Catboost. Defaults to 1000.
         verbose (int, optional): Verbosity of the training model. Defaults to 0.
         aggregation (str, optional): Aggregation method to be used, can be either `first`, `mean` or `dfs`. Defaults to "first".
-        cuda (bool, optional): Whether or not to train on GPU. Defaults to False.
+    cuda (bool, optional): Whether or not to train on GPU. Defaults to False.
         n_jobs (int, optional): Number of CPUs to use when training. Defaults to 1.
     """
 
@@ -368,7 +368,8 @@ def run_on_full_join(
         logger_sh.error("Fold %d: Full join not available with DFS." % (fold + 1))
         run_logger.end_time("run")
         run_logger.set_run_status("FAILURE")
-        return [0, 0]
+        run_logger.to_run_log_file()
+        return [np.nan, np.nan]
 
     run_logger.start_time("join")
     merged = left_table_train.clone().lazy()
