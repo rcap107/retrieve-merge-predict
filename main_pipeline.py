@@ -172,11 +172,11 @@ def parse_arguments(default=None):
     return args
 
 
-def main():
+def single_run(args):
     pipeline.prepare_dirtree()
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
-    args = parse_arguments()
+
     yadl_version = args.yadl_version
     metadata_dir = Path(f"data/metadata/{yadl_version}")
     metadata_index_path = Path(f"data/metadata/_mdi/md_index_{yadl_version}.pickle")
@@ -287,4 +287,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_arguments()
+    single_run(args)
