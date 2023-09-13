@@ -8,8 +8,8 @@ import git
 import polars as pl
 
 import src.pipeline as pipeline
-from src.data_structures.metadata import MetadataIndex, RawDataset
 from src.data_structures.loggers import ScenarioLogger
+from src.data_structures.metadata import MetadataIndex, RawDataset
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
@@ -18,24 +18,22 @@ repo_sha = repo.head.object.hexsha
 def prepare_logger():
     logger = logging.getLogger("main")
     logger_scn = logging.getLogger("scn_logger")
-    # file handler for scenario logs
-    fh = logging.FileHandler("results/logs/main_log.log")
-    fh.setLevel(logging.DEBUG)
 
-    # console handler for info
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+    if not logger_scn.hasHandlers():
+        fh = logging.FileHandler("results/logs/main_log.log")
+        fh.setLevel(logging.DEBUG)
+        fh_formatter = logging.Formatter("%(message)s")
+        fh.setFormatter(fh_formatter)
 
-    # set formatter
-    fh_formatter = logging.Formatter("%(message)s")
-    fh.setFormatter(fh_formatter)
+        logger_scn.addHandler(fh)
 
-    ch_formatter = logging.Formatter("'%(asctime)s %(message)s'")
-    ch.setFormatter(ch_formatter)
+    if not logger.hasHandlers():
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler_formatter = logging.Formatter("'%(asctime)s %(message)s'")
+        console_handler.setFormatter(console_handler_formatter)
 
-    # add handler to logger
-    logger_scn.addHandler(fh)
-    logger.addHandler(ch)
+        logger.addHandler(console_handler)
 
     return logger, logger_scn
 
@@ -172,7 +170,7 @@ def parse_arguments(default=None):
     return args
 
 
-def single_run(args):
+def single_run(args, run_name=None):
     pipeline.prepare_dirtree()
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
@@ -199,6 +197,7 @@ def single_run(args):
         top_k=args.top_k,
         feature_selection=args.feature_selection,
         model_selection=args.model_selection,
+        run_name=run_name,
     )
 
     if not metadata_index_path.exists():
@@ -246,10 +245,6 @@ def single_run(args):
     logger.info("End querying")
     scl.add_timestamp("end_querying")
 
-    # scl.results["n_candidates"] = len(candidates_by_index["minhash"])
-    # TODO: move n_candidates from scl to run_logger
-    scl.results["n_candidates"] = ""
-
     if args.query_result_path and args.query_result_path is not None:
         with open(args.query_result_path, "wb") as fp:
             pickle.dump(candidates_by_index, fp)
@@ -280,8 +275,10 @@ def single_run(args):
         scl.add_timestamp("end_evaluation")
 
     scl.add_timestamp("end_process")
+    scl.add_process_time()
 
-    scl.write_to_file("results/scenario_results.txt")
+    scl.write_to_log("results/scenario_results.txt")
+    scl.write_to_json()
     logger_scn.debug(scl.to_string())
     logger.info("Run end.")
 

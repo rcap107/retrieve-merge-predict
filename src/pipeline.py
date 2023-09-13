@@ -9,38 +9,7 @@ from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
 from src.data_structures.metadata import CandidateJoin, MetadataIndex
 from src.methods import evaluation as em
 
-
-def prepare_logger():
-    logger_sh = logging.getLogger("pipeline")
-    # console handler for info
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    # set formatter
-    ch_formatter = logging.Formatter("'%(asctime)s - %(message)s'")
-    ch.setFormatter(ch_formatter)
-
-    logger_pipeline = logging.getLogger("run_logger")
-    # file handler for run logs
-    fh = logging.FileHandler("results/logs/runs_log.log")
-    fh.setLevel(logging.DEBUG)
-    # set formatter
-    fh_formatter = logging.Formatter("%(message)s")
-    fh.setFormatter(fh_formatter)
-
-    cand_logger = logging.getLogger("cand_logger")
-    # file handler for run logs
-    fh2 = logging.FileHandler("results/logs/candidate_runs.log")
-    fh2.setLevel(logging.DEBUG)
-    # set formatter
-    fh2_formatter = logging.Formatter("%(message)s")
-    fh2.setFormatter(fh2_formatter)
-
-    # add handler to logger
-    logger_pipeline.addHandler(fh)
-    logger_sh.addHandler(ch)
-    cand_logger.addHandler(fh2)
-
-    return logger_sh, logger_pipeline, cand_logger
+logger_sh = logging.getLogger("pipeline")
 
 
 def prepare_dirtree():
@@ -321,7 +290,7 @@ def evaluate_joins(
     with_model_selection=True,
     split_kind="group_shuffle",
 ):
-    logger_sh, logger_pipeline, cand_logger = prepare_logger()
+    # prepare_logger(scenario_logger.scenario_id)
 
     groups = base_table.select(
         pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
@@ -369,7 +338,6 @@ def evaluate_joins(
         )
 
         for index_name, index_candidates in candidates_by_index.items():
-
             # Join on each candidate, one at a time
             results_single, best_k = em.run_on_candidates(
                 scenario_logger,
@@ -459,8 +427,13 @@ def evaluate_joins(
 
     summary = pl.from_dicts(summary_results)
     print(f'SOURCE TABLE: {scenario_logger.get_parameters()["source_table"]}')
+
+    # TODO: extend this with whatever additional info is needed.
     aggr = summary.groupby(["index", "case"]).agg(
         pl.mean("rmse").alias("avg_rmse"), pl.mean("r2").alias("avg_r2")
     )
     print(aggr)
+
+    scenario_logger.set_results(aggr)
+
     return

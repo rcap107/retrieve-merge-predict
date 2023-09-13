@@ -2,6 +2,8 @@ import logging
 from pathlib import Path
 import polars as pl
 import datetime as dt
+import json
+import copy
 
 from time import process_time
 
@@ -14,6 +16,10 @@ logging.basicConfig(
     filename="data/logging.txt",
     level=logging.DEBUG,
 )
+
+
+def prepare_loggers():
+    pass
 
 
 class ScenarioLogger:
@@ -29,6 +35,7 @@ class ScenarioLogger:
         top_k,
         feature_selection,
         model_selection,
+        run_name=None,
     ) -> None:
         self.timestamps = {
             "start_process": dt.datetime.now(),
@@ -40,7 +47,8 @@ class ScenarioLogger:
             "start_evaluation": 0,
             "end_evaluation": 0,
         }
-        self.scenario_id = self.find_latest_scenario_id()
+        self.scenario_id = self.find_latest_scenario_id(run_name)
+        self.prepare_logger(run_name)
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
@@ -57,8 +65,36 @@ class ScenarioLogger:
         self.model_selection = model_selection
         self.feature_selection = feature_selection
         self.top_k = top_k
-        self.results = {}
+        self.results = None
         self.process_time = 0
+
+    def prepare_logger(self, run_name):
+        scenario_id = self.scenario_id
+        logger_pipeline = logging.getLogger("run_logger")
+        logger_pipeline.propagate = False
+        # file handler for run logs
+        fh = logging.FileHandler(f"results/logs/{run_name}/run_logs/{scenario_id}.log")
+        fh.setLevel(logging.DEBUG)
+        # set formatter
+        fh_formatter = logging.Formatter("%(message)s")
+        fh.setFormatter(fh_formatter)
+
+        # file handler for run logs
+        cand_logger = logging.getLogger("cand_logger")
+        cand_logger.propagate = False
+        fh2 = logging.FileHandler(
+            f"results/logs/{run_name}/candidate_logs/{scenario_id}.log"
+        )
+        fh2.setLevel(logging.DEBUG)
+        # set formatter
+        fh2_formatter = logging.Formatter("%(message)s")
+        fh2.setFormatter(fh2_formatter)
+
+        # add handler to logger
+        logger_pipeline.addHandler(fh)
+        cand_logger.addHandler(fh2)
+
+        return
 
     def add_timestamp(self, which_ts):
         self.timestamps[which_ts] = dt.datetime.now()
@@ -66,7 +102,7 @@ class ScenarioLogger:
     def add_process_time(self):
         self.process_time = process_time()
 
-    def find_latest_scenario_id(self):
+    def find_latest_scenario_id(self, run_name=None):
         """Utility function for opening the scenario_id file, checking for errors and
         incrementing it by one at the start of a run.
 
@@ -76,8 +112,12 @@ class ScenarioLogger:
         Returns:
             int: The new (incremented) scenario_id.
         """
-        if SCENARIO_ID_PATH.exists():
-            with open(SCENARIO_ID_PATH, "r") as fp:
+        if run_name is not None:
+            scenario_id_path = Path(f"results/json/{run_name}/scenario_id")
+        else:
+            scenario_id_path = SCENARIO_ID_PATH
+        if scenario_id_path.exists():
+            with open(scenario_id_path, "r") as fp:
                 last_scenario_id = fp.read().strip()
                 if len(last_scenario_id) != 0:
                     try:
@@ -92,11 +132,11 @@ class ScenarioLogger:
                         )
                 else:
                     scenario_id = 0
-            with open(SCENARIO_ID_PATH, "w") as fp:
+            with open(scenario_id_path, "w") as fp:
                 fp.write(f"{scenario_id}")
         else:
             scenario_id = 0
-            with open(SCENARIO_ID_PATH, "w") as fp:
+            with open(scenario_id_path, "w") as fp:
                 fp.write(f"{scenario_id}")
         return scenario_id
 
@@ -113,10 +153,12 @@ class ScenarioLogger:
             "top_k": self.top_k,
         }
 
+    def set_results(self, results: pl.DataFrame):
+        self.results = results
+
     def get_next_run_id(self):
         self.run_id += 1
-        next_run_id = self.run_id
-        return next_run_id
+        return self.run_id
 
     def to_string(self):
         str_res = ",".join(
@@ -134,7 +176,6 @@ class ScenarioLogger:
                     self.top_k,
                     self.feature_selection,
                     self.model_selection,
-                    self.results["n_candidates"],
                 ],
             )
         )
@@ -152,9 +193,23 @@ class ScenarioLogger:
         print(f"Aggregation: {self.aggregation}")
         print(f"DL Variant: {self.target_dl}")
 
-    def write_to_file(self, out_path):
-        with open(out_path, "a") as fp:
-            fp.write(self.to_string() + "\n")
+    def write_to_log(self, out_path):
+        if Path(out_path).parent.exists():
+            with open(out_path, "a") as fp:
+                fp.write(self.to_string() + "\n")
+
+    def write_to_json(self, root_path="results/json"):
+        res_dict = copy.deepcopy(vars(self))
+        results = self.results.clone()
+        res_dict["results"] = results.to_dicts()
+        res_dict["timestamps"] = {
+            k: v.isoformat() for k, v in res_dict["timestamps"].items()
+        }
+        if Path(root_path).exists():
+            with open(Path(root_path, f"{self.scenario_id}.json"), "w") as fp:
+                json.dump(res_dict, fp, indent=2)
+        else:
+            raise IOError(f"Invalid path {root_path}")
 
 
 class RunLogger:
