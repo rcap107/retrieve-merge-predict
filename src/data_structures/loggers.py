@@ -197,7 +197,9 @@ class ScenarioLogger:
             k: v.isoformat() for k, v in res_dict["timestamps"].items()
         }
         if Path(root_path).exists():
-            with open(Path(root_path, f"{self.scenario_id}.json"), "w") as fp:
+            with open(
+                Path(root_path, self.run_name, f"{self.scenario_id}.json"), "w"
+            ) as fp:
                 json.dump(res_dict, fp, indent=2)
         else:
             raise IOError(f"Invalid path {root_path}")
