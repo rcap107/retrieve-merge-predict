@@ -85,7 +85,13 @@ def evaluate_single_table(
     gkf = GroupKFold(n_splits)
     if with_model_selection:
         parameters = {}
-        clf = GridSearchCV(model, parameters, cv=gkf, n_jobs=n_jobs)
+        clf = GridSearchCV(
+            model,
+            parameters,
+            cv=gkf,
+            n_jobs=n_jobs,
+            scoring=("r2", "neg_root_mean_squared_error"),
+        )
         results = clf.fit(X=df, y=y, groups=groups)
         best_estimator = results.best_estimator_
         best_score = results.best_score_
