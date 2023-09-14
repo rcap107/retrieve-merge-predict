@@ -90,6 +90,8 @@ def evaluate_single_table(
             parameters,
             cv=gkf,
             n_jobs=n_jobs,
+            scoring=("r2", "neg_root_mean_squared_error"),
+            refit="r2",
         )
         results = clf.fit(X=df, y=y, groups=groups)
         best_estimator = results.best_estimator_
@@ -111,7 +113,8 @@ def evaluate_single_table(
         best_res = np.argmax(results["test_r2"])
         best_estimator = results["estimator"][best_res]
         best_estimator.save_model(Path(model_folder, run_label))
-        return (run_label, best_estimator, max(results["test_r2"]))
+        best_score = max(results["test_r2"])
+    return (run_label, best_estimator, best_score)
 
 
 def run_on_base_table(
@@ -261,6 +264,7 @@ def run_on_candidates(
             iterations=iterations,
             cuda=cuda,
             n_jobs=n_jobs,
+            with_model_selection=with_model_selection,
         )
         run_logger.end_time("train", cumulative=True)
         cand_logger.end_time("train")
