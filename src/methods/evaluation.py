@@ -90,7 +90,6 @@ def evaluate_single_table(
             parameters,
             cv=gkf,
             n_jobs=n_jobs,
-            scoring=("r2", "neg_root_mean_squared_error"),
         )
         results = clf.fit(X=df, y=y, groups=groups)
         best_estimator = results.best_estimator_
