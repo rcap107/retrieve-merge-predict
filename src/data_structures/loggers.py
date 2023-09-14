@@ -175,7 +175,6 @@ class ScenarioLogger:
         return str_res.rstrip(",")
 
     def pretty_print(self):
-
         print(f"Run name: {self.run_name}")
         print(f"Scenario ID: {self.scenario_id}")
         print(f"Source table: {self.source_table}")
@@ -367,8 +366,37 @@ class RunLogger:
         self.to_logfile(self.path_run_logs)
 
     def to_logfile(self, path_logfile):
-        with open(path_logfile, "a") as fp:
-            fp.write(self.to_str() + "\n")
+        if Path(path_logfile).exists():
+            with open(path_logfile, "a") as fp:
+                fp.write(self.to_str() + "\n")
+        else:
+            with open(path_logfile, "w") as fp:
+                col_list = [
+                    "scenario_id",
+                    "run_id",
+                    "status",
+                    "yadl_version",
+                    "git_hash",
+                    "index_name",
+                    "base_table",
+                    "candidate_table",
+                    "iterations",
+                    "join_strategy",
+                    "aggregation",
+                    "feature_selection",
+                    "model_selection",
+                    "fold_id",
+                    "time_train",
+                    "time_eval",
+                    "time_join",
+                    "time_eval_join",
+                    "n_cols",
+                    "rmse",
+                    "r2score",
+                ]
+                header = ",".join(col_list)
+                fp.write(header + "\n")
+                fp.write(self.to_str() + "\n")
 
     def to_json(self):
         raise NotImplementedError
