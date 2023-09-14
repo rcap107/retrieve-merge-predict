@@ -61,7 +61,9 @@ if __name__ == "__main__":
 
     run_variants = generate_run_variants(base_config)
 
-    for dd in run_variants:
+    for idx, dd in enumerate(run_variants):
+        print("#" * 80)
+        print(f"### Run {idx+1}/{len(run_variants)}")
         print("#" * 80)
         pprint.pprint(dd)
         ns = SimpleNamespace(**dd)

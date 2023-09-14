@@ -97,7 +97,6 @@ def evaluate_single_table(
         best_estimator = results.best_estimator_
         best_score = results.best_score_
         best_estimator.save_model(Path(model_folder, run_label))
-        return (run_label, best_estimator, best_score)
     else:
         results = cross_validate(
             model,
@@ -105,7 +104,6 @@ def evaluate_single_table(
             y=y,
             scoring=("r2", "neg_root_mean_squared_error"),
             cv=gkf,
-            # cv=n_splits,
             groups=groups,
             n_jobs=n_jobs,
             return_estimator=True,
@@ -133,7 +131,6 @@ def run_on_base_table(
     run_logger = RunLogger(scenario_logger, fold, {"aggregation": "nojoin"})
     run_logger.start_time("run")
     run_logger.start_time("train")
-    # logger_sh.info("Fold %d: Start training on base table" % (fold + 1))
 
     base_result = evaluate_single_table(
         left_table_train,
@@ -156,8 +153,9 @@ def run_on_base_table(
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
     run_logger.end_time("run")
-    print(f"Base table R2: {run_logger.results['r2score']:.4f}")
-    # logger_sh.info("Fold %d: End training on base table" % (fold + 1))
+    logger_sh.info(
+        "Fold %d: Base table R2 %.4f" % (fold + 1, run_logger.results["r2score"])
+    )
     run_logger.to_run_log_file()
 
     return eval_results
@@ -316,9 +314,10 @@ def run_on_candidates(
 
     run_logger.set_run_status("SUCCESS")
     run_logger.to_run_log_file()
-    # logger_sh.info("Fold %d: End training on candidates" % (fold + 1))
-
-    print(f"Best single candidate R2: {run_logger.results['r2score']:.4f}")
+    logger_sh.info(
+        "Fold %d: Best single candidate R2 %.4f"
+        % (fold + 1, run_logger.results["r2score"])
+    )
 
     if top_k is not None:
         if top_k < 0:
@@ -423,9 +422,10 @@ def run_on_full_join(
     run_logger.end_time("eval")
     run_logger.set_run_status("SUCCESS")
     run_logger.end_time("run")
-    # logger_sh.info("Fold %d: End training on full join" % (fold + 1))
 
-    print(f"Best {case} join R2: {run_logger.results['r2score']:.4f}")
+    logger_sh.info(
+        "Fold %d: Best %s R2 %.4f" % (fold + 1, case, run_logger.results["r2score"])
+    )
 
     run_logger.to_run_log_file()
     return results
@@ -433,7 +433,6 @@ def run_on_full_join(
 
 def perform_feature_selection(df: pl.DataFrame, target_column, iterations=20):
     X = df.drop(target_column).to_pandas()
-    # X = df.to_pandas()
     cat_features = df.drop(target_column).select(cs.string()).columns
 
     y = df.select(pl.col(target_column)).to_numpy()

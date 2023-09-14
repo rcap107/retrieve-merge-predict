@@ -429,8 +429,10 @@ def evaluate_joins(
     print(f'SOURCE TABLE: {scenario_logger.get_parameters()["source_table"]}')
 
     # TODO: extend this with whatever additional info is needed.
-    aggr = summary.groupby(["index", "case"]).agg(
-        pl.mean("rmse").alias("avg_rmse"), pl.mean("r2").alias("avg_r2")
+    aggr = (
+        summary.groupby(["index", "case"])
+        .agg(pl.mean("r2").alias("avg_r2"), pl.std("r2").alias("std_r2"))
+        .sort(["index", "avg_r2"])
     )
     print(aggr)
 
