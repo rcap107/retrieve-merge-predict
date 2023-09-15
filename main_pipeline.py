@@ -268,8 +268,6 @@ def single_run(args, run_name=None):
             aggregation=args.aggregation,
             cuda=args.cuda,
             n_jobs=args.n_jobs,
-            feature_selection=args.feature_selection,
-            with_model_selection=args.model_selection,
         )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")

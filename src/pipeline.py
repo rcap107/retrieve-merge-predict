@@ -286,8 +286,6 @@ def evaluate_joins(
     n_jobs=1,
     cuda=False,
     group_column="col_to_embed",
-    feature_selection=False,
-    with_model_selection=True,
     split_kind="group_shuffle",
 ):
     # prepare_logger(scenario_logger.scenario_id)
@@ -305,125 +303,104 @@ def evaluate_joins(
     else:
         raise ValueError(f"Inappropriate value {split_kind} for `split_kind`.")
 
+    splits = list(splits)
     summary_results = []
 
-    for fold, (train_index, test_index) in enumerate(splits):
-        logger_sh.info("Fold %d: START RUN" % (fold + 1))
-        left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
-        left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
+    results_base = em.run_on_base_table(
+        scenario_logger,
+        splits,
+        base_table,
+        target_column="target",
+        iterations=iterations,
+        n_splits=n_splits,
+        cuda=cuda,
+        verbose=verbose,
+        n_jobs=n_jobs,
+    )
+    summary_results += [
+        {
+            "index": "base_table",
+            "case": "base_table",
+            "r2": r2,
+        }
+        for r2 in results_base
+    ]
 
-        # Run on single table, no joins
-        results_base = em.run_on_base_table(
+    for index_name, index_candidates in candidates_by_index.items():
+        # Join on each candidate, one at a time
+        results_single, best_k = em.run_on_candidates(
             scenario_logger,
-            fold,
-            left_table_train,
-            left_table_test,
-            target_column="target",
-            iterations=iterations,
-            n_splits=n_splits,
-            cuda=cuda,
+            splits,
+            index_candidates,
+            index_name,
+            base_table,
+            iterations,
+            n_splits,
+            join_strategy,
+            aggregation=aggregation,
             verbose=verbose,
+            cuda=cuda,
+            top_k=5,
             n_jobs=n_jobs,
-            with_model_selection=with_model_selection,
         )
 
         summary_results.append(
             {
-                "fold": fold,
-                "index": "base_table",
-                "case": "base_table",
-                "rmse": results_base[0],
-                "r2": results_base[1],
+                "index": index_name,
+                "case": "single_join",
+                "rmse": results_single[0],
+                "r2": results_single[1],
             }
         )
 
-        for index_name, index_candidates in candidates_by_index.items():
-            # Join on each candidate, one at a time
-            results_single, best_k = em.run_on_candidates(
-                scenario_logger,
-                fold,
-                index_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations,
-                n_splits,
-                join_strategy,
-                aggregation=aggregation,
-                verbose=verbose,
-                cuda=cuda,
-                top_k=5,
-                n_jobs=n_jobs,
-                feature_selection=feature_selection,
-                with_model_selection=with_model_selection,
-            )
+        # Join all candidates at the same time
+        results_full = em.run_on_full_join(
+            scenario_logger,
+            splits,
+            index_candidates,
+            index_name,
+            base_table,
+            iterations=iterations,
+            verbose=verbose,
+            aggregation=aggregation,
+            cuda=cuda,
+            n_jobs=n_jobs,
+        )
 
-            summary_results.append(
-                {
-                    "fold": fold,
-                    "index": index_name,
-                    "case": "single_join",
-                    "rmse": results_single[0],
-                    "r2": results_single[1],
-                }
-            )
+        summary_results.append(
+            {
+                "index": index_name,
+                "case": "full_join",
+                "rmse": results_full[0],
+                "r2": results_full[1],
+            }
+        )
 
-            # Join all candidates at the same time
-            results_full = em.run_on_full_join(
-                scenario_logger,
-                fold,
-                index_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations=iterations,
-                verbose=verbose,
-                aggregation=aggregation,
-                cuda=cuda,
-                n_jobs=n_jobs,
-                feature_selection=feature_selection,
-                with_model_selection=with_model_selection,
-            )
+        # Join only a subset of candidates, taking the best individual candidates from step 2.
+        subset_candidates = {k: index_candidates[k] for k in best_k}
 
-            summary_results.append(
-                {
-                    "fold": fold,
-                    "index": index_name,
-                    "case": "full_join",
-                    "rmse": results_full[0],
-                    "r2": results_full[1],
-                }
-            )
+        results_full_sampled = em.run_on_full_join(
+            scenario_logger,
+            splits,
+            subset_candidates,
+            index_name,
+            base_table,
+            iterations=iterations,
+            verbose=verbose,
+            aggregation=aggregation,
+            cuda=cuda,
+            n_jobs=n_jobs,
+            case="sampled",
+        )
 
-            # Join only a subset of candidates, taking the best individual candidates from step 2.
-            subset_candidates = {k: index_candidates[k] for k in best_k}
-
-            results_full_sampled = em.run_on_full_join(
-                scenario_logger,
-                fold,
-                subset_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations=iterations,
-                verbose=verbose,
-                aggregation=aggregation,
-                cuda=cuda,
-                n_jobs=n_jobs,
-                feature_selection=feature_selection,
-                case="sampled",
-                with_model_selection=with_model_selection,
-            )
-
-            summary_results.append(
-                {
-                    "fold": fold,
-                    "index": index_name,
-                    "case": "sampled_full_join",
-                    "rmse": results_full_sampled[0],
-                    "r2": results_full_sampled[1],
-                }
-            )
+        summary_results.append(
+            {
+                "index": index_name,
+                "case": "sampled_full_join",
+                "rmse": results_full_sampled[0],
+                "r2": results_full_sampled[1],
+            }
+        )
 
     summary = pl.from_dicts(summary_results)
     print(f'SOURCE TABLE: {scenario_logger.get_parameters()["source_table"]}')
