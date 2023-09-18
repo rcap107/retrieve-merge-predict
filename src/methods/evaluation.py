@@ -214,7 +214,9 @@ def run_on_candidates(
             best_candidate_hash = hash_
             best_candidate_r2 = avg_r2
 
-    return best_candidate_hash, best_candidate_r2
+    # TODO return the full ranking of candidates + stats
+
+    return best_candidate_hash, best_candidate_r2, dict_r2_by_cand
 
 
 def run_on_full_join(
@@ -254,55 +256,65 @@ def run_on_full_join(
     }
     run_logger = RunLogger(scenario_logger, splits, additional_parameters=add_params)
     run_logger.start_time("run")
-    if case == "full":
-        logger_sh.info("Fold %d: FULL JOIN" % (splits + 1))
-    else:
-        logger_sh.info("Fold %d: SAMPLED FULL JOIN" % (splits + 1))
 
     if aggregation == "dfs":
-        logger_sh.error("Fold %d: Full join not available with DFS." % (splits + 1))
+        logger_sh.error("Full join not available with DFS.")
         run_logger.end_time("run")
         run_logger.set_run_status("FAILURE")
         run_logger.to_run_log_file()
         return [np.nan, np.nan]
 
-    run_logger.start_time("join")
-    merged = left_table_train.clone().lazy()
-    merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
-    merged = prepare_table_for_evaluation(merged)
+    r2_results = []
 
-    run_logger.results["n_cols"] = len(merged.schema)
-    run_logger.end_time("join")
+    for idx, (train_split, test_split) in enumerate(splits):
+        left_table_train = base_table[train_split]
+        left_table_test = base_table[test_split]
 
-    run_logger.start_time("train")
-    result_train = evaluate_single_table(
-        merged,
-        verbose=verbose,
-        iterations=iterations,
-        run_label="full_join",
-        cuda=cuda,
-        n_jobs=n_jobs,
-    )
-    run_logger.end_time("train")
+        # Join source table with candidate
+        run_logger.start_time("join")
+        merged = left_table_train.clone().lazy()
+        merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
+        merged = prepare_table_for_evaluation(merged)
 
-    run_logger.start_time("eval_join")
-    merged_test = utils.execute_join_all_candidates(
-        left_table_test, join_candidates, aggregation
-    )
-    merged_test = prepare_table_for_evaluation(merged_test)
-    run_logger.end_time("eval_join")
+        run_logger.results["n_cols"] = len(merged.schema)
+        run_logger.end_time("join")
 
-    run_logger.start_time("eval")
-    result_model = result_train[1]
-    results = evaluate_model_on_test_split(merged_test, result_model)
-    run_logger.results["rmse"], run_logger.results["r2score"] = results
-    run_logger.end_time("eval")
-    run_logger.set_run_status("SUCCESS")
-    run_logger.end_time("run")
+        X, y, cat_features = prepare_X_y(merged, target_column)
 
-    logger_sh.info(
-        "Fold %d: Best %s R2 %.4f" % (splits + 1, case, run_logger.results["r2score"])
-    )
+        run_logger.start_time("train")
+        model = CatBoostRegressor(
+            cat_features=cat_features,
+            iterations=iterations,
+            l2_leaf_reg=0.01,
+            verbose=verbose,
+        )
 
-    run_logger.to_run_log_file()
-    return results
+        model.fit(X=X, y=y)
+        run_logger.end_time("train")
+
+        run_logger.start_time("eval_join")
+        merged_test = utils.execute_join_all_candidates(
+            left_table_test, join_candidates, aggregation
+        )
+        eval_data = merged_test.fill_nan("null").fill_null("null")
+
+        run_logger.start_time("eval")
+        y_test = eval_data[target_column].cast(pl.Float64)
+        eval_data = eval_data.drop(target_column).to_pandas()
+
+        y_pred = model.predict(eval_data)
+
+        r2 = r2_score(y_test, y_pred)
+
+        r2_results.append(r2)
+
+        run_logger.end_time("eval_join")
+        run_logger.results["r2score"] = r2
+        run_logger.end_time("eval")
+        run_logger.set_run_status("SUCCESS")
+        run_logger.end_time("run")
+
+        logger_sh.info("Best %s R2 %.4f" % (case, run_logger.results["r2score"]))
+
+        run_logger.to_run_log_file()
+    return r2_results
