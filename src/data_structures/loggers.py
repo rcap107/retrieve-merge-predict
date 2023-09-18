@@ -13,6 +13,31 @@ from time import process_time
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
+HEADER_LOGFILE = ",".join(
+    [
+        "scenario_id",
+        "run_id",
+        "status",
+        "yadl_version",
+        "git_hash",
+        "index_name",
+        "base_table",
+        "candidate_table",
+        "iterations",
+        "join_strategy",
+        "aggregation",
+        "feature_selection",
+        "model_selection",
+        "time_train",
+        "time_eval",
+        "time_join",
+        "time_eval_join",
+        "n_cols",
+        "r2score",
+    ]
+)
+
+
 logging.basicConfig(
     format="%(asctime)s %(message)s",
     filemode="a",
@@ -21,15 +46,82 @@ logging.basicConfig(
 )
 
 
-def setup_run_logging():
+def get_run_name():
     alphabet = string.ascii_lowercase + string.digits
-    run_name = "".join(random.choices(alphabet, k=8))
+    random_slug = "".join(random.choices(alphabet, k=8))
+    scenario_id = update_scenario_id()
+
+    run_name = f"{scenario_id:04d}-{random_slug}"
+    return run_name
+
+
+def setup_run_logging():
+    run_name = get_run_name()
     os.makedirs(f"results/json/{run_name}")
     os.makedirs(f"results/logs/{run_name}")
     os.makedirs(f"results/logs/{run_name}/run_logs")
     os.makedirs(f"results/logs/{run_name}/raw_logs")
 
     return run_name
+
+
+def update_scenario_id():
+    """Utility function for opening the scenario_id file, checking for errors and
+    incrementing it by one at the start of a run.
+
+    Raises:
+        ValueError: Raise ValueError if the read scenario_id is not a positive integer.
+
+    Returns:
+        int: The new (incremented) scenario_id.
+    """
+    scenario_id_path = SCENARIO_ID_PATH
+    if scenario_id_path.exists():
+        with open(scenario_id_path, "r") as fp:
+            last_scenario_id = fp.read().strip()
+            if len(last_scenario_id) != 0:
+                try:
+                    scenario_id = int(last_scenario_id) + 1
+                except ValueError:
+                    raise ValueError(
+                        f"Scenario ID {last_scenario_id} is not a positive integer. "
+                    )
+                if scenario_id < 0:
+                    raise ValueError(
+                        f"Scenario ID {scenario_id} is not a positive integer. "
+                    )
+            else:
+                scenario_id = 0
+        with open(scenario_id_path, "w") as fp:
+            fp.write(f"{scenario_id:04d}")
+    else:
+        scenario_id = 0
+        with open(scenario_id_path, "w") as fp:
+            fp.write(f"{scenario_id:04d}")
+    return scenario_id
+
+
+def read_scenario_id():
+    scenario_id_path = SCENARIO_ID_PATH
+    if scenario_id_path.exists():
+        with open(scenario_id_path, "r") as fp:
+            last_scenario_id = fp.read().strip()
+            if len(last_scenario_id) != 0:
+                try:
+                    scenario_id = int(last_scenario_id) + 1
+                except ValueError:
+                    raise ValueError(
+                        f"Scenario ID {last_scenario_id} is not a positive integer. "
+                    )
+                if scenario_id < 0:
+                    raise ValueError(
+                        f"Scenario ID {scenario_id} is not a positive integer. "
+                    )
+                return last_scenario_id
+            else:
+                return 0
+    else:
+        raise IOError(f"SCENARIO_ID_PATH {scenario_id_path} not found.")
 
 
 class ScenarioLogger:
@@ -58,7 +150,7 @@ class ScenarioLogger:
             "end_evaluation": 0,
         }
         self.run_name = run_name
-        self.scenario_id = self.find_latest_scenario_id(run_name)
+        self.scenario_id = read_scenario_id()
         self.prepare_logger(run_name)
         self.run_id = 0
         self.start_timestamp = None
@@ -88,44 +180,6 @@ class ScenarioLogger:
 
     def add_process_time(self):
         self.process_time = process_time()
-
-    def find_latest_scenario_id(self, run_name=None):
-        """Utility function for opening the scenario_id file, checking for errors and
-        incrementing it by one at the start of a run.
-
-        Raises:
-            ValueError: Raise ValueError if the read scenario_id is not a positive integer.
-
-        Returns:
-            int: The new (incremented) scenario_id.
-        """
-        if run_name is not None:
-            scenario_id_path = Path(f"results/json/{run_name}/scenario_id")
-        else:
-            scenario_id_path = SCENARIO_ID_PATH
-        if scenario_id_path.exists():
-            with open(scenario_id_path, "r") as fp:
-                last_scenario_id = fp.read().strip()
-                if len(last_scenario_id) != 0:
-                    try:
-                        scenario_id = int(last_scenario_id) + 1
-                    except ValueError:
-                        raise ValueError(
-                            f"Scenario ID {last_scenario_id} is not a positive integer. "
-                        )
-                    if scenario_id < 0:
-                        raise ValueError(
-                            f"Scenario ID {scenario_id} is not a positive integer. "
-                        )
-                else:
-                    scenario_id = 0
-            with open(scenario_id_path, "w") as fp:
-                fp.write(f"{scenario_id}")
-        else:
-            scenario_id = 0
-            with open(scenario_id_path, "w") as fp:
-                fp.write(f"{scenario_id}")
-        return scenario_id
 
     def get_parameters(self):
         return {
@@ -186,7 +240,7 @@ class ScenarioLogger:
             with open(out_path, "a") as fp:
                 fp.write(self.to_string() + "\n")
 
-    def write_to_json(self, root_path="results/json"):
+    def write_to_json(self, root_path="results/logs/"):
         res_dict = copy.deepcopy(vars(self))
         results = self.results.clone()
         res_dict["results"] = results.to_dicts()
@@ -206,7 +260,6 @@ class RunLogger:
     def __init__(
         self,
         scenario_logger: ScenarioLogger,
-        fold_id: int,
         additional_parameters: dict,
         json_path="results/json",
     ):
@@ -214,13 +267,18 @@ class RunLogger:
         self.scenario_id = scenario_logger.scenario_id
         self.path_run_logs = scenario_logger.path_run_logs
         self.path_raw_logs = scenario_logger.path_raw_logs
-        self.fold_id = fold_id
         self.run_id = scenario_logger.get_next_run_id()
         self.status = None
         self.timestamps = {}
-        self.durations = {}
+        self.durations = {
+            "time_run": None,
+            "time_eval": None,
+            "time_join": None,
+            "time_eval_join": None,
+        }
+
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
-        self.results = {}
+        self.results = {"r2": None, "rmse": None}
         self.json_path = json_path
 
         self.mark_time("run")
@@ -344,14 +402,15 @@ class RunLogger:
                     self.parameters["aggregation"],
                     self.parameters["feature_selection"],
                     self.parameters["model_selection"],
-                    self.fold_id,
                     self.durations.get("time_train", ""),
                     self.durations.get("time_eval", ""),
                     self.durations.get("time_join", ""),
                     self.durations.get("time_eval_join", ""),
+                    self.results.get("best_candidate_hash", ""),
                     self.results.get("n_cols", ""),
-                    self.results.get("rmse", ""),
                     self.results.get("r2score", ""),
+                    self.results.get("avg_r2", ""),
+                    self.results.get("std_r2", ""),
                 ],
             )
         )
@@ -369,32 +428,20 @@ class RunLogger:
                 fp.write(self.to_str() + "\n")
         else:
             with open(path_logfile, "w") as fp:
-                col_list = [
-                    "scenario_id",
-                    "run_id",
-                    "status",
-                    "yadl_version",
-                    "git_hash",
-                    "index_name",
-                    "base_table",
-                    "candidate_table",
-                    "iterations",
-                    "join_strategy",
-                    "aggregation",
-                    "feature_selection",
-                    "model_selection",
-                    "fold_id",
-                    "time_train",
-                    "time_eval",
-                    "time_join",
-                    "time_eval_join",
-                    "n_cols",
-                    "rmse",
-                    "r2score",
-                ]
-                header = ",".join(col_list)
-                fp.write(header + "\n")
+                fp.write(HEADER_LOGFILE + "\n")
                 fp.write(self.to_str() + "\n")
 
     def to_json(self):
         raise NotImplementedError
+
+
+class RawLogger(RunLogger):
+    def __init__(
+        self,
+        scenario_logger: ScenarioLogger,
+        fold_id: int,
+        additional_parameters: dict,
+        json_path="results/json",
+    ):
+        super().__init__(scenario_logger, additional_parameters, json_path)
+        self.fold_id = fold_id

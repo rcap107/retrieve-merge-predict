@@ -11,7 +11,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate, GroupKFold
 from tqdm import tqdm
 
-from src.data_structures.loggers import RunLogger
+import itertools
+from src.data_structures.loggers import RunLogger, RawLogger
 
 logger_sh = logging.getLogger("pipeline")
 
@@ -47,22 +48,24 @@ def run_on_base_table(
     base_table,
     target_column="target",
     iterations=500,
-    n_splits=5,
-    n_jobs=1,
     verbose=0,
-    cuda=False,
 ):
-    run_logger = RunLogger(scenario_logger, splits, {"aggregation": "nojoin"})
+    run_logger = RunLogger(scenario_logger, {"aggregation": "nojoin"})
     run_logger.start_time("run")
-    run_logger.start_time("train")
 
     r2_results = []
 
     for idx, (train_split, test_split) in enumerate(splits):
+        raw_logger = RawLogger(scenario_logger, idx, {"aggregation": "nojoin"})
+        raw_logger.start_time("run")
+        run_logger.start_time("run", cumulative=True)
         left_table_train = base_table[train_split]
         left_table_test = base_table[test_split]
 
         X, y, cat_features = prepare_X_y(left_table_train, target_column)
+
+        raw_logger.start_time("train")
+        run_logger.start_time("train", cumulative=True)
 
         model = CatBoostRegressor(
             cat_features=cat_features,
@@ -72,6 +75,11 @@ def run_on_base_table(
         )
         model.fit(X=X, y=y)
 
+        raw_logger.end_time("train")
+        run_logger.end_time("train")
+
+        raw_logger.start_time("eval")
+        run_logger.start_time("eval", cumulative=True)
         eval_data = left_table_test.fill_nan("null").fill_null("null")
         y_test = eval_data[target_column].cast(pl.Float64)
         eval_data = eval_data.drop(target_column).to_pandas()
@@ -81,19 +89,33 @@ def run_on_base_table(
         r2 = r2_score(y_test, y_pred)
         r2_results.append(r2)
 
-        # run_logger.results["rmse"], run_logger.results["r2score"] = eval_results
-        # run_logger.results["n_cols"] = len(left_table_train.schema)
+        raw_logger.end_time("eval")
+        run_logger.end_time("eval")
 
-        # run_logger.end_time("eval")
-        # run_logger.set_run_status("SUCCESS")
-        # run_logger.end_time("run")
-        # logger_sh.info(
-        #     "Fold %d: Base table R2 %.4f" % (splits + 1, run_logger.results["r2score"])
-        # )
+        raw_logger.results["r2score"] = r2
+        raw_logger.results["n_cols"] = len(left_table_train.schema)
 
-        # run_logger.to_run_log_file()
+        raw_logger.set_run_status("SUCCESS")
+        raw_logger.end_time("run")
+        run_logger.end_time("run")
+        logger_sh.info(
+            "Fold %d: Base table R2 %.4f" % (idx + 1, raw_logger.results["r2score"])
+        )
 
-    return r2_results
+        raw_logger.to_raw_log_file()
+
+    run_logger.results["avg_r2"] = np.mean(r2_results)
+    run_logger.results["std_r2"] = np.std(r2_results)
+    run_logger.to_run_log_file()
+
+    results = {
+        "index": "base_table",
+        "case": "base_table",
+        "avg_r2": run_logger.results["avg_r2"],
+        "std_r2": run_logger.results["std_r2"],
+    }
+
+    return results
 
 
 def run_on_candidates(
@@ -103,17 +125,14 @@ def run_on_candidates(
     index_name,
     base_table,
     iterations=1000,
-    n_splits=5,
     join_strategy="left",
     aggregation="first",
     top_k=None,
-    n_jobs=1,
     target_column="target",
     verbose=0,
-    cuda=False,
 ):
     add_params = {"candidate_table": "best_candidate", "index_name": index_name}
-    run_logger = RunLogger(scenario_logger, splits, additional_parameters=add_params)
+    run_logger = RunLogger(scenario_logger, additional_parameters=add_params)
     run_logger.start_time("run")
 
     best_candidate_hash = None
@@ -121,6 +140,9 @@ def run_on_candidates(
 
     dict_r2_by_cand = {}
     avg_r2_by_cand = {}
+
+    overall_results = []
+
     for hash_, mdata in tqdm(
         join_candidates.items(),
         total=len(join_candidates),
@@ -134,13 +156,16 @@ def run_on_candidates(
             "left_on": left_on,
             "right_on": right_on,
         }
-        cand_logger = RunLogger(scenario_logger, splits, cand_parameters)
         cnd_table = pl.read_parquet(cnd_md["full_path"])
-
         dict_r2_by_cand[hash_] = []
         for idx, (train_split, test_split) in enumerate(splits):
-            run_logger.start_time("join", cumulative=True)
-            cand_logger.start_time("join")
+            raw_logger = RawLogger(
+                scenario_logger=scenario_logger,
+                fold_id=idx,
+                additional_parameters=cand_parameters,
+            )
+            raw_logger.start_time("run")
+            run_logger.start_time("run", cumulative=True)
 
             left_table_train = base_table[train_split]
             left_table_test = base_table[test_split]
@@ -164,6 +189,8 @@ def run_on_candidates(
 
                 merged = ja.fit_transform(left_table_train, y=y_train)
 
+            raw_logger.start_time("join")
+            run_logger.start_time("join", cumulative=True)
             merged = utils.execute_join_with_aggregation(
                 left_table_train,
                 cnd_table,
@@ -173,8 +200,11 @@ def run_on_candidates(
                 aggregation=aggregation,
                 suffix="_right",
             )
+            raw_logger.end_time("join")
+            run_logger.end_time("join", cumulative=True)
 
-            # Join source table with candidate
+            raw_logger.start_time("train")
+            run_logger.start_time("train", cumulative=True)
             X, y, cat_features = prepare_X_y(merged, target_column)
 
             model = CatBoostRegressor(
@@ -186,8 +216,15 @@ def run_on_candidates(
 
             model.fit(X=X, y=y)
 
+            raw_logger.end_time("train")
+            run_logger.end_time("train")
+
+            raw_logger.start_time("eval_join")
+            run_logger.start_time("eval_join", cumulative=True)
+
             if False:
                 merged_test = ja.transform(left_table_test)
+
             merged_test = utils.execute_join_with_aggregation(
                 left_table_test,
                 cnd_table,
@@ -197,15 +234,33 @@ def run_on_candidates(
                 aggregation=aggregation,
                 suffix="_right",
             )
+            X, y, cat_features = prepare_X_y(merged_test, target_column)
+            raw_logger.end_time("eval_join")
+            run_logger.end_time("eval_join", cumulative=True)
 
-            eval_data = merged_test.fill_nan("null").fill_null("null")
+            raw_logger.start_time("eval")
+            run_logger.start_time("eval", cumulative=True)
+
+            # eval_data = merged_test.fill_nan("null").fill_null("null")
+            eval_data = prepare_table_for_evaluation(merged)
             y_test = eval_data[target_column].cast(pl.Float64)
             eval_data = eval_data.drop(target_column).to_pandas()
 
             y_pred = model.predict(eval_data)
 
+            raw_logger.end_time("eval")
+            run_logger.end_time("eval")
+
             r2 = r2_score(y_test, y_pred)
             dict_r2_by_cand[hash_].append(r2)
+            overall_results.append({"candidate": hash_, "r2": r2})
+
+            raw_logger.results["r2score"] = r2
+            raw_logger.results["n_cols"] = len(merged_test.schema)
+
+            raw_logger.set_run_status("SUCCESS")
+            raw_logger.end_time("run")
+            run_logger.end_time("run")
 
         avg_r2 = np.mean(dict_r2_by_cand[hash_])
         avg_r2_by_cand[hash_] = avg_r2
@@ -214,9 +269,36 @@ def run_on_candidates(
             best_candidate_hash = hash_
             best_candidate_r2 = avg_r2
 
-    # TODO return the full ranking of candidates + stats
+    df_ranking = pl.from_dicts(overall_results)
+    df_ranking = (
+        df_ranking.groupby("candidate")
+        .agg(pl.mean("r2").alias("avg_r2"), pl.std("r2").alias("std_r2"))
+        .sort("avg_r2", descending=True)
+    )
 
-    return best_candidate_hash, best_candidate_r2, dict_r2_by_cand
+    if top_k is not None:
+        df_ranking = df_ranking.limit(top_k)
+
+    best_results = dict_r2_by_cand[best_candidate_hash]
+
+    run_logger.results["avg_r2"] = np.mean(best_results)
+    run_logger.results["std_r2"] = np.std(best_results)
+    run_logger.results["best_candidate_hash"] = best_candidate_hash
+    run_logger.to_run_log_file()
+
+    logger_sh.info(
+        "Best candidate: %s R2 %.4f" % (best_candidate_hash, best_candidate_r2)
+    )
+
+    results = {
+        "index": index_name,
+        "case": "single_join",
+        "best_candidate_hash": best_candidate_hash,
+        "avg_r2": run_logger.results["avg_r2"],
+        "std_r2": run_logger.results["std_r2"],
+    }
+
+    return results, df_ranking
 
 
 def run_on_full_join(
@@ -254,8 +336,7 @@ def run_on_full_join(
         "index_name": index_name,
         "aggregation": aggregation,
     }
-    run_logger = RunLogger(scenario_logger, splits, additional_parameters=add_params)
-    run_logger.start_time("run")
+    run_logger = RunLogger(scenario_logger, additional_parameters=add_params)
 
     if aggregation == "dfs":
         logger_sh.error("Full join not available with DFS.")
@@ -264,24 +345,34 @@ def run_on_full_join(
         run_logger.to_run_log_file()
         return [np.nan, np.nan]
 
-    r2_results = []
+    results = []
 
     for idx, (train_split, test_split) in enumerate(splits):
+        raw_logger = RawLogger(scenario_logger, idx, add_params)
+        raw_logger.start_time("run")
+        run_logger.start_time("run", cumulative=True)
+
         left_table_train = base_table[train_split]
         left_table_test = base_table[test_split]
 
-        # Join source table with candidate
-        run_logger.start_time("join")
+        ##### START JOIN
+        raw_logger.start_time("join")
+        run_logger.start_time("join", cumulative=True)
+
         merged = left_table_train.clone().lazy()
         merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
         merged = prepare_table_for_evaluation(merged)
 
-        run_logger.results["n_cols"] = len(merged.schema)
-        run_logger.end_time("join")
+        raw_logger.end_time("join")
+        run_logger.end_time("join", cumulative=True)
+        # END JOIN
+
+        # START TRAIN
+        raw_logger.start_time("train")
+        run_logger.start_time("train", cumulative=True)
 
         X, y, cat_features = prepare_X_y(merged, target_column)
 
-        run_logger.start_time("train")
         model = CatBoostRegressor(
             cat_features=cat_features,
             iterations=iterations,
@@ -290,15 +381,26 @@ def run_on_full_join(
         )
 
         model.fit(X=X, y=y)
+        raw_logger.end_time("train")
         run_logger.end_time("train")
+        # END TRAIN
 
-        run_logger.start_time("eval_join")
+        # START EVAL JOIN
+        raw_logger.start_time("eval_join")
+        run_logger.start_time("eval_join", cumulative=True)
+
         merged_test = utils.execute_join_all_candidates(
             left_table_test, join_candidates, aggregation
         )
-        eval_data = merged_test.fill_nan("null").fill_null("null")
+        raw_logger.end_time("eval_join")
+        run_logger.end_time("eval_join", cumulative=True)
+        # END EVAL JOIN
 
-        run_logger.start_time("eval")
+        # START EVAL
+        raw_logger.start_time("eval")
+        run_logger.start_time("eval", cumulative=True)
+        # eval_data = merged_test.fill_nan("null").fill_null("null")
+        eval_data = prepare_table_for_evaluation(merged_test)
         y_test = eval_data[target_column].cast(pl.Float64)
         eval_data = eval_data.drop(target_column).to_pandas()
 
@@ -306,15 +408,29 @@ def run_on_full_join(
 
         r2 = r2_score(y_test, y_pred)
 
-        r2_results.append(r2)
+        results.append(r2)
+        raw_logger.results["r2score"] = r2
+        raw_logger.results["n_cols"] = len(merged_test.schema)
 
-        run_logger.end_time("eval_join")
-        run_logger.results["r2score"] = r2
-        run_logger.end_time("eval")
-        run_logger.set_run_status("SUCCESS")
+        raw_logger.set_run_status("SUCCESS")
+        raw_logger.end_time("run")
         run_logger.end_time("run")
 
-        logger_sh.info("Best %s R2 %.4f" % (case, run_logger.results["r2score"]))
+        raw_logger.to_raw_log_file()
 
-        run_logger.to_run_log_file()
-    return r2_results
+    run_logger.results["avg_r2"] = np.mean(results)
+    run_logger.results["std_r2"] = np.std(results)
+    run_logger.results["best_candidate_hash"] = "full_join"
+    run_logger.to_run_log_file()
+
+    logger_sh.info("Best %s R2 %.4f" % (case, run_logger.results["avg_r2"]))
+
+    results = {
+        "index": index_name,
+        "case": case,
+        "best_candidate_hash": "full_join",
+        "avg_r2": run_logger.results["avg_r2"],
+        "std_r2": run_logger.results["std_r2"],
+    }
+
+    return results

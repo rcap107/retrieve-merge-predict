@@ -283,10 +283,9 @@ def evaluate_joins(
     test_size=0.25,
     join_strategy="left",
     aggregation="first",
-    n_jobs=1,
-    cuda=False,
     group_column="col_to_embed",
     split_kind="group_shuffle",
+    top_k=5,
 ):
     # prepare_logger(scenario_logger.scenario_id)
 
@@ -306,80 +305,53 @@ def evaluate_joins(
     splits = list(splits)
     summary_results = []
 
-    results_base = em.run_on_base_table(
+    results = em.run_on_base_table(
         scenario_logger,
         splits,
         base_table,
         target_column="target",
         iterations=iterations,
-        n_splits=n_splits,
-        cuda=cuda,
         verbose=verbose,
-        n_jobs=n_jobs,
     )
-
-    summary_results += [
-        {
-            "index": "base_table",
-            "case": "base_table",
-            "r2": r2,
-        }
-        for r2 in results_base
-    ]
+    summary_results.append(results)
 
     # Iterate over each index and run experiments on that
-    for index_name, index_candidates in candidates_by_index.items():
+    for index_name, join_candidates in candidates_by_index.items():
         # Join on each candidate, one at a time
-        best_candidate_has, best_candidate_r2, dict_all_results = em.run_on_candidates(
+        results, df_ranking = em.run_on_candidates(
             scenario_logger,
             splits,
-            index_candidates,
+            join_candidates,
             index_name,
             base_table,
             iterations,
-            n_splits,
             join_strategy,
             aggregation=aggregation,
             verbose=verbose,
-            cuda=cuda,
-            top_k=5,
-            n_jobs=n_jobs,
+            top_k=top_k,
         )
 
-        summary_results.append(
-            {
-                "index": index_name,
-                "case": "single_join",
-                "r2": best_candidate_r2,
-            }
-        )
+        summary_results.append(results)
 
         # Join all candidates at the same time
-        results_full = em.run_on_full_join(
+        results = em.run_on_full_join(
             scenario_logger,
             splits,
-            index_candidates,
+            join_candidates,
             index_name,
             base_table,
             iterations=iterations,
             verbose=verbose,
             aggregation=aggregation,
-            cuda=cuda,
-            n_jobs=n_jobs,
         )
 
-        summary_results.append(
-            {
-                "index": index_name,
-                "case": "full_join",
-                "r2": results_full,
-            }
-        )
+        summary_results.append(results)
 
         # Join only a subset of candidates, taking the best individual candidates from step 2.
-        subset_candidates = {k: index_candidates[k] for k in best_k}
+        best_k = df_ranking.limit(top_k)["candidate"].to_list()
+        subset_candidates = {k: join_candidates[k] for k in best_k}
 
-        results_full_sampled = em.run_on_full_join(
+        results = em.run_on_full_join(
             scenario_logger,
             splits,
             subset_candidates,
@@ -388,31 +360,15 @@ def evaluate_joins(
             iterations=iterations,
             verbose=verbose,
             aggregation=aggregation,
-            cuda=cuda,
-            n_jobs=n_jobs,
             case="sampled",
         )
 
-        summary_results.append(
-            {
-                "index": index_name,
-                "case": "sampled_full_join",
-                "rmse": results_full_sampled[0],
-                "r2": results_full_sampled[1],
-            }
-        )
+        summary_results.append(results)
 
     summary = pl.from_dicts(summary_results)
     print(f'SOURCE TABLE: {scenario_logger.get_parameters()["source_table"]}')
+    print(summary)
 
-    # TODO: extend this with whatever additional info is needed.
-    aggr = (
-        summary.groupby(["index", "case"])
-        .agg(pl.mean("r2").alias("avg_r2"), pl.std("r2").alias("std_r2"))
-        .sort(["index", "avg_r2"])
-    )
-    print(aggr)
-
-    scenario_logger.set_results(aggr)
+    scenario_logger.set_results(summary)
 
     return
