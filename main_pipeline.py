@@ -266,8 +266,7 @@ def single_run(args, run_name=None):
             n_splits=args.n_splits,
             join_strategy=args.join_strategy,
             aggregation=args.aggregation,
-            cuda=args.cuda,
-            n_jobs=args.n_jobs,
+            top_k=5,
         )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
