@@ -27,7 +27,7 @@ def setup_run_logging():
     os.makedirs(f"results/json/{run_name}")
     os.makedirs(f"results/logs/{run_name}")
     os.makedirs(f"results/logs/{run_name}/run_logs")
-    os.makedirs(f"results/logs/{run_name}/candidate_logs")
+    os.makedirs(f"results/logs/{run_name}/raw_logs")
 
     return run_name
 
@@ -81,9 +81,7 @@ class ScenarioLogger:
 
     def prepare_logger(self, run_name=None):
         self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
-        self.path_candidate_logs = (
-            f"results/logs/{run_name}/candidate_logs/{self.scenario_id}.log"
-        )
+        self.path_raw_logs = f"results/logs/{run_name}/raw_logs/{self.scenario_id}.log"
 
     def add_timestamp(self, which_ts):
         self.timestamps[which_ts] = dt.datetime.now()
@@ -215,7 +213,7 @@ class RunLogger:
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
         self.path_run_logs = scenario_logger.path_run_logs
-        self.path_candidate_logs = scenario_logger.path_candidate_logs
+        self.path_raw_logs = scenario_logger.path_raw_logs
         self.fold_id = fold_id
         self.run_id = scenario_logger.get_next_run_id()
         self.status = None
@@ -359,8 +357,8 @@ class RunLogger:
         )
         return res_str
 
-    def to_candidate_log_file(self):
-        self.to_logfile(self.path_candidate_logs)
+    def to_raw_log_file(self):
+        self.to_logfile(self.path_raw_logs)
 
     def to_run_log_file(self):
         self.to_logfile(self.path_run_logs)
