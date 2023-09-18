@@ -317,6 +317,7 @@ def evaluate_joins(
         verbose=verbose,
         n_jobs=n_jobs,
     )
+
     summary_results += [
         {
             "index": "base_table",
@@ -326,9 +327,10 @@ def evaluate_joins(
         for r2 in results_base
     ]
 
+    # Iterate over each index and run experiments on that
     for index_name, index_candidates in candidates_by_index.items():
         # Join on each candidate, one at a time
-        results_single, best_k = em.run_on_candidates(
+        best_candidate_has, best_candidate_r2, dict_all_results = em.run_on_candidates(
             scenario_logger,
             splits,
             index_candidates,
@@ -348,8 +350,7 @@ def evaluate_joins(
             {
                 "index": index_name,
                 "case": "single_join",
-                "rmse": results_single[0],
-                "r2": results_single[1],
+                "r2": best_candidate_r2,
             }
         )
 
@@ -371,8 +372,7 @@ def evaluate_joins(
             {
                 "index": index_name,
                 "case": "full_join",
-                "rmse": results_full[0],
-                "r2": results_full[1],
+                "r2": results_full,
             }
         )
 
