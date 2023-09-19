@@ -197,7 +197,7 @@ def single_run(args, run_name=None):
         top_k=args.top_k,
         feature_selection=args.feature_selection,
         model_selection=args.model_selection,
-        run_name=run_name,
+        exp_name=run_name,
     )
 
     if not metadata_index_path.exists():
@@ -255,22 +255,24 @@ def single_run(args, run_name=None):
             pickle.dump(candidates_by_index, fp)
 
     if not args.dry_run:
-        scl.add_timestamp("start_evaluation")
-        logger.info("Starting evaluation.")
-        pipeline.evaluate_joins(
-            df,
-            scl,
-            candidates_by_index=candidates_by_index,
-            verbose=0,
-            iterations=args.iterations,
-            n_splits=args.n_splits,
-            join_strategy=args.join_strategy,
-            aggregation=args.aggregation,
-            top_k=5,
-        )
-        logger.info("End evaluation.")
-        scl.add_timestamp("end_evaluation")
-
+        try:
+            scl.add_timestamp("start_evaluation")
+            logger.info("Starting evaluation.")
+            pipeline.evaluate_joins(
+                df,
+                scl,
+                candidates_by_index=candidates_by_index,
+                verbose=0,
+                iterations=args.iterations,
+                n_splits=args.n_splits,
+                join_strategy=args.join_strategy,
+                aggregation=args.aggregation,
+                top_k=5,
+            )
+            logger.info("End evaluation.")
+            scl.add_timestamp("end_evaluation")
+        except Exception:
+            pass
     scl.add_timestamp("end_process")
     scl.add_process_time()
 

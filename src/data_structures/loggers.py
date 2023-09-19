@@ -28,15 +28,18 @@ HEADER_LOGFILE = ",".join(
         "aggregation",
         "feature_selection",
         "model_selection",
+        "fold_id",
         "time_train",
         "time_eval",
         "time_join",
         "time_eval_join",
+        "best_candidate_hash",
         "n_cols",
         "r2score",
+        "avg_r2",
+        "std_r2",
     ]
 )
-
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
@@ -46,36 +49,33 @@ logging.basicConfig(
 )
 
 
-def get_run_name():
+def get_exp_name():
     alphabet = string.ascii_lowercase + string.digits
     random_slug = "".join(random.choices(alphabet, k=8))
-    scenario_id = update_scenario_id()
+    scenario_id = read_and_update_scenario_id()
 
-    run_name = f"{scenario_id:04d}-{random_slug}"
-    return run_name
+    exp_name = f"{scenario_id:04d}-{random_slug}"
+    return exp_name
 
 
 def setup_run_logging():
-    run_name = get_run_name()
-    os.makedirs(f"results/json/{run_name}")
-    os.makedirs(f"results/logs/{run_name}")
-    os.makedirs(f"results/logs/{run_name}/run_logs")
-    os.makedirs(f"results/logs/{run_name}/raw_logs")
+    exp_name = get_exp_name()
+    os.makedirs(f"results/logs/{exp_name}")
+    # with open(f"results/logs/{exp_name}/scenario_id", "w") as fp:
+    # fp.write("0")
+    os.makedirs(f"results/logs/{exp_name}/json")
+    os.makedirs(f"results/logs/{exp_name}/run_logs")
+    os.makedirs(f"results/logs/{exp_name}/raw_logs")
 
-    return run_name
+    return exp_name
 
 
-def update_scenario_id():
-    """Utility function for opening the scenario_id file, checking for errors and
-    incrementing it by one at the start of a run.
+def read_and_update_scenario_id(exp_name=None):
+    if exp_name is None:
+        scenario_id_path = SCENARIO_ID_PATH
+    else:
+        scenario_id_path = Path(f"results/logs/{exp_name}/scenario_id")
 
-    Raises:
-        ValueError: Raise ValueError if the read scenario_id is not a positive integer.
-
-    Returns:
-        int: The new (incremented) scenario_id.
-    """
-    scenario_id_path = SCENARIO_ID_PATH
     if scenario_id_path.exists():
         with open(scenario_id_path, "r") as fp:
             last_scenario_id = fp.read().strip()
@@ -137,7 +137,7 @@ class ScenarioLogger:
         top_k,
         feature_selection,
         model_selection,
-        run_name=None,
+        exp_name=None,
     ) -> None:
         self.timestamps = {
             "start_process": dt.datetime.now(),
@@ -149,9 +149,9 @@ class ScenarioLogger:
             "start_evaluation": 0,
             "end_evaluation": 0,
         }
-        self.run_name = run_name
-        self.scenario_id = read_scenario_id()
-        self.prepare_logger(run_name)
+        self.exp_name = exp_name
+        self.scenario_id = read_and_update_scenario_id(exp_name)
+        self.prepare_logger(exp_name)
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
@@ -227,7 +227,7 @@ class ScenarioLogger:
         return str_res.rstrip(",")
 
     def pretty_print(self):
-        print(f"Run name: {self.run_name}")
+        print(f"Run name: {self.exp_name}")
         print(f"Scenario ID: {self.scenario_id}")
         print(f"Source table: {self.source_table}")
         print(f"Iterations: {self.iterations}")
@@ -249,7 +249,7 @@ class ScenarioLogger:
         }
         if Path(root_path).exists():
             with open(
-                Path(root_path, self.run_name, f"{self.scenario_id}.json"), "w"
+                Path(root_path, self.exp_name, "json", f"{self.scenario_id}.json"), "w"
             ) as fp:
                 json.dump(res_dict, fp, indent=2)
         else:
@@ -271,14 +271,14 @@ class RunLogger:
         self.status = None
         self.timestamps = {}
         self.durations = {
-            "time_run": None,
-            "time_eval": None,
-            "time_join": None,
-            "time_eval_join": None,
+            "time_run": "",
+            "time_eval": "",
+            "time_join": "",
+            "time_eval_join": "",
         }
 
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
-        self.results = {"r2": None, "rmse": None}
+        self.results = {"r2": "", "rmse": ""}
         self.json_path = json_path
 
         self.mark_time("run")
@@ -297,6 +297,7 @@ class RunLogger:
             "target_dl": scenario_logger.target_dl,
             "model_selection": scenario_logger.model_selection,
             "feature_selection": scenario_logger.feature_selection,
+            "fold_id": "",
         }
         if additional_parameters is not None:
             parameters.update(additional_parameters)
@@ -402,6 +403,7 @@ class RunLogger:
                     self.parameters["aggregation"],
                     self.parameters["feature_selection"],
                     self.parameters["model_selection"],
+                    self.parameters.get("fold_id", ""),
                     self.durations.get("time_train", ""),
                     self.durations.get("time_eval", ""),
                     self.durations.get("time_join", ""),
@@ -445,3 +447,4 @@ class RawLogger(RunLogger):
     ):
         super().__init__(scenario_logger, additional_parameters, json_path)
         self.fold_id = fold_id
+        self.parameters["fold_id"] = fold_id

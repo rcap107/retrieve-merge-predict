@@ -24,7 +24,6 @@ os.makedirs(model_folder, exist_ok=True)
 
 
 def prepare_table_for_evaluation(src_df):
-
     df = src_df.with_columns(
         src_df.with_columns(cs.string().fill_null("null"), cs.float().fill_null(np.nan))
     )
@@ -106,6 +105,8 @@ def run_on_base_table(
 
     run_logger.results["avg_r2"] = np.mean(r2_results)
     run_logger.results["std_r2"] = np.std(r2_results)
+    run_logger.set_run_status("SUCCESS")
+
     run_logger.to_run_log_file()
 
     logger_sh.info("Base table R2 %.4f" % (run_logger.results["avg_r2"]))
@@ -287,6 +288,8 @@ def run_on_candidates(
     run_logger.results["avg_r2"] = np.mean(best_results)
     run_logger.results["std_r2"] = np.std(best_results)
     run_logger.results["best_candidate_hash"] = best_candidate_hash
+
+    run_logger.set_run_status("SUCCESS")
     run_logger.to_run_log_file()
 
     logger_sh.info(
@@ -346,7 +349,13 @@ def run_on_full_join(
         run_logger.end_time("run")
         run_logger.set_run_status("FAILURE")
         run_logger.to_run_log_file()
-        return [np.nan, np.nan]
+        return {
+            "index": index_name,
+            "case": case,
+            "best_candidate_hash": "",
+            "avg_r2": np.nan,
+            "std_r2": np.nan,
+        }
 
     results = []
 
