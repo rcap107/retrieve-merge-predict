@@ -271,8 +271,11 @@ def single_run(args, run_name=None):
             )
             logger.info("End evaluation.")
             scl.add_timestamp("end_evaluation")
-        except Exception:
-            pass
+            scl.set_status("SUCCESS")
+        except Exception as exception:
+            exception_name = exception.__class__.__name__
+            logger_scn.error("RAISED %s" % exception_name)
+            scl.set_status("FAILURE", exception_name)
     scl.add_timestamp("end_process")
     scl.add_process_time()
 

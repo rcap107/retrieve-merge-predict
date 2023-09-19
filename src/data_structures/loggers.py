@@ -170,6 +170,8 @@ class ScenarioLogger:
         self.top_k = top_k
         self.results = None
         self.process_time = 0
+        self.status = None
+        self.exception_name = None
 
     def prepare_logger(self, run_name=None):
         self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
@@ -239,6 +241,18 @@ class ScenarioLogger:
         if Path(out_path).parent.exists():
             with open(out_path, "a") as fp:
                 fp.write(self.to_string() + "\n")
+
+    def set_status(self, status, exception_name=None):
+        """Set run status for logging.
+
+        Args:
+            status (str): Status to use.
+        """
+        self.status = status
+        if exception_name is not None:
+            self.exception_name = exception_name
+        else:
+            self.exception_name = ""
 
     def write_to_json(self, root_path="results/logs/"):
         res_dict = copy.deepcopy(vars(self))
