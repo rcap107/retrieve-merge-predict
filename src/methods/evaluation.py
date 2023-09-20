@@ -53,13 +53,14 @@ def run_on_base_table(
     iterations=500,
     verbose=0,
 ):
-    run_logger = RunLogger(scenario_logger, {"aggregation": "nojoin"})
+    additional_parameters = {"aggregation": "nojoin", "join_strategy": "nojoin"}
+    run_logger = RunLogger(scenario_logger, additional_parameters)
     run_logger.start_time("run")
 
     r2_results = []
 
     for idx, (train_split, test_split) in enumerate(splits):
-        raw_logger = RawLogger(scenario_logger, idx, {"aggregation": "nojoin"})
+        raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
         raw_logger.start_time("run")
         run_logger.start_time("run", cumulative=True)
         left_table_train = base_table[train_split]
@@ -134,8 +135,12 @@ def run_on_candidates(
     target_column="target",
     verbose=0,
 ):
-    add_params = {"candidate_table": "best_candidate", "index_name": index_name}
-    run_logger = RunLogger(scenario_logger, additional_parameters=add_params)
+    additional_parameters = {
+        "candidate_table": "best_candidate",
+        "index_name": index_name,
+        "join_strategy": "single_join",
+    }
+    run_logger = RunLogger(scenario_logger, additional_parameters=additional_parameters)
     run_logger.start_time("run")
 
     best_candidate_hash = None
@@ -158,6 +163,7 @@ def run_on_candidates(
             "index_name": index_name,
             "left_on": left_on,
             "right_on": right_on,
+            "join_strategy": "single_join",
         }
         cnd_table = pl.read_parquet(cnd_md["full_path"])
         dict_r2_by_cand[hash_] = []
@@ -317,9 +323,7 @@ def run_on_full_join(
     iterations=1000,
     verbose=0,
     aggregation="first",
-    cuda=False,
     case="full",
-    n_jobs=1,
 ):
     """Evaluate the performance obtained by joining all the candidates provided
     by the join discovery algorithm, with no supervision.
@@ -337,12 +341,13 @@ def run_on_full_join(
         n_jobs (int, optional): Number of CPUs to use when training. Defaults to 1.
     """
 
-    add_params = {
+    additional_parameters = {
         "candidate_table": case,
         "index_name": index_name,
         "aggregation": aggregation,
+        "join_strategy": f"{case}_join",
     }
-    run_logger = RunLogger(scenario_logger, additional_parameters=add_params)
+    run_logger = RunLogger(scenario_logger, additional_parameters=additional_parameters)
 
     if aggregation == "dfs":
         logger_sh.error("Full join not available with DFS.")
@@ -360,7 +365,7 @@ def run_on_full_join(
     results = []
 
     for idx, (train_split, test_split) in enumerate(splits):
-        raw_logger = RawLogger(scenario_logger, idx, add_params)
+        raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
         raw_logger.start_time("run")
         run_logger.start_time("run", cumulative=True)
 

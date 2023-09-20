@@ -101,15 +101,6 @@ def parse_arguments(default=None):
     )
 
     parser.add_argument(
-        "--join_strategy",
-        action="store",
-        type=str,
-        default="left",
-        choices=["left", "right", "inner", "outer", "nojoin"],
-        help="Join strategy to be used.",
-    )
-
-    parser.add_argument(
         "--aggregation",
         action="store",
         type=str,
@@ -190,7 +181,6 @@ def single_run(args, run_name=None):
         source_table=tab_name,
         git_hash=repo_sha,
         iterations=args.iterations,
-        join_strategy=args.join_strategy,
         aggregation=args.aggregation,
         target_dl=args.yadl_version,
         n_splits=args.n_splits,
@@ -265,7 +255,6 @@ def single_run(args, run_name=None):
                 verbose=0,
                 iterations=args.iterations,
                 n_splits=args.n_splits,
-                join_strategy=args.join_strategy,
                 aggregation=args.aggregation,
                 top_k=5,
             )
