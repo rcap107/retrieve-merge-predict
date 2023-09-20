@@ -4,6 +4,7 @@
 import datetime
 import logging
 from pathlib import Path
+
 from src.data_structures.indices import MinHashIndex
 
 log_format = "%(message)s"

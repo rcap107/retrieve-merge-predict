@@ -1,13 +1,12 @@
 """This script is used to batch convert tables in a dir from csv to parquet or viceversa.
 """
-from pathlib import Path
-from tqdm import tqdm
-import polars as pl
 import argparse
-import os
-
 import logging
+import os
+from pathlib import Path
 
+import polars as pl
+from tqdm import tqdm
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
