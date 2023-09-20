@@ -1,14 +1,14 @@
-import logging
-from pathlib import Path
-import polars as pl
+import copy
 import datetime as dt
 import json
-import copy
-import string
-import random
+import logging
 import os
-
+import random
+import string
+from pathlib import Path
 from time import process_time
+
+import polars as pl
 
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
@@ -58,7 +58,7 @@ def get_exp_name():
     return exp_name
 
 
-def setup_run_logging():
+def setup_run_logging(setup_config=None):
     exp_name = get_exp_name()
     os.makedirs(f"results/logs/{exp_name}")
     # with open(f"results/logs/{exp_name}/scenario_id", "w") as fp:
@@ -66,6 +66,10 @@ def setup_run_logging():
     os.makedirs(f"results/logs/{exp_name}/json")
     os.makedirs(f"results/logs/{exp_name}/run_logs")
     os.makedirs(f"results/logs/{exp_name}/raw_logs")
+
+    if setup_config is not None:
+        with open(f"results/logs/{exp_name}/{exp_name}.cfg", "w") as fp:
+            json.dump(setup_config, fp, indent=2)
 
     return exp_name
 
@@ -130,7 +134,6 @@ class ScenarioLogger:
         source_table,
         git_hash,
         iterations,
-        join_strategy,
         aggregation,
         target_dl,
         n_splits,
@@ -158,11 +161,7 @@ class ScenarioLogger:
         self.source_table = source_table
         self.git_hash = git_hash
         self.iterations = iterations
-        self.join_strategy = join_strategy
-        if join_strategy == "nojoin":
-            self.aggregation = "nojoin"
-        else:
-            self.aggregation = aggregation
+        self.aggregation = aggregation
         self.target_dl = target_dl
         self.n_splits = n_splits
         self.model_selection = model_selection
@@ -187,7 +186,6 @@ class ScenarioLogger:
         return {
             "source_table": self.source_table,
             "iterations": self.iterations,
-            "join_strategy": self.join_strategy,
             "aggregation": self.aggregation,
             "target_dl": self.target_dl,
             "n_splits": self.n_splits,
@@ -212,7 +210,6 @@ class ScenarioLogger:
                     self.git_hash,
                     self.source_table,
                     self.iterations,
-                    self.join_strategy,
                     self.aggregation,
                     self.target_dl,
                     self.n_splits,
@@ -233,7 +230,6 @@ class ScenarioLogger:
         print(f"Scenario ID: {self.scenario_id}")
         print(f"Source table: {self.source_table}")
         print(f"Iterations: {self.iterations}")
-        print(f"Join strategy: {self.join_strategy}")
         print(f"Aggregation: {self.aggregation}")
         print(f"DL Variant: {self.target_dl}")
 
@@ -306,7 +302,6 @@ class RunLogger:
             "git_hash": scenario_logger.git_hash,
             "index_name": "base_table",
             "iterations": scenario_logger.iterations,
-            "join_strategy": scenario_logger.join_strategy,
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
             "model_selection": scenario_logger.model_selection,
