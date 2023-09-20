@@ -13,12 +13,12 @@ try:
 except ImportError:
     POLARS_SETUP = False
 
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.utils.validation import check_is_fitted
-import sklearn.feature_selection as fs
-import sklearn.metrics as metrics
 from difflib import SequenceMatcher
 
+import sklearn.feature_selection as fs
+import sklearn.metrics as metrics
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_is_fitted
 
 NUM_OPS = ["sum", "mean", "std", "min", "max"]
 CATEG_OPS = ["mode"]

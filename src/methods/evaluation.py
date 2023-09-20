@@ -1,4 +1,5 @@
 """Evaluation methods"""
+import itertools
 import logging
 import os
 from pathlib import Path
@@ -8,11 +9,10 @@ import polars as pl
 import polars.selectors as cs
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import cross_validate, GroupKFold
+from sklearn.model_selection import GroupKFold, cross_validate
 from tqdm import tqdm
 
-import itertools
-from src.data_structures.loggers import RunLogger, RawLogger
+from src.data_structures.loggers import RawLogger, RunLogger
 
 logger_sh = logging.getLogger("pipeline")
 

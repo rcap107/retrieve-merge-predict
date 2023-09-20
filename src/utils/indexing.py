@@ -1,5 +1,6 @@
 import pickle
-from src.data_structures.indices import MinHashIndex, ManualIndex
+
+from src.data_structures.indices import ManualIndex, MinHashIndex
 
 
 def get_candidates(query_table, query_column, indices):

@@ -2,8 +2,9 @@ import logging
 import os
 import pickle
 from pathlib import Path
+
 import polars as pl
-from sklearn.model_selection import ShuffleSplit, GroupShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
 
 from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
 from src.data_structures.metadata import CandidateJoin, MetadataIndex

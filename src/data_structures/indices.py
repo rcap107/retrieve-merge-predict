@@ -7,8 +7,8 @@ import lazo_index_service
 import numpy as np
 import polars as pl
 from datasketch import MinHash, MinHashLSHEnsemble
-from tqdm import tqdm
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
 mh_logger = logging.getLogger("metadata_logger")
 

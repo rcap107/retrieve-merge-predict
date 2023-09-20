@@ -1,7 +1,7 @@
+import featuretools as ft
 import polars as pl
 import polars.selectors as cs
 from tqdm import tqdm
-import featuretools as ft
 from woodwork.logical_types import Categorical, Double
 
 

@@ -4,10 +4,9 @@ from typing import Iterable, List, Union
 
 import pandas as pd
 import polars as pl
+import sklearn.metrics as metrics
 from joblib import Parallel, delayed
 from tqdm import tqdm
-
-import sklearn.metrics as metrics
 
 from src.data_structures.indices import MinHashIndex
 
