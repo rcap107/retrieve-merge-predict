@@ -359,7 +359,7 @@ def evaluate_joins(
             iterations=iterations,
             verbose=verbose,
             aggregation=aggregation,
-            case="sampled",
+            case="topk",
         )
 
         summary_results.append(results)
