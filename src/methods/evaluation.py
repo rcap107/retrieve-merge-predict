@@ -420,6 +420,8 @@ def run_on_full_join(
         eval_data = prepare_table_for_evaluation(merged_test)
         y_test = eval_data[target_column].cast(pl.Float64)
         eval_data = eval_data.drop(target_column).to_pandas()
+        run_logger.end_time("eval")
+        raw_logger.end_time("eval")
 
         y_pred = model.predict(eval_data)
 
