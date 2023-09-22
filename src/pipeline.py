@@ -305,7 +305,7 @@ def evaluate_joins(
     splits = list(splits)
     summary_results = []
 
-    results = em.run_on_base_table(
+    results = em.base_table(
         scenario_logger,
         splits,
         base_table,
@@ -318,7 +318,7 @@ def evaluate_joins(
     # Iterate over each index and run experiments on that
     for index_name, join_candidates in candidates_by_index.items():
         # Join on each candidate, one at a time
-        results, df_ranking = em.run_on_candidates(
+        results, df_ranking = em.single_join(
             scenario_logger,
             splits,
             join_candidates,
@@ -333,7 +333,7 @@ def evaluate_joins(
         summary_results.append(results)
 
         # Join all candidates at the same time
-        results = em.run_on_full_join(
+        results = em.full_join(
             scenario_logger,
             splits,
             join_candidates,
@@ -350,7 +350,7 @@ def evaluate_joins(
         best_k = df_ranking.limit(top_k)["candidate"].to_list()
         subset_candidates = {k: join_candidates[k] for k in best_k}
 
-        results = em.run_on_full_join(
+        results = em.full_join(
             scenario_logger,
             splits,
             subset_candidates,

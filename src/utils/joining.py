@@ -1,3 +1,5 @@
+import base64
+
 import featuretools as ft
 import polars as pl
 import polars.selectors as cs
@@ -401,3 +403,21 @@ def aggregate_first(target_table: pl.DataFrame, aggr_columns):
 
     df_dedup = target_table.unique(aggr_columns, keep="first")
     return df_dedup
+
+
+def encode_candidate_name(candidate_name: str | list):
+    if type(candidate_name) == str:
+        to_encode = candidate_name
+    elif type(candidate_name) == list:
+        to_encode = "|".join(candidate_name)
+    enc = base64.b64encode(to_encode, altchars=None)
+    return enc
+
+
+def decode_candidate_name(encoded_name):
+    decoded = base64.b64decode(encoded_name)
+    split = decoded.split("|")
+    if len(split) == 1:
+        return split[0]
+    else:
+        return split
