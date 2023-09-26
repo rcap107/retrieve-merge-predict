@@ -245,26 +245,25 @@ def single_run(args, run_name=None):
             pickle.dump(candidates_by_index, fp)
 
     if not args.dry_run:
-        try:
-            scl.add_timestamp("start_evaluation")
-            logger.info("Starting evaluation.")
-            pipeline.evaluate_joins(
-                df,
-                scl,
-                candidates_by_index=candidates_by_index,
-                verbose=0,
-                iterations=args.iterations,
-                n_splits=args.n_splits,
-                aggregation=args.aggregation,
-                top_k=5,
-            )
-            logger.info("End evaluation.")
-            scl.add_timestamp("end_evaluation")
-            scl.set_status("SUCCESS")
-        except Exception as exception:
-            exception_name = exception.__class__.__name__
-            logger_scn.error("RAISED %s" % exception_name)
-            scl.set_status("FAILURE", exception_name)
+        scl.add_timestamp("start_evaluation")
+        logger.info("Starting evaluation.")
+        pipeline.evaluate_joins(
+            df,
+            scl,
+            candidates_by_index=candidates_by_index,
+            verbose=0,
+            iterations=args.iterations,
+            n_splits=args.n_splits,
+            aggregation=args.aggregation,
+            top_k=5,
+        )
+        logger.info("End evaluation.")
+        scl.add_timestamp("end_evaluation")
+        scl.set_status("SUCCESS")
+        # except Exception as exception:
+        #     exception_name = exception.__class__.__name__
+        #     logger_scn.error("RAISED %s" % exception_name)
+        #     scl.set_status("FAILURE", exception_name)
     scl.add_timestamp("end_process")
     scl.add_process_time()
 
