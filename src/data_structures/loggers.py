@@ -1,4 +1,5 @@
 import copy
+import csv
 import datetime as dt
 import json
 import logging
@@ -13,33 +14,31 @@ import polars as pl
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
-HEADER_LOGFILE = ",".join(
-    [
-        "scenario_id",
-        "run_id",
-        "status",
-        "yadl_version",
-        "git_hash",
-        "index_name",
-        "base_table",
-        "candidate_table",
-        "iterations",
-        "join_strategy",
-        "aggregation",
-        "feature_selection",
-        "model_selection",
-        "fold_id",
-        "time_train",
-        "time_eval",
-        "time_join",
-        "time_eval_join",
-        "best_candidate_hash",
-        "n_cols",
-        "r2score",
-        "avg_r2",
-        "std_r2",
-    ]
-)
+HEADER_LOGFILE = [
+    "scenario_id",
+    "run_id",
+    "status",
+    "target_dl",
+    "git_hash",
+    "index_name",
+    "base_table",
+    "candidate_table",
+    "iterations",
+    "join_strategy",
+    "aggregation",
+    "fold_id",
+    "time_train",
+    "time_eval",
+    "time_join",
+    "time_eval_join",
+    "best_candidate_hash",
+    "n_cols",
+    "r2score",
+    "avg_r2",
+    "std_r2",
+    "tree_count",
+    "best_iteration",
+]
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
@@ -270,8 +269,11 @@ class ScenarioLogger:
 
     def write_to_json(self, root_path="results/logs/"):
         res_dict = copy.deepcopy(vars(self))
-        results = self.results.clone()
-        res_dict["results"] = results.to_dicts()
+        if self.results is not None:
+            results = self.results.clone()
+            res_dict["results"] = results.to_dicts()
+        else:
+            res_dict["results"] = None
         res_dict["timestamps"] = {
             k: v.isoformat() for k, v in res_dict["timestamps"].items()
         }
@@ -412,35 +414,40 @@ class RunLogger:
         else:
             raise KeyError(f"Label {label} not found in durations.")
 
+    def to_dict(self):
+        values = [
+            self.scenario_id,
+            self.run_id,
+            self.status,
+            self.parameters["target_dl"],
+            self.parameters["git_hash"],
+            self.parameters["index_name"],
+            self.parameters["base_table"],
+            self.parameters["candidate_table"],
+            self.parameters["iterations"],
+            self.parameters["join_strategy"],
+            self.parameters["aggregation"],
+            self.parameters.get("fold_id", ""),
+            self.durations.get("time_train", ""),
+            self.durations.get("time_eval", ""),
+            self.durations.get("time_join", ""),
+            self.durations.get("time_eval_join", ""),
+            self.results.get("best_candidate_hash", ""),
+            self.results.get("n_cols", ""),
+            self.results.get("r2score", ""),
+            self.results.get("avg_r2", ""),
+            self.results.get("std_r2", ""),
+            self.results.get("tree_count", ""),
+            self.results.get("best_iteration", ""),
+        ]
+
+        return dict(zip(HEADER_LOGFILE, values))
+
     def to_str(self):
         res_str = ",".join(
             map(
                 str,
-                [
-                    self.scenario_id,
-                    self.run_id,
-                    self.status,
-                    self.parameters["target_dl"],
-                    self.parameters["git_hash"],
-                    self.parameters["index_name"],
-                    self.parameters["source_table"],
-                    self.parameters["candidate_table"],
-                    self.parameters["iterations"],
-                    self.parameters["join_strategy"],
-                    self.parameters["aggregation"],
-                    self.parameters["feature_selection"],
-                    self.parameters["model_selection"],
-                    self.parameters.get("fold_id", ""),
-                    self.durations.get("time_train", ""),
-                    self.durations.get("time_eval", ""),
-                    self.durations.get("time_join", ""),
-                    self.durations.get("time_eval_join", ""),
-                    self.results.get("best_candidate_hash", ""),
-                    self.results.get("n_cols", ""),
-                    self.results.get("r2score", ""),
-                    self.results.get("avg_r2", ""),
-                    self.results.get("std_r2", ""),
-                ],
+                self.to_dict().values(),
             )
         )
         return res_str
@@ -454,11 +461,13 @@ class RunLogger:
     def to_logfile(self, path_logfile):
         if Path(path_logfile).exists():
             with open(path_logfile, "a") as fp:
-                fp.write(self.to_str() + "\n")
+                writer = csv.DictWriter(fp, fieldnames=HEADER_LOGFILE)
+                writer.writerow(self.to_dict())
         else:
             with open(path_logfile, "w") as fp:
-                fp.write(HEADER_LOGFILE + "\n")
-                fp.write(self.to_str() + "\n")
+                writer = csv.DictWriter(fp, fieldnames=HEADER_LOGFILE)
+                writer.writeheader()
+                writer.writerow(self.to_dict())
 
     def to_json(self):
         raise NotImplementedError
