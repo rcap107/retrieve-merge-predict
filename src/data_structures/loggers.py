@@ -149,7 +149,7 @@ def read_scenario_id():
 class ScenarioLogger:
     def __init__(
         self,
-        source_table,
+        base_table,
         git_hash,
         iterations,
         aggregation,
@@ -176,7 +176,7 @@ class ScenarioLogger:
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
-        self.source_table = source_table
+        self.base_table = base_table
         self.git_hash = git_hash
         self.iterations = iterations
         self.aggregation = aggregation
@@ -202,7 +202,7 @@ class ScenarioLogger:
 
     def get_parameters(self):
         return {
-            "source_table": self.source_table,
+            "base_table": self.base_table,
             "iterations": self.iterations,
             "aggregation": self.aggregation,
             "target_dl": self.target_dl,
@@ -226,7 +226,7 @@ class ScenarioLogger:
                 [
                     self.scenario_id,
                     self.git_hash,
-                    self.source_table,
+                    self.base_table,
                     self.iterations,
                     self.aggregation,
                     self.target_dl,
@@ -246,7 +246,7 @@ class ScenarioLogger:
     def pretty_print(self):
         print(f"Run name: {self.exp_name}")
         print(f"Scenario ID: {self.scenario_id}")
-        print(f"Source table: {self.source_table}")
+        print(f"Base table: {self.base_table}")
         print(f"Iterations: {self.iterations}")
         print(f"Aggregation: {self.aggregation}")
         print(f"DL Variant: {self.target_dl}")
@@ -313,7 +313,7 @@ class RunLogger:
 
     def get_parameters(self, scenario_logger: ScenarioLogger, additional_parameters):
         parameters = {
-            "source_table": scenario_logger.source_table,
+            "base_table": scenario_logger.base_table,
             "candidate_table": "",
             "left_on": "",
             "right_on": "",

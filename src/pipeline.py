@@ -347,7 +347,7 @@ def evaluate_joins(
         summary_results.append(results)
 
     summary = pl.from_dicts(summary_results)
-    print(f'SOURCE TABLE: {scenario_logger.get_parameters()["source_table"]}')
+    print(f'SOURCE TABLE: {scenario_logger.get_parameters()["base_table"]}')
     print(summary)
 
     scenario_logger.set_results(summary)

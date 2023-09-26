@@ -178,7 +178,7 @@ def single_run(args, run_name=None):
     tab_name = query_tab_path.stem
 
     scl = ScenarioLogger(
-        source_table=tab_name,
+        base_table=tab_name,
         git_hash=repo_sha,
         iterations=args.iterations,
         aggregation=args.aggregation,
