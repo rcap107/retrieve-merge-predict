@@ -13,7 +13,7 @@ from sklearn.model_selection import GroupKFold, cross_validate
 from tqdm import tqdm
 
 from src.data_structures.loggers import RawLogger, RunLogger
-from utils.joining import decode_candidate_name, encode_candidate_name
+from src.utils.models import get_model
 
 logger_sh = logging.getLogger("pipeline")
 
@@ -53,7 +53,11 @@ def base_table(
     target_column="target",
     iterations=500,
     verbose=0,
+    catboost_parameters=None,
 ):
+    if catboost_parameters is None:
+        catboost_parameters = {"l2_leaf_reg": 0.01, "od_type": None, "od_wait": None}
+
     additional_parameters = {"aggregation": "nojoin", "join_strategy": "nojoin"}
     run_logger = RunLogger(scenario_logger, additional_parameters)
     run_logger.start_time("run")
@@ -77,8 +81,12 @@ def base_table(
             iterations=iterations,
             l2_leaf_reg=0.01,
             verbose=verbose,
+            od_type="Iter",
+            od_wait=10,
         )
         model.fit(X=X, y=y)
+        raw_logger.results["best_iteration"] = model.best_iteration_
+        raw_logger.results["tree_count"] = model.tree_count_
 
         raw_logger.end_time("train")
         run_logger.end_time("train")
@@ -222,10 +230,13 @@ def single_join(
                 iterations=iterations,
                 l2_leaf_reg=0.01,
                 verbose=verbose,
+                od_type="Iter",
+                od_wait=10,
             )
 
             model.fit(X=X, y=y)
-
+            raw_logger.results["best_iteration"] = model.best_iteration_
+            raw_logger.results["tree_count"] = model.tree_count_
             raw_logger.end_time("train")
             run_logger.end_time("train")
 
@@ -380,9 +391,14 @@ def full_join(
             iterations=iterations,
             l2_leaf_reg=0.01,
             verbose=verbose,
+            od_type="Iter",
+            od_wait=10,
         )
 
         model.fit(X=X, y=y)
+        raw_logger.results["best_iteration"] = model.best_iteration_
+        raw_logger.results["tree_count"] = model.tree_count_
+
         raw_logger.end_time("train")
         run_logger.end_time("train")
         # END TRAIN
