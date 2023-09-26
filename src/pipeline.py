@@ -98,7 +98,7 @@ def prepare_indices(index_configurations: dict):
     return index_dict
 
 
-def save_indices(index_dict, index_dir):
+def save_indices(index_dict: dict, index_dir: str | Path):
     """Save all the indices found in `index_dict` in separate pickle files, in the
     directory provided in `index_dir`.
 
@@ -116,7 +116,7 @@ def save_indices(index_dict, index_dir):
         raise ValueError(f"Invalid `index_dir` {index_dir}")
 
 
-def load_index(index_path, tab_name=None):
+def load_index(index_path: str | Path, tab_name=None):
     index_path = Path(index_path)
     if not index_path.exists():
         raise IOError(f"Index {index_path} does not exist.")
