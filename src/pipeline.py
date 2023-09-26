@@ -346,24 +346,6 @@ def evaluate_joins(
 
         summary_results.append(results)
 
-        # Join only a subset of candidates, taking the best individual candidates from step 2.
-        best_k = df_ranking.limit(top_k)["candidate"].to_list()
-        subset_candidates = {k: join_candidates[k] for k in best_k}
-
-        results = em.full_join(
-            scenario_logger,
-            splits,
-            subset_candidates,
-            index_name,
-            base_table,
-            iterations=iterations,
-            verbose=verbose,
-            aggregation=aggregation,
-            case="topk",
-        )
-
-        summary_results.append(results)
-
     summary = pl.from_dicts(summary_results)
     print(f'SOURCE TABLE: {scenario_logger.get_parameters()["source_table"]}')
     print(summary)
