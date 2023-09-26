@@ -9,7 +9,7 @@ import polars as pl
 import polars.selectors as cs
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import GroupKFold, cross_validate
+from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
 from tqdm import tqdm
 
 from src.data_structures.loggers import RawLogger, RunLogger
@@ -72,7 +72,7 @@ def base_table(
         left_table_test = base_table[test_split]
 
         X, y, cat_features = prepare_X_y(left_table_train, target_column)
-
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
         raw_logger.start_time("train")
         run_logger.start_time("train", cumulative=True)
 
@@ -84,7 +84,7 @@ def base_table(
             od_type="Iter",
             od_wait=10,
         )
-        model.fit(X=X, y=y)
+        model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
         raw_logger.results["best_iteration"] = model.best_iteration_
         raw_logger.results["tree_count"] = model.tree_count_
 
@@ -224,6 +224,7 @@ def single_join(
             raw_logger.start_time("train")
             run_logger.start_time("train", cumulative=True)
             X, y, cat_features = prepare_X_y(merged, target_column)
+            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
 
             model = CatBoostRegressor(
                 cat_features=cat_features,
@@ -234,7 +235,7 @@ def single_join(
                 od_wait=10,
             )
 
-            model.fit(X=X, y=y)
+            model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
             raw_logger.results["best_iteration"] = model.best_iteration_
             raw_logger.results["tree_count"] = model.tree_count_
             raw_logger.end_time("train")
@@ -359,6 +360,7 @@ def full_join(
         }
 
     results = []
+    tree_count_list = []
 
     for idx, (train_split, test_split) in enumerate(splits):
         raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
@@ -385,6 +387,7 @@ def full_join(
         run_logger.start_time("train", cumulative=True)
 
         X, y, cat_features = prepare_X_y(merged, target_column)
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
 
         model = CatBoostRegressor(
             cat_features=cat_features,
@@ -395,9 +398,10 @@ def full_join(
             od_wait=10,
         )
 
-        model.fit(X=X, y=y)
+        model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
         raw_logger.results["best_iteration"] = model.best_iteration_
         raw_logger.results["tree_count"] = model.tree_count_
+        tree_count_list += model.tree_count_
 
         raw_logger.end_time("train")
         run_logger.end_time("train")
@@ -451,6 +455,7 @@ def full_join(
         "best_candidate_hash": "full_join",
         "avg_r2": run_logger.results["avg_r2"],
         "std_r2": run_logger.results["std_r2"],
+        "mdn_tree_count": np.median(tree_count_list),
     }
 
     return results
