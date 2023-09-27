@@ -1,4 +1,3 @@
-import numpy as np
 from pathlib import Path
 
 import matplotlib as mpl
@@ -89,7 +88,6 @@ def get_case(label, step):
 
 
 def prepare_boxplot(df, variable_of_interest, ylabel, yscale="lin"):
-
     formatted_data, labels = prepare_input_data(
         df, variable_of_interest=variable_of_interest
     )
@@ -166,3 +164,116 @@ def prepare_boxplot(df, variable_of_interest, ylabel, yscale="lin"):
 
     # legend
     plt.legend(legend_arguments[:7], labels_legend, loc="upper left")
+
+
+def prepare_plots(df_raw):
+    df_ = (
+        df_raw.with_columns(
+            (pl.col("join_strategy") + "_" + pl.col("aggregation")).alias("case")
+        )
+        .sort("case")
+        .groupby(
+            pl.col(
+                [
+                    "scenario_id",
+                    "base_table",
+                    "candidate_table",
+                    "case",
+                    "join_strategy",
+                    "aggregation",
+                    "iterations",
+                ]
+            )
+        )
+        .agg(pl.mean("r2score"))
+    )
+
+    # g = sns.relplot(
+    #     data=df_.sort("base_table").to_pandas(),
+    #     col="base_table",
+    #     hue="case",
+    #     y="r2score",
+    #     x="iterations",
+    #     kind="line",
+    #     errorbar="sd",
+    #     style="join_strategy",
+    #     markers=True,
+    #     # palette=colors,
+    # )
+    # g.refline(y=0)
+
+    sns.set_theme(style="whitegrid")
+
+    g = sns.catplot(
+        data=df_.sort("base_table").to_pandas(),
+        col="base_table",
+        hue="join_strategy",
+        y="r2score",
+        x="iterations",
+        kind="strip",
+        edgecolor="black",
+        linewidth=0.1,
+        hue_order=["nojoin", "single_join", "full_join", "sampled_join"],
+        # palette=colors,
+    )
+    g.refline(y=0)
+
+    g = sns.catplot(
+        data=df_raw.sort("base_table").to_pandas(),
+        col="base_table",
+        hue="join_strategy",
+        y="r2score",
+        x="iterations",
+        kind="point",
+        hue_order=["nojoin", "single_join", "full_join", "sampled_join"],
+        errorbar="sd",
+    )
+    g.refline(y=0)
+
+    g = sns.catplot(
+        data=df_raw.sort("base_table").to_pandas(),
+        col="base_table",
+        hue="case",
+        y="r2score",
+        x="iterations",
+        kind="box",
+        errorbar="sd",
+        # palette=colors,
+    )
+    g.refline(y=0)
+
+
+# plt.ylim([0.4, 0.9])
+
+
+def prepare_pivoted_table(df):
+    df_ = df.select(
+        pl.col(
+            [
+                "scenario_id",
+                "base_table",
+                "candidate_table",
+                "iterations",
+                "join_strategy",
+                "aggregation",
+                "r2score",
+                "time_train",
+                "time_join",
+                "n_cols",
+            ]
+        )
+    )
+    pivoted = (
+        df_.melt(
+            id_vars=["base_table", "iterations", "join_strategy", "aggregation"],
+            value_vars=["r2score"],
+        )
+        .to_pandas()
+        .pivot_table(
+            values="value",
+            index=["base_table", "iterations"],
+            columns=["join_strategy", "aggregation"],
+            aggfunc="mean",
+        )
+    )
+    return pivoted

@@ -3,15 +3,16 @@
 
 # %%
 import json
+from pathlib import Path
+
 import polars as pl
 import seaborn as sns
-from pathlib import Path
-from src.data_structures.indices import MinHashIndex
-from src.pipeline import generate_candidates
-
-from src.data_structures.metadata import CandidateJoin, RawDataset, MetadataIndex
-import src.methods.join_profiling as jp
 from sklearn.metrics import mean_squared_error
+
+import src.methods.profiling as jp
+from src.data_structures.indices import MinHashIndex
+from src.data_structures.metadata import CandidateJoin, MetadataIndex, RawDataset
+from src.pipeline import generate_candidates
 
 # %%
 index_dir = Path("data/metadata/_indices/testing_minhash")

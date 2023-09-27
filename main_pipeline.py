@@ -7,9 +7,9 @@ from pathlib import Path
 import git
 import polars as pl
 
-import src.pipeline as utils
+import src.pipeline as pipeline
+from src.data_structures.loggers import ScenarioLogger, setup_run_logging
 from src.data_structures.metadata import MetadataIndex, RawDataset
-from src.data_structures.loggers import ScenarioLogger
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
@@ -18,29 +18,27 @@ repo_sha = repo.head.object.hexsha
 def prepare_logger():
     logger = logging.getLogger("main")
     logger_scn = logging.getLogger("scn_logger")
-    # file handler for scenario logs
-    fh = logging.FileHandler("results/logs/main_log.log")
-    fh.setLevel(logging.DEBUG)
 
-    # console handler for info
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+    if not logger_scn.hasHandlers():
+        fh = logging.FileHandler("results/logs/main_log.log")
+        fh.setLevel(logging.DEBUG)
+        fh_formatter = logging.Formatter("%(message)s")
+        fh.setFormatter(fh_formatter)
 
-    # set formatter
-    fh_formatter = logging.Formatter("%(message)s")
-    fh.setFormatter(fh_formatter)
+        logger_scn.addHandler(fh)
 
-    ch_formatter = logging.Formatter("'%(asctime)s %(message)s'")
-    ch.setFormatter(ch_formatter)
+    if not logger.hasHandlers():
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler_formatter = logging.Formatter("'%(asctime)s %(message)s'")
+        console_handler.setFormatter(console_handler_formatter)
 
-    # add handler to logger
-    logger_scn.addHandler(fh)
-    logger.addHandler(ch)
+        logger.addHandler(console_handler)
 
     return logger, logger_scn
 
 
-def parse_arguments():
+def parse_arguments(default=None):
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -75,6 +73,10 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--selected_indices", action="store", default="minhash", nargs="*", type=str
+    )
+
+    parser.add_argument(
         "--sampling_seed",
         action="store",
         type=int,
@@ -96,15 +98,6 @@ def parse_arguments():
         type=int,
         default=1000,
         help="Number of iterations to be executed in the evaluation step.",
-    )
-
-    parser.add_argument(
-        "--join_strategy",
-        action="store",
-        type=str,
-        default="left",
-        choices=["left", "right", "inner", "outer", "nojoin"],
-        help="Join strategy to be used.",
     )
 
     parser.add_argument(
@@ -139,6 +132,18 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--feature_selection",
+        action="store_true",
+        help="If true, perform feature selection.",
+    )
+
+    parser.add_argument(
+        "--model_selection",
+        action="store_true",
+        help="If true, perform model selection.",
+    )
+
+    parser.add_argument(
         "--n_jobs",
         action="store",
         type=int,
@@ -156,41 +161,46 @@ def parse_arguments():
     return args
 
 
-if __name__ == "__main__":
-    utils.prepare_dirtree()
-
+def single_run(args, run_name=None):
+    pipeline.prepare_dirtree()
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
-    args = parse_arguments()
-    case = args.yadl_version
-    metadata_dir = Path(f"data/metadata/{case}")
-    metadata_index_path = Path(f"data/metadata/_mdi/md_index_{case}.pickle")
-    index_dir = Path(f"data/metadata/_indices/{case}")
 
-    query_data_path = Path(args.source_table_path)
-    if not query_data_path.exists():
-        raise FileNotFoundError(f"File {query_data_path} not found.")
+    yadl_version = args.yadl_version
+    metadata_dir = Path(f"data/metadata/{yadl_version}")
+    metadata_index_path = Path(f"data/metadata/_mdi/md_index_{yadl_version}.pickle")
+    index_dir = Path(f"data/metadata/_indices/{yadl_version}")
 
-    tab_name = query_data_path.stem
+    query_tab_path = Path(args.source_table_path)
+    if not query_tab_path.exists():
+        raise FileNotFoundError(f"File {query_tab_path} not found.")
+
+    tab_name = query_tab_path.stem
 
     scl = ScenarioLogger(
-        source_table=tab_name,
+        base_table=tab_name,
         git_hash=repo_sha,
         iterations=args.iterations,
-        join_strategy=args.join_strategy,
         aggregation=args.aggregation,
         target_dl=args.yadl_version,
         n_splits=args.n_splits,
+        top_k=args.top_k,
+        feature_selection=args.feature_selection,
+        model_selection=args.model_selection,
+        exp_name=run_name,
     )
 
     if not metadata_index_path.exists():
         raise FileNotFoundError(
             f"Path to metadata index {metadata_index_path} is invalid."
         )
-    else:
-        mdata_index = MetadataIndex(index_path=metadata_index_path)
+    mdata_index = MetadataIndex(index_path=metadata_index_path)
+
     scl.add_timestamp("start_load_index")
-    indices = utils.load_indices(index_dir)
+    indices = pipeline.load_indices(
+        index_dir, selected_indices=args.selected_indices, tab_name=tab_name
+    )
+
     scl.add_timestamp("end_load_index")
 
     scl.pretty_print()
@@ -198,31 +208,34 @@ if __name__ == "__main__":
     # Query index
     # Removing duplicate rows
     scl.add_timestamp("start_querying")
-    df = pl.read_parquet(query_data_path).unique()
-    query_metadata = RawDataset(
-        query_data_path.resolve(), "queries", "data/metadata/queries"
+    df = pl.read_parquet(query_tab_path).unique()
+    query_tab_metadata = RawDataset(
+        query_tab_path.resolve(), "queries", "data/metadata/queries"
     )
-    query_metadata.save_metadata_to_json()
+    query_tab_metadata.save_metadata_to_json()
 
     query_column = args.query_column
     if query_column not in df.columns:
         raise pl.ColumnNotFoundError()
 
-    if args.sample_size is not None:
+    if args.sample_size is not None and args.sample_size > 0:
         query = df[query_column].sample(int(args.sample_size)).drop_nulls()
     else:
         query = df[query_column].drop_nulls()
 
     logger.info("Start querying")
-    query_results, candidates_by_index = utils.querying(
-        query_metadata, query_column, query, indices, mdata_index, args.top_k
+    query_results, candidates_by_index = pipeline.querying(
+        query_tab_metadata.metadata,
+        query_column,
+        query,
+        indices,
+        mdata_index,
+        args.top_k,
     )
     logger.info("End querying")
     scl.add_timestamp("end_querying")
 
-    scl.results["n_candidates"] = len(candidates_by_index["minhash"])
-
-    if args.query_result_path is not None:
+    if args.query_result_path and args.query_result_path is not None:
         with open(args.query_result_path, "wb") as fp:
             pickle.dump(candidates_by_index, fp)
     else:
@@ -234,23 +247,33 @@ if __name__ == "__main__":
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")
         logger.info("Starting evaluation.")
-        utils.evaluate_joins(
+        pipeline.evaluate_joins(
             df,
             scl,
-            join_candidates=candidates_by_index,
+            candidates_by_index=candidates_by_index,
             verbose=0,
             iterations=args.iterations,
             n_splits=args.n_splits,
-            join_strategy=args.join_strategy,
             aggregation=args.aggregation,
-            cuda=args.cuda,
-            n_jobs=args.n_jobs,
+            top_k=5,
         )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
-
+        scl.set_status("SUCCESS")
+        # except Exception as exception:
+        #     exception_name = exception.__class__.__name__
+        #     logger_scn.error("RAISED %s" % exception_name)
+        #     scl.set_status("FAILURE", exception_name)
     scl.add_timestamp("end_process")
+    scl.add_process_time()
 
-    scl.write_to_file("results/scenario_results.txt")
+    scl.write_to_log("results/scenario_results.txt")
+    scl.write_to_json()
     logger_scn.debug(scl.to_string())
     logger.info("Run end.")
+
+
+if __name__ == "__main__":
+    args = parse_arguments()
+    run_name = setup_run_logging()
+    single_run(args, run_name)

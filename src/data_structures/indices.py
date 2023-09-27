@@ -7,12 +7,154 @@ import lazo_index_service
 import numpy as np
 import polars as pl
 from datasketch import MinHash, MinHashLSHEnsemble
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 mh_logger = logging.getLogger("metadata_logger")
 
 
+class BaseIndex:
+    def _index_single_table(self):
+        pass
+
+    def add_tables_from_dict(self, df_dict):
+        pass
+
+    def query_index(self, query):
+        pass
+
+    def load_index(self):
+        pass
+
+    def save_index(self, output_path):
+        pass
+
+
+class ManualIndex(BaseIndex):
+    """_summary_"""
+
+    def __init__(
+        self,
+        index_file=None,
+        match_list=None,
+        df_base=None,
+        tab_name=None,
+        mdata_path=None,
+        n_jobs=1,
+    ):
+        self.index_name = "manual"
+        self.df = None
+        self.df_base = df_base
+        self.tab_name = tab_name
+
+        if index_file is not None or match_list is not None:
+            if index_file is not None:
+                if Path(index_file).exists():
+                    self.load_index(index_file)
+                else:
+                    raise FileNotFoundError(
+                        f"Manual index file {index_file} not found."
+                    )
+            elif match_list is not None:
+                self.df = match_list
+            if not all((col in self.df.columns for col in ["hash", "col", "overlap"])):
+                raise ValueError(
+                    "Some required columns were not found in the provided file."
+                )
+        elif df_base is not None and mdata_path is not None:
+            print("Building data structure.")
+            if not Path(mdata_path).exists():
+                raise FileNotFoundError(f"The provided mdata path is invalid.")
+            self.df = self.measure_exact_overlap(df_base, mdata_path, n_jobs)
+        else:
+            # Do nothing
+            pass
+
+    def query_index(self, col_to_embed, top_k=10, threshold=0.1):
+        result = (
+            self.df.filter(pl.col("overlap") > threshold)
+            .sort("overlap", descending=True)
+            .limit(top_k)
+            .to_numpy()
+        )
+        return [tuple(v) for v in result]
+
+    @staticmethod
+    def _evaluate_one_table(fpath, df_base):
+        from src.methods.profiling import measure_containment
+
+        overlap_dict = {}
+        with open(fpath) as fp:
+            mdata = json.load(fp)
+            cnd_path = mdata["full_path"]
+            cnd_hash = mdata["hash"]
+            df_cnd = pl.read_parquet(cnd_path)
+            for col in df_cnd.columns:
+                pair = (cnd_hash, col)
+                cont = measure_containment(
+                    df_base, df_cnd, left_on=["col_to_embed"], right_on=[col]
+                )
+                overlap_dict[pair] = cont
+        return overlap_dict
+
+    def measure_exact_overlap(self, df_base, mdata_path, n_jobs):
+        # Building the pairwise distance with joblib
+        r = Parallel(n_jobs=n_jobs, verbose=0)(
+            delayed(self._evaluate_one_table)(fpath, df_base)
+            for idx, fpath in tqdm(
+                enumerate(mdata_path.glob("*.json")),
+                position=0,
+                leave=False,
+                total=sum((1 for _ in mdata_path.glob("*.json"))),
+            )
+        )
+
+        overlap_dict = {key: val for result in r for key, val in result.items()}
+        df_overlap = pl.from_dict(
+            {"key": list(overlap_dict.keys()), "overlap": list(overlap_dict.values())}
+        )
+        df_overlap = df_overlap.with_columns(
+            pl.col("key").list.to_struct().struct.rename_fields(["hash", "col"])
+        ).unnest("key")
+        df_overlap = df_overlap.sort("overlap", descending=True)
+
+        return df_overlap
+
+    def save_index(self, output_path):
+        out_dict = {
+            "index_name": self.index_name,
+            "df_overlap": self.df,
+            "tab_name": self.tab_name,
+        }
+        output_path = Path(output_path).with_stem(f"{self.index_name}_{self.tab_name}")
+        with open(output_path, "wb") as fp:
+            pickle.dump(out_dict, fp)
+
+    def load_index(self, index_path):
+        if Path(index_path).exists():
+            with open(index_path, "rb") as fp:
+                in_dict = pickle.load(fp)
+                self.df = in_dict["df_overlap"]
+                self.tab_name = in_dict["tab_name"]
+        else:
+            raise FileNotFoundError(f"File {index_path} not found.")
+
+
 class MinHashIndex:
+    """
+    Index class based on `MinHashLSHEnsemble`. By default, it scans for metadata files
+    in the provided `data_dir` and adds all them to the index.
+
+    Since by default the LSHEnsemble queries based on a single threshold defined
+    at creation time, this index builds accepts a list of thresholds and creates
+    an ensemble for each.
+
+    Ensembles do not support online updates, so after loading all tables in the index it is necessary
+    to invoke the function `create_ensembles`. Querying without this step will raise an exception.
+
+
+    """
+
     def __init__(
         self,
         data_dir=None,
@@ -22,16 +164,7 @@ class MinHashIndex:
         oneshot=True,
         index_file=None,
     ) -> None:
-        """Index class based on `MinHashLSHEnsemble`. By default, it scans for metadata files
-        in the provided `data_dir` and adds all them to the index.
-
-        Since by default the LSHEnsemble queries based on a single threshold defined
-        at creation time, this index builds accepts a list of thresholds and creates
-        an ensemble for each.
-
-        Ensembles do not support online updates, so after loading all tables in the index it is necessary
-        to invoke the function `create_ensembles`. Querying without this step will raise an exception.
-
+        """
         If `index_file` is provided, the data structures required for the index are loaded from the given
         index file.
 
@@ -162,12 +295,23 @@ class MinHashIndex:
 
     @staticmethod
     def prepare_result(query_result, threshold):
-        r = {}
-        for result in query_result:
-            t, c = result.split("__")
+        """Given the `query_result` and the `threshold`, reformat the content
+        of `query_result` according to the format required for the later steps
+        in the pipeline.
 
-            r[t, c] = threshold
-        return r
+        Args:
+            query_result (_type_): Result of querying the datasketch ensembles.
+            threshold (int): Threshold used for the ensemble.
+
+        Returns:
+            dict: A dictionary with keys (table, column) and value `threshold`.
+        """
+        result_dict = {}
+        for result in query_result:
+            table, column = result.split("__")
+
+            result_dict[(table, column)] = threshold
+        return result_dict
 
     def query_index(self, query, threshold=None, to_dataframe=False):
         """Query the index with a list of values and return a dictionary that contains all columns

@@ -1,38 +1,16 @@
 import logging
+import os
 import pickle
 from pathlib import Path
-import os
 
-from sklearn.model_selection import ShuffleSplit
+import polars as pl
+from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
 
-from src.data_structures.indices import LazoIndex, MinHashIndex
-from src.data_structures.loggers import RunLogger
+from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
 from src.data_structures.metadata import CandidateJoin, MetadataIndex
 from src.methods import evaluation as em
 
-
-def prepare_logger():
-    logger_sh = logging.getLogger("pipeline")
-    # console handler for info
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    # set formatter
-    ch_formatter = logging.Formatter("'%(asctime)s %(message)s'")
-    ch.setFormatter(ch_formatter)
-
-    logger_pipeline = logging.getLogger("run_logger")
-    # file handler for run logs
-    fh = logging.FileHandler("results/logs/runs_log.log")
-    fh.setLevel(logging.DEBUG)
-    # set formatter
-    fh_formatter = logging.Formatter("%(message)s")
-    fh.setFormatter(fh_formatter)
-
-    # add handler to logger
-    logger_pipeline.addHandler(fh)
-    logger_sh.addHandler(ch)
-
-    return logger_sh, logger_pipeline
+logger_sh = logging.getLogger("pipeline")
 
 
 def prepare_dirtree():
@@ -47,7 +25,7 @@ def prepare_default_configs(data_dir, selected_indices=None):
 
     Args:
         data_dir (str): Path to the directory that contains the metadata.
-        selected_indices (str): If provided, prepare and run only the selected indices.
+        selected_indices (str, optional): If provided, prepare and run only the selected indices.
 
     Raises:
         IOError: Raise IOError if `data_dir` is incorrect.
@@ -65,7 +43,7 @@ def prepare_default_configs(data_dir, selected_indices=None):
             },
             "minhash": {
                 "data_dir": data_dir,
-                "thresholds": [10, 20, 80],
+                "thresholds": [20],
                 "oneshot": True,
                 "num_perm": 128,
             },
@@ -80,6 +58,18 @@ def prepare_default_configs(data_dir, selected_indices=None):
             return configs
     else:
         raise IOError(f"Invalid path {data_dir}")
+
+
+def prepare_config_manual(base_table_path, mdata_path, n_jobs):
+    base_table = pl.read_parquet(base_table_path)
+    return {
+        "manual": {
+            "df_base": base_table,
+            "tab_name": Path(base_table_path).stem,
+            "mdata_path": mdata_path,
+            "n_jobs": n_jobs,
+        }
+    }
 
 
 def prepare_indices(index_configurations: dict):
@@ -100,13 +90,15 @@ def prepare_indices(index_configurations: dict):
             index_dict[index] = LazoIndex(**config)
         elif index == "minhash":
             index_dict[index] = MinHashIndex(**config)
+        elif index == "manual":
+            index_dict[index] = ManualIndex(**config)
         else:
             raise NotImplementedError
 
     return index_dict
 
 
-def save_indices(index_dict, index_dir):
+def save_indices(index_dict: dict, index_dir: str | Path):
     """Save all the indices found in `index_dict` in separate pickle files, in the
     directory provided in `index_dir`.
 
@@ -124,18 +116,48 @@ def save_indices(index_dict, index_dir):
         raise ValueError(f"Invalid `index_dir` {index_dir}")
 
 
-def load_indices(index_dir):
+def load_index(index_path: str | Path, tab_name=None):
+    index_path = Path(index_path)
+    if not index_path.exists():
+        raise IOError(f"Index {index_path} does not exist.")
+    with open(index_path, "rb") as fp:
+        input_dict = pickle.load(fp)
+        iname = input_dict["index_name"]
+        if iname == "minhash":
+            index = MinHashIndex()
+            index.load_index(index_dict=input_dict)
+        elif iname == "lazo":
+            index = LazoIndex()
+            index.load_index(index_path)
+        elif iname == "manual":
+            if "manual_" + tab_name in index_path.stem:
+                index = ManualIndex()
+                index.load_index(index_path=index_path)
+        else:
+            raise ValueError(f"Unknown index {iname}.")
+
+    return index
+
+
+def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
     """Given `index_dir`, scan the directory and load all the indices in an index dictionary.
 
     Args:
         index_dir (str): Path to the directory containing the indices.
+        selected_indices (list, optional): If provided, select only the provided indices.
+        tab_name (str, optional): Name of the table, required when using `manual` index.
 
     Raises:
         IOError: Raise IOError if the index dir does not exist.
+        RuntimeError: Raise RuntimeError if `manual` is required as index and `tab_name` is `None`.
 
     Returns:
         dict: The `index_dict` containing the loaded indices.
     """
+
+    if "manual" in selected_indices and tab_name is None:
+        raise RuntimeError("'manual' index requires 'tab_name' to be non-null.")
+
     index_dir = Path(index_dir)
     if not index_dir.exists():
         raise IOError(f"Index dir {index_dir} does not exist.")
@@ -145,16 +167,23 @@ def load_indices(index_dir):
         with open(index_path, "rb") as fp:
             input_dict = pickle.load(fp)
             iname = input_dict["index_name"]
-            if iname == "minhash":
-                index = MinHashIndex()
-                index.load_index(index_dict=input_dict)
-            elif iname == "lazo":
-                index = LazoIndex()
-                index.load_index(index_path)
-            else:
-                raise ValueError(f"Unknown index {iname}.")
+            if iname in selected_indices:
+                if iname == "minhash":
+                    index = MinHashIndex()
+                    index.load_index(index_dict=input_dict)
+                elif iname == "lazo":
+                    index = LazoIndex()
+                    index.load_index(index_path)
+                elif iname == "manual":
+                    if "manual_" + tab_name in index_path.stem:
+                        index = ManualIndex()
+                        index.load_index(index_path=index_path)
+                    else:
+                        continue
+                else:
+                    raise ValueError(f"Unknown index {iname}.")
 
-            index_dict[iname] = index
+                index_dict[iname] = index
 
     return index_dict
 
@@ -189,7 +218,7 @@ def generate_candidates(
         mdata_cand = metadata_index.query_by_hash(hash_)
         cjoin = CandidateJoin(
             indexing_method=index_name,
-            source_table_metadata=mdata_source.info,
+            source_table_metadata=mdata_source,
             candidate_table_metadata=mdata_cand,
             how="left",
             left_on=query_column,
@@ -211,7 +240,7 @@ def generate_candidates(
 
 def querying(
     mdata_source: dict,
-    source_column: str,
+    query_column: str,
     query: list,
     indices: dict,
     mdata_index: MetadataIndex,
@@ -221,7 +250,7 @@ def querying(
 
     Args:
         mdata_source (dict): Metadata of the source table.
-        source_column (str): Column that is the target of the query.
+        query_column (str): Column that is the target of the query.
         query (list): List of values in the query column.
         indices (dict): Dictionary containing all the indices.
         mdata_index (MetadataIndex): Metadata Index that contains information on tables in the data lake.
@@ -238,7 +267,7 @@ def querying(
     candidates_by_index = {}
     for index, index_res in query_results.items():
         candidates = generate_candidates(
-            index, index_res, mdata_index, mdata_source, source_column, top_k
+            index, index_res, mdata_index, mdata_source, query_column, top_k
         )
         candidates_by_index[index] = candidates
 
@@ -248,99 +277,79 @@ def querying(
 def evaluate_joins(
     base_table,
     scenario_logger,
-    join_candidates: dict,
+    candidates_by_index: dict,
     verbose=1,
     iterations=1000,
     n_splits=5,
     test_size=0.25,
-    join_strategy="left",
     aggregation="first",
-    n_jobs=1,
-    cuda=False,
+    group_column="col_to_embed",
+    split_kind="group_shuffle",
+    top_k=5,
 ):
-    logger_sh, logger_pipeline = prepare_logger()
-    rs = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+    # prepare_logger(scenario_logger.scenario_id)
 
-    for fold, (train_index, test_index) in enumerate(rs.split(base_table)):
-        logger_sh.info("Fold %d: START RUN" % (fold + 1))
-        for index_name, index_candidates in join_candidates.items():
-            left_table_train = em.prepare_table_for_evaluation(base_table[train_index])
-            left_table_test = em.prepare_table_for_evaluation(base_table[test_index])
+    groups = base_table.select(
+        pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
+    ).to_numpy()
 
-            # Run on single table, no joins
-            results_base = em.run_on_base_table(
-                scenario_logger,
-                fold,
-                left_table_train,
-                left_table_test,
-                target_column="target",
-                iterations=iterations,
-                n_splits=n_splits,
-                cuda=cuda,
-                verbose=verbose,
-                n_jobs=n_jobs,
-            )
+    if split_kind == "group_shuffle":
+        gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+        splits = gss.split(base_table, groups=groups)
+    elif split_kind == "shuffle":
+        ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+        splits = ss.split(base_table)
+    else:
+        raise ValueError(f"Inappropriate value {split_kind} for `split_kind`.")
 
-            # Join on each candidate, one at a time
-            results_single, best_k = em.run_on_candidates(
-                scenario_logger,
-                fold,
-                index_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations,
-                n_splits,
-                join_strategy,
-                aggregation=aggregation,
-                verbose=verbose,
-                cuda=cuda,
-                top_k=5,
-                n_jobs=n_jobs,
-            )
-            # Join all candidates at the same time
-            results_full = em.run_on_full_join(
-                scenario_logger,
-                fold,
-                index_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations,
-                verbose,
-                aggregation,
-                cuda,
-                n_jobs=n_jobs,
-            )
-            # Join only a subset of candidates, taking the best individual candidates from step 2.
-            subset_candidates = {k: index_candidates[k] for k in best_k}
+    splits = list(splits)
+    summary_results = []
 
-            results_full_sampled = em.run_on_full_join(
-                scenario_logger,
-                fold,
-                subset_candidates,
-                index_name,
-                left_table_train,
-                left_table_test,
-                iterations,
-                verbose,
-                aggregation,
-                cuda,
-                case="sampled",
-                n_jobs=n_jobs,
-            )
+    results = em.base_table(
+        scenario_logger,
+        splits,
+        base_table,
+        target_column="target",
+        iterations=iterations,
+        verbose=verbose,
+    )
+    summary_results.append(results)
 
-            logger_sh.info(
-                f"Fold {fold+1}: Base table -  RMSE {results_base[0]:.2f}  - R2 score {results_base[1]:.2f}"
-            )
-            logger_sh.info(
-                f"Fold {fold+1}: Join table -  RMSE {results_single[0]:.2f}  - R2 score {results_single[1]:.2f}"
-            )
-            logger_sh.info(
-                f"Fold {fold+1}: Full table -  RMSE {results_full[0]:.2f}  - R2 score {results_full[1]:.2f}"
-            )
-            logger_sh.info(
-                f"Fold {fold+1}: Full table sampled -  RMSE {results_full_sampled[0]:.2f}  - R2 score {results_full_sampled[1]:.2f}"
-            )
+    # Iterate over each index and run experiments on that
+    for index_name, join_candidates in candidates_by_index.items():
+        # Join on each candidate, one at a time
+        results, df_ranking = em.single_join(
+            scenario_logger,
+            splits,
+            join_candidates,
+            index_name,
+            base_table,
+            iterations,
+            aggregation=aggregation,
+            verbose=verbose,
+            top_k=top_k,
+        )
+
+        summary_results.append(results)
+
+        # Join all candidates at the same time
+        results = em.full_join(
+            scenario_logger,
+            splits,
+            join_candidates,
+            index_name,
+            base_table,
+            iterations=iterations,
+            verbose=verbose,
+            aggregation=aggregation,
+        )
+
+        summary_results.append(results)
+
+    summary = pl.from_dicts(summary_results)
+    print(f'SOURCE TABLE: {scenario_logger.get_parameters()["base_table"]}')
+    print(summary)
+
+    scenario_logger.set_results(summary)
 
     return

@@ -1,7 +1,5 @@
 """Evaluation methods"""
-# TODO: Fix imports
-import datetime as dt
-import hashlib
+import itertools
 import logging
 import os
 from pathlib import Path
@@ -11,154 +9,164 @@ import polars as pl
 import polars.selectors as cs
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import cross_validate
+from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
 from tqdm import tqdm
 
-from src.data_structures.loggers import RunLogger, ScenarioLogger
+from src.data_structures.loggers import RawLogger, RunLogger
+from src.utils.models import get_model
 
 logger_sh = logging.getLogger("pipeline")
-logger_pipeline = logging.getLogger("run_logger")
 
-import src.utils.utils_joins as utils
+import src.utils.joining as utils
 
 # TODO: move this somewhere else
 model_folder = Path("data/models")
 os.makedirs(model_folder, exist_ok=True)
 
 
-def prepare_table_for_evaluation(df):
+def prepare_table_for_evaluation(src_df):
+    df = src_df.with_columns(
+        src_df.with_columns(cs.string().fill_null("null"), cs.float().fill_null(np.nan))
+    )
+    # df = src_df.fill_null()
     df = utils.cast_features(df)
-    df = df.fill_nan("null").fill_null("null")
     return df
 
 
-def evaluate_model_on_test_split(test_split, model, target_column_name=None):
-    if target_column_name is None:
-        target_column_name = "target"
-
-    test_split = test_split.fill_nan("null").fill_null("null")
-    y_test = test_split[target_column_name].cast(pl.Float64)
-    test_split = test_split.drop(target_column_name).to_pandas()
-    y_pred = model.predict(test_split)
-
-    rmse = mean_squared_error(y_test, y_pred, squared=False)
-    r2 = r2_score(y_test, y_pred)
-
-    return (rmse, r2)
-
-
-def evaluate_single_table(
-    src_df: pl.DataFrame,
-    target_column="target",
-    run_label=None,
-    verbose=0,
-    iterations=1000,
-    n_splits=5,
-    cuda=False,
-    n_jobs=1,
+def prepare_X_y(
+    src_df,
+    target_column,
 ):
     y = src_df[target_column].to_pandas()
-    df = src_df.drop(target_column)
+    df = src_df.drop(target_column).fill_null(value="null").fill_nan(value=np.nan)
     df = utils.cast_features(df)
     cat_features = df.select(cs.string()).columns
-    df = df.fill_null(value="null").fill_nan(value=np.nan).to_pandas()
+    X = df.to_pandas()
 
-    if cuda:
+    return X, y, cat_features
+
+
+def base_table(
+    scenario_logger,
+    splits,
+    base_table,
+    target_column="target",
+    iterations=500,
+    verbose=0,
+    catboost_parameters=None,
+):
+    if catboost_parameters is None:
+        catboost_parameters = {"l2_leaf_reg": 0.01, "od_type": None, "od_wait": None}
+
+    additional_parameters = {"aggregation": "nojoin", "join_strategy": "nojoin"}
+    run_logger = RunLogger(scenario_logger, additional_parameters)
+    run_logger.start_time("run")
+
+    r2_results = []
+    tree_count_list = []
+
+    for idx, (train_split, test_split) in enumerate(splits):
+        raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
+        raw_logger.start_time("run")
+        run_logger.start_time("run", cumulative=True)
+        left_table_train = base_table[train_split]
+        left_table_test = base_table[test_split]
+
+        X, y, cat_features = prepare_X_y(left_table_train, target_column)
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+        raw_logger.start_time("train")
+        run_logger.start_time("train", cumulative=True)
+
         model = CatBoostRegressor(
             cat_features=cat_features,
             iterations=iterations,
-            task_type="GPU",
-            #   devices="0"
+            l2_leaf_reg=0.01,
+            verbose=verbose,
+            od_type="Iter",
+            od_wait=10,
         )
-    else:
-        model = CatBoostRegressor(
-            cat_features=cat_features, iterations=iterations, l2_leaf_reg=0.01
-        )
+        model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
+        raw_logger.results["best_iteration"] = model.best_iteration_
+        raw_logger.results["tree_count"] = model.tree_count_
+        tree_count_list.append(model.tree_count_)
 
-    results = cross_validate(
-        model,
-        X=df,
-        y=y,
-        scoring=("r2", "neg_root_mean_squared_error"),
-        cv=n_splits,
-        n_jobs=n_jobs,
-        fit_params={"verbose": verbose},
-        return_estimator=True,
-    )
+        raw_logger.end_time("train")
+        run_logger.end_time("train")
 
-    best_res = np.argmax(results["test_r2"])
+        raw_logger.start_time("eval")
+        run_logger.start_time("eval", cumulative=True)
+        eval_data = left_table_test.fill_nan("null").fill_null("null")
+        y_test = eval_data[target_column].cast(pl.Float64)
+        eval_data = eval_data.drop(target_column).to_pandas()
 
-    best_estimator = results["estimator"][best_res]
-    best_estimator.save_model(Path(model_folder, run_label))
+        y_pred = model.predict(eval_data)
 
-    return (run_label, best_estimator, max(results["test_r2"]))
+        r2 = r2_score(y_test, y_pred)
+        r2_results.append(r2)
 
+        raw_logger.end_time("eval")
+        run_logger.end_time("eval")
 
-def run_on_base_table(
-    scenario_logger,
-    fold,
-    left_table_train,
-    left_table_test,
-    target_column="target",
-    iterations=500,
-    n_splits=5,
-    n_jobs=1,
-    verbose=0,
-    cuda=False,
-):
-    run_logger = RunLogger(scenario_logger, fold, {"aggregation": "nojoin"})
-    run_logger.start_time("run")
-    run_logger.start_time("train")
-    logger_sh.info("Fold %d: Start training on base table" % (fold + 1))
+        raw_logger.results["r2score"] = r2
+        raw_logger.results["n_cols"] = len(left_table_train.schema)
 
-    base_result = evaluate_single_table(
-        left_table_train,
-        target_column=target_column,
-        n_splits=n_splits,
-        run_label="base_table",
-        verbose=verbose,
-        iterations=iterations,
-        cuda=cuda,
-        n_jobs=n_jobs,
-    )
-    logger_sh.info("Fold %d: End training on base table" % (fold + 1))
-    run_logger.end_time("train")
+        raw_logger.set_run_status("SUCCESS")
+        raw_logger.end_time("run")
+        run_logger.end_time("run")
+        raw_logger.to_raw_log_file()
 
-    run_logger.start_time("eval")
-    eval_results = evaluate_model_on_test_split(left_table_test, base_result[1])
-    run_logger.results["rmse"], run_logger.results["r2score"] = eval_results
+    run_logger.results["avg_r2"] = np.mean(r2_results)
+    run_logger.results["std_r2"] = np.std(r2_results)
 
-    run_logger.end_time("eval")
+    mdn_tree_count = np.median(tree_count_list)
+
     run_logger.set_run_status("SUCCESS")
-    run_logger.end_time("run")
 
-    logger_pipeline.debug(run_logger.to_str())
+    run_logger.to_run_log_file()
 
-    return eval_results
+    logger_sh.info("Base table R2 %.4f" % (run_logger.results["avg_r2"]))
+
+    results = {
+        "index": "base_table",
+        "case": "base_table",
+        "avg_r2": run_logger.results["avg_r2"],
+        "std_r2": run_logger.results["std_r2"],
+        "mdn_tree_count": mdn_tree_count,
+    }
+
+    return results
 
 
-def run_on_candidates(
+def single_join(
     scenario_logger,
-    fold,
+    splits,
     join_candidates,
     index_name,
-    left_table_train,
-    left_table_test,
+    base_table,
     iterations=1000,
-    n_splits=5,
     join_strategy="left",
     aggregation="first",
     top_k=None,
-    n_jobs=1,
+    target_column="target",
     verbose=0,
-    cuda=False,
 ):
-    add_params = {"candidate_table": "best_candidate", "index_name": index_name}
-    run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
+    additional_parameters = {
+        "candidate_table": "best_candidate",
+        "index_name": index_name,
+        "join_strategy": "single_join",
+    }
+    run_logger = RunLogger(scenario_logger, additional_parameters=additional_parameters)
     run_logger.start_time("run")
-    logger_sh.info("Fold %d: Start training on candidates" % (fold + 1))
 
-    result_list = []
+    best_candidate_hash = None
+    best_candidate_r2 = -np.inf
+    best_tree_count_list = []
+
+    dict_r2_by_cand = {}
+    avg_r2_by_cand = {}
+
+    overall_results = []
+
     for hash_, mdata in tqdm(
         join_candidates.items(),
         total=len(join_candidates),
@@ -166,146 +174,484 @@ def run_on_candidates(
         desc="Training on candidates",
     ):
         src_md, cnd_md, left_on, right_on = mdata.get_join_information()
-        candidate_table = pl.read_parquet(cnd_md["full_path"])
+        cand_parameters = {
+            "candidate_table": hash_,
+            "index_name": index_name,
+            "left_on": left_on,
+            "right_on": right_on,
+            "join_strategy": "single_join",
+        }
+        cnd_table = pl.read_parquet(cnd_md["full_path"])
+        dict_r2_by_cand[hash_] = []
+        tree_count_list = []
+        for idx, (train_split, test_split) in enumerate(splits):
+            raw_logger = RawLogger(
+                scenario_logger=scenario_logger,
+                fold_id=idx,
+                additional_parameters=cand_parameters,
+            )
+            raw_logger.start_time("run")
+            run_logger.start_time("run", cumulative=True)
 
-        # Join source table with candidate
-        run_logger.start_time("join", cumulative=True)
-        merged = utils.execute_join_with_aggregation(
-            left_table_train,
-            candidate_table,
-            left_on=left_on,
-            right_on=right_on,
-            how=join_strategy,
-            aggregation=aggregation,
-        )
+            left_table_train = base_table[train_split]
+            left_table_test = base_table[test_split]
 
-        merged = prepare_table_for_evaluation(merged)
-        run_logger.end_time("join", cumulative=True)
-        run_logger.start_time("train", cumulative=True)
-        # Result has format (run_label, best_estimator, best_R2score)
-        result = evaluate_single_table(
-            merged,
-            verbose=verbose,
-            run_label=hash_,
-            n_splits=n_splits,
-            iterations=iterations,
-            cuda=cuda,
-            n_jobs=n_jobs,
-        )
-        run_logger.end_time("train", cumulative=True)
-        result_list.append(result)
+            if False:
+                ja = JoinAggregator(
+                    tables=[
+                        (
+                            candidate_table,
+                            right_on,
+                            [
+                                col
+                                for col in candidate_table.columns
+                                if col not in left_on
+                            ],
+                        )
+                    ],
+                    main_key="col_to_embed",
+                    agg_ops=["mean", "min", "max", "mode"],
+                )
 
-    result_list.sort(key=lambda x: x[2], reverse=True)
+                merged = ja.fit_transform(left_table_train, y=y_train)
 
-    best_candidate = result_list[0]
-    best_candidate_hash, best_candidate_model, _ = best_candidate
+            raw_logger.start_time("join")
+            run_logger.start_time("join", cumulative=True)
+            merged = utils.execute_join_with_aggregation(
+                left_table_train,
+                cnd_table,
+                left_on=left_on,
+                right_on=right_on,
+                how=join_strategy,
+                aggregation=aggregation,
+                suffix="_right",
+            )
+            raw_logger.end_time("join")
+            run_logger.end_time("join", cumulative=True)
 
-    best_candidate_mdata = join_candidates[best_candidate_hash]
-    src_md, cnd_md, left_on, right_on = best_candidate_mdata.get_join_information()
-    candidate_table = pl.read_parquet(cnd_md["full_path"])
+            raw_logger.start_time("train")
+            run_logger.start_time("train", cumulative=True)
+            X, y, cat_features = prepare_X_y(merged, target_column)
+            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
 
-    run_logger.start_time("eval_join")
-    merged_test = utils.execute_join_with_aggregation(
-        left_table_test,
-        candidate_table,
-        left_on=left_on,
-        right_on=right_on,
-        how=join_strategy,
-        aggregation=aggregation,
+            model = CatBoostRegressor(
+                cat_features=cat_features,
+                iterations=iterations,
+                l2_leaf_reg=0.01,
+                verbose=verbose,
+                od_type="Iter",
+                od_wait=10,
+            )
+
+            model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
+            raw_logger.results["best_iteration"] = model.best_iteration_
+            raw_logger.results["tree_count"] = model.tree_count_
+            tree_count_list.append(model.tree_count_)
+            raw_logger.end_time("train")
+            run_logger.end_time("train")
+
+            raw_logger.start_time("eval_join")
+            run_logger.start_time("eval_join", cumulative=True)
+
+            if False:
+                merged_test = ja.transform(left_table_test)
+
+            merged_test = utils.execute_join_with_aggregation(
+                left_table_test,
+                cnd_table,
+                left_on=left_on,
+                right_on=right_on,
+                how=join_strategy,
+                aggregation=aggregation,
+                suffix="_right",
+            )
+            X, y, cat_features = prepare_X_y(merged_test, target_column)
+            raw_logger.end_time("eval_join")
+            run_logger.end_time("eval_join", cumulative=True)
+
+            raw_logger.start_time("eval")
+            run_logger.start_time("eval", cumulative=True)
+
+            # eval_data = merged_test.fill_nan("null").fill_null("null")
+            eval_data = prepare_table_for_evaluation(merged)
+            y_test = eval_data[target_column].cast(pl.Float64)
+            eval_data = eval_data.drop(target_column).to_pandas()
+
+            y_pred = model.predict(eval_data)
+
+            raw_logger.end_time("eval")
+            run_logger.end_time("eval")
+
+            r2 = r2_score(y_test, y_pred)
+            dict_r2_by_cand[hash_].append(r2)
+            overall_results.append({"candidate": hash_, "r2": r2})
+
+            raw_logger.results["r2score"] = r2
+            raw_logger.results["n_cols"] = len(merged_test.schema)
+
+            raw_logger.set_run_status("SUCCESS")
+            raw_logger.end_time("run")
+            run_logger.end_time("run")
+            raw_logger.to_raw_log_file()
+
+        avg_r2 = np.mean(dict_r2_by_cand[hash_])
+        avg_r2_by_cand[hash_] = avg_r2
+        mdn_tree_count = np.median(tree_count_list)
+
+        if avg_r2 > best_candidate_r2:
+            best_candidate_hash = hash_
+            best_candidate_r2 = avg_r2
+            best_candidate_tree_count = mdn_tree_count
+
+    df_ranking = pl.from_dicts(overall_results)
+    df_ranking = (
+        df_ranking.groupby("candidate")
+        .agg(pl.mean("r2").alias("avg_r2"), pl.std("r2").alias("std_r2"))
+        .sort("avg_r2", descending=True)
     )
-    run_logger.end_time("eval_join")
-    run_logger.start_time("eval")
-    results_best = evaluate_model_on_test_split(merged_test, best_candidate_model)
-    run_logger.end_time("eval")
-    run_logger.results["rmse"], run_logger.results["r2score"] = results_best
-
-    run_logger.set_run_status("SUCCESS")
-    logger_pipeline.debug(run_logger.to_str())
-    logger_sh.info("Fold %d: End training on candidates" % (fold + 1))
 
     if top_k is not None:
-        if top_k < 0:
-            raise ValueError("`top_k` must be positive.")
-        return results_best, [r[0] for r in result_list[:top_k]]
-    return results_best
+        df_ranking = df_ranking.limit(top_k)
+
+    best_results = dict_r2_by_cand[best_candidate_hash]
+
+    run_logger.results["avg_r2"] = np.mean(best_results)
+    run_logger.results["std_r2"] = np.std(best_results)
+    run_logger.results["best_candidate_hash"] = best_candidate_hash
+    run_logger.results["tree_count"] = best_candidate_tree_count
+
+    run_logger.set_run_status("SUCCESS")
+    run_logger.to_run_log_file()
+
+    logger_sh.info(
+        "Best candidate: %s R2 %.4f" % (best_candidate_hash, best_candidate_r2)
+    )
+
+    results = {
+        "index": index_name,
+        "case": "single_join",
+        "best_candidate_hash": best_candidate_hash,
+        "avg_r2": run_logger.results["avg_r2"],
+        "std_r2": run_logger.results["std_r2"],
+        "mdn_tree_count": best_candidate_tree_count,
+    }
+
+    return results, df_ranking
 
 
-def run_on_full_join(
+def full_join(
     scenario_logger,
-    fold,
+    splits,
     join_candidates,
     index_name,
-    left_table_train,
-    left_table_test,
+    base_table,
+    target_column="target",
     iterations=1000,
     verbose=0,
     aggregation="first",
-    cuda=False,
     case="full",
-    n_jobs=1,
 ):
-    """Evaluate the performance obtained by joining all the candidates provided
-    by the join discovery algorithm, with no supervision.
-
-    Args:
-        scenario_logger (ScenarioLogger): Logger containing information relative to the current run.
-        fold (int): Id of the outer fold.
-        join_candidates (dict): Dictionary containing the candidates queried by the join discovery methods.
-        left_table_train (pl.DataFrame): Train split for the left (source) table.
-        left_table_test (pl.DataFrame): Test split for the left (source) table.
-        iterations (int, optional): Number of iterations to be used by Catboost. Defaults to 1000.
-        verbose (int, optional): Verbosity of the training model. Defaults to 0.
-        aggregation (str, optional): Aggregation method to be used, can be either `first`, `mean` or `dfs`. Defaults to "first".
-        cuda (bool, optional): Whether or not to train on GPU. Defaults to False.
-        n_jobs (int, optional): Number of CPUs to use when training. Defaults to 1.
-    """
-
-    add_params = {
+    additional_parameters = {
         "candidate_table": case,
         "index_name": index_name,
         "aggregation": aggregation,
+        "join_strategy": f"{case}_join",
     }
-    run_logger = RunLogger(scenario_logger, fold, additional_parameters=add_params)
-    run_logger.start_time("run")
-    logger_sh.info("Fold %d: Start training on full join" % (fold + 1))
+    run_logger = RunLogger(scenario_logger, additional_parameters=additional_parameters)
 
     if aggregation == "dfs":
-        logger_sh.error("Fold %d: Full join not available with DFS." % (fold + 1))
+        logger_sh.error("Full join not available with DFS.")
         run_logger.end_time("run")
         run_logger.set_run_status("FAILURE")
-        return [0, 0]
+        run_logger.to_run_log_file()
+        return {
+            "index": index_name,
+            "case": case,
+            "best_candidate_hash": "",
+            "avg_r2": np.nan,
+            "std_r2": np.nan,
+        }
 
-    run_logger.start_time("join")
-    merged = left_table_train.clone().lazy()
-    merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
-    merged = merged.fill_null("").fill_nan("")
-    run_logger.end_time("join")
+    results = []
+    tree_count_list = []
 
-    run_logger.start_time("train")
-    result_train = evaluate_single_table(
-        merged,
-        verbose=verbose,
-        iterations=iterations,
-        run_label="full_join",
-        cuda=cuda,
-        n_jobs=n_jobs,
-    )
-    run_logger.end_time("train")
+    for idx, (train_split, test_split) in enumerate(splits):
+        raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
+        raw_logger.start_time("run")
+        run_logger.start_time("run", cumulative=True)
 
-    run_logger.start_time("eval_join")
-    merged_test = utils.execute_join_all_candidates(
-        left_table_test, join_candidates, aggregation
-    )
-    run_logger.end_time("eval_join")
+        left_table_train = base_table[train_split]
+        left_table_test = base_table[test_split]
 
-    run_logger.start_time("eval")
-    result_model = result_train[1]
-    results = evaluate_model_on_test_split(merged_test, result_model)
-    run_logger.results["rmse"], run_logger.results["r2score"] = results
-    run_logger.end_time("eval")
-    run_logger.set_run_status("SUCCESS")
-    run_logger.end_time("run")
-    logger_sh.info("Fold %d: End training on full join" % (fold + 1))
+        ##### START JOIN
+        raw_logger.start_time("join")
+        run_logger.start_time("join", cumulative=True)
 
-    logger_pipeline.debug(run_logger.to_str())
+        merged = left_table_train.clone().lazy()
+        merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
+        merged = prepare_table_for_evaluation(merged)
+
+        raw_logger.end_time("join")
+        run_logger.end_time("join", cumulative=True)
+        # END JOIN
+
+        # START TRAIN
+        raw_logger.start_time("train")
+        run_logger.start_time("train", cumulative=True)
+
+        X, y, cat_features = prepare_X_y(merged, target_column)
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+
+        model = CatBoostRegressor(
+            cat_features=cat_features,
+            iterations=iterations,
+            l2_leaf_reg=0.01,
+            verbose=verbose,
+            od_type="Iter",
+            od_wait=10,
+        )
+
+        model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
+        raw_logger.results["best_iteration"] = model.best_iteration_
+        raw_logger.results["tree_count"] = model.tree_count_
+        tree_count_list.append(model.tree_count_)
+
+        raw_logger.end_time("train")
+        run_logger.end_time("train")
+        # END TRAIN
+
+        # START EVAL JOIN
+        raw_logger.start_time("eval_join")
+        run_logger.start_time("eval_join", cumulative=True)
+
+        merged_test = utils.execute_join_all_candidates(
+            left_table_test, join_candidates, aggregation
+        )
+        raw_logger.end_time("eval_join")
+        run_logger.end_time("eval_join", cumulative=True)
+        # END EVAL JOIN
+
+        # START EVAL
+        raw_logger.start_time("eval")
+        run_logger.start_time("eval", cumulative=True)
+        # eval_data = merged_test.fill_nan("null").fill_null("null")
+        eval_data = prepare_table_for_evaluation(merged_test)
+        y_test = eval_data[target_column].cast(pl.Float64)
+        eval_data = eval_data.drop(target_column).to_pandas()
+        run_logger.end_time("eval")
+        raw_logger.end_time("eval")
+
+        y_pred = model.predict(eval_data)
+
+        r2 = r2_score(y_test, y_pred)
+
+        results.append(r2)
+        raw_logger.results["r2score"] = r2
+        raw_logger.results["n_cols"] = len(merged_test.schema)
+
+        raw_logger.set_run_status("SUCCESS")
+        raw_logger.end_time("run")
+        run_logger.end_time("run")
+
+        raw_logger.to_raw_log_file()
+
+    run_logger.results["avg_r2"] = np.mean(results)
+    run_logger.results["std_r2"] = np.std(results)
+    run_logger.results["best_candidate_hash"] = "full_join"
+    run_logger.to_run_log_file()
+
+    logger_sh.info("Best %s R2 %.4f" % (case, run_logger.results["avg_r2"]))
+
+    results = {
+        "index": index_name,
+        "case": case,
+        "best_candidate_hash": "full_join",
+        "avg_r2": run_logger.results["avg_r2"],
+        "std_r2": run_logger.results["std_r2"],
+        "mdn_tree_count": np.median(tree_count_list),
+    }
+
+    return results
+
+
+def greedy_join(
+    scenario_logger,
+    splits,
+    join_candidates,
+    index_name,
+    base_table,
+    target_column="target",
+    iterations=1000,
+    verbose=0,
+    aggregation="first",
+):
+    raise NotImplementedError
+    additional_parameters = {
+        "candidate_table": "greedy_join",
+        "index_name": index_name,
+        "aggregation": aggregation,
+        "join_strategy": f"greedy_join",
+    }
+    run_logger = RunLogger(scenario_logger, additional_parameters=additional_parameters)
+
+    if aggregation == "dfs":
+        logger_sh.error("Full join not available with DFS.")
+        run_logger.end_time("run")
+        run_logger.set_run_status("FAILURE")
+        run_logger.to_run_log_file()
+        return {
+            "index": index_name,
+            "case": "greedy_join",
+            "best_candidate_hash": "",
+            "avg_r2": np.nan,
+            "std_r2": np.nan,
+        }
+
+    results = []
+
+    for idx, (train_split, test_split) in enumerate(splits):
+        raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
+        raw_logger.start_time("run")
+        run_logger.start_time("run", cumulative=True)
+
+        left_table_train = base_table[train_split]
+        left_table_test = base_table[test_split]
+
+        ##### START JOIN
+        raw_logger.start_time("join")
+        run_logger.start_time("join", cumulative=True)
+
+        merged = left_table_train.clone().lazy()
+
+        used_candidates = []
+
+        for hash_, mdata in tqdm(
+            join_candidates.items(),
+            total=len(join_candidates),
+            leave=False,
+            desc="Training on candidates",
+        ):
+            src_md, cnd_md, left_on, right_on = mdata.get_join_information()
+            current_candidates = used_candidates + [hash_]
+
+            cand_parameters = {
+                "candidate_table": hash_,
+                "index_name": index_name,
+                "left_on": left_on,
+                "right_on": right_on,
+                "join_strategy": "single_join",
+            }
+            cnd_table = pl.read_parquet(cnd_md["full_path"])
+            raw_logger = RawLogger(
+                scenario_logger=scenario_logger,
+                fold_id=idx,
+                additional_parameters=cand_parameters,
+            )
+
+            raw_logger.start_time("join")
+            run_logger.start_time("join", cumulative=True)
+            merged = utils.execute_join_with_aggregation(
+                left_table_train,
+                cnd_table,
+                left_on=left_on,
+                right_on=right_on,
+                how=join_strategy,
+                aggregation=aggregation,
+                suffix="_right",
+            )
+            raw_logger.end_time("join")
+            run_logger.end_time("join", cumulative=True)
+
+            raw_logger.start_time("train")
+            run_logger.start_time("train", cumulative=True)
+            X, y, cat_features = prepare_X_y(merged, target_column)
+
+            model = CatBoostRegressor(
+                cat_features=cat_features,
+                iterations=iterations,
+                l2_leaf_reg=0.01,
+                verbose=verbose,
+            )
+
+            model.fit(X=X, y=y)
+
+            raw_logger.end_time("train")
+            run_logger.end_time("train")
+
+            # TODO: test the performance vs the previous
+
+        raw_logger.end_time("join")
+        run_logger.end_time("join", cumulative=True)
+        # END JOIN
+
+        merged = prepare_table_for_evaluation(merged)
+
+        # START TRAIN
+        raw_logger.start_time("train")
+        run_logger.start_time("train", cumulative=True)
+
+        X, y, cat_features = prepare_X_y(merged, target_column)
+
+        model = CatBoostRegressor(
+            cat_features=cat_features,
+            iterations=iterations,
+            l2_leaf_reg=0.01,
+            verbose=verbose,
+        )
+
+        model.fit(X=X, y=y)
+        raw_logger.end_time("train")
+        run_logger.end_time("train")
+        # END TRAIN
+
+        # START EVAL JOIN
+        raw_logger.start_time("eval_join")
+        run_logger.start_time("eval_join", cumulative=True)
+
+        merged_test = utils.execute_join_all_candidates(
+            left_table_test, join_candidates, aggregation
+        )
+        raw_logger.end_time("eval_join")
+        run_logger.end_time("eval_join", cumulative=True)
+        # END EVAL JOIN
+
+        # START EVAL
+        raw_logger.start_time("eval")
+        run_logger.start_time("eval", cumulative=True)
+        # eval_data = merged_test.fill_nan("null").fill_null("null")
+        eval_data = prepare_table_for_evaluation(merged_test)
+        y_test = eval_data[target_column].cast(pl.Float64)
+        eval_data = eval_data.drop(target_column).to_pandas()
+        run_logger.end_time("eval")
+        raw_logger.end_time("eval")
+
+        y_pred = model.predict(eval_data)
+
+        r2 = r2_score(y_test, y_pred)
+
+        results.append(r2)
+        raw_logger.results["r2score"] = r2
+        raw_logger.results["n_cols"] = len(merged_test.schema)
+
+        raw_logger.set_run_status("SUCCESS")
+        raw_logger.end_time("run")
+        run_logger.end_time("run")
+
+        raw_logger.to_raw_log_file()
+
+    run_logger.results["avg_r2"] = np.mean(results)
+    run_logger.results["std_r2"] = np.std(results)
+    run_logger.results["best_candidate_hash"] = "full_join"
+    run_logger.to_run_log_file()
+
+    logger_sh.info("Best %s R2 %.4f" % (case, run_logger.results["avg_r2"]))
+
+    results = {
+        "index": index_name,
+        "case": case,
+        "best_candidate_hash": "full_join",
+        "avg_r2": run_logger.results["avg_r2"],
+        "std_r2": run_logger.results["std_r2"],
+    }
+
     return results

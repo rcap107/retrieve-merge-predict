@@ -1,3 +1,5 @@
+import base64
+
 import featuretools as ft
 import polars as pl
 import polars.selectors as cs
@@ -54,6 +56,7 @@ def prepare_dfs_table(
     on=None,
     left_on=None,
     right_on=None,
+    target_column="col_to_embed",
 ):
     """This function takes as input a left and right table to join on, as well
     as the join columns (either `on`, or `left_on` and `right_on`), then uses
@@ -74,6 +77,7 @@ def prepare_dfs_table(
     Returns:
         pl.DataFrame: The new table.
     """
+
     if on is not None:
         left_on = right_on = on
 
@@ -86,8 +90,7 @@ def prepare_dfs_table(
         right_on = right_on[0]
 
     # DFS does not support joining on columns that include duplicated values.
-    # TODO: remove hardcoded `col_to_embed`.
-    left_table_dedup = left_table.unique("col_to_embed").to_pandas()
+    left_table_dedup = left_table.unique(target_column).to_pandas()
     right_table = right_table.with_row_count("index").to_pandas()
 
     es = ft.EntitySet()
@@ -110,7 +113,7 @@ def prepare_dfs_table(
 
     es = es.add_relationship("source_table", left_on, "candidate_table", right_on)
 
-    # `feature_matrix` is the joined table, with new features, we don't care about `feature_defs`
+    # `feature_matrix` is the joined table, with new features
     feature_matrix, feature_defs = ft.dfs(
         entityset=es,
         target_dataframe_name="source_table",
@@ -132,7 +135,7 @@ def prepare_dfs_table(
     # constant.
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
     augmented_table = left_table.to_pandas().merge(
-        new_df[feat_columns].reset_index(), how="left", on="col_to_embed"
+        new_df[feat_columns].reset_index(), how="left", on=target_column
     )
 
     pl_df = pl.from_pandas(augmented_table)
@@ -175,6 +178,7 @@ def execute_join_with_aggregation(
             left_on=left_on,
             right_on=right_on,
             how=how,
+            suffix=suffix,
         )
     return merged
 
@@ -399,3 +403,21 @@ def aggregate_first(target_table: pl.DataFrame, aggr_columns):
 
     df_dedup = target_table.unique(aggr_columns, keep="first")
     return df_dedup
+
+
+def encode_candidate_name(candidate_name: str | list):
+    if type(candidate_name) == str:
+        to_encode = candidate_name
+    elif type(candidate_name) == list:
+        to_encode = "|".join(candidate_name)
+    enc = base64.b64encode(to_encode, altchars=None)
+    return enc
+
+
+def decode_candidate_name(encoded_name):
+    decoded = base64.b64decode(encoded_name)
+    split = decoded.split("|")
+    if len(split) == 1:
+        return split[0]
+    else:
+        return split
