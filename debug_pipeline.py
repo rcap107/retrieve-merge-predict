@@ -8,8 +8,8 @@ import src.pipeline as pipeline
 from src._join_aggregator import JoinAggregator
 from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import MetadataIndex, RawDataset
-from src.utils.indexing import write_candidates_on_file
 from src.methods.evaluation import perform_feature_selection
+from src.utils.indexing import write_candidates_on_file
 
 print("Imported")
 # %%

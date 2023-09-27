@@ -1,14 +1,16 @@
 # %%
 # %load_ext autoreload
 # %autoreload 2
-import polars as pl
-from pathlib import Path
-from src.candidate_discovery.utils_minhash import MinHashIndex
-from src.candidate_discovery.utils_lazo import LazoIndex
-import pickle
-from src.utils.data_structures import CandidateJoin
 import json
+import pickle
+from pathlib import Path
+
+import polars as pl
 from tqdm import tqdm
+
+from src.candidate_discovery.utils_lazo import LazoIndex
+from src.candidate_discovery.utils_minhash import MinHashIndex
+from src.utils.data_structures import CandidateJoin
 
 # %%
 data_path = Path("data/yago3-dl/wordnet")
