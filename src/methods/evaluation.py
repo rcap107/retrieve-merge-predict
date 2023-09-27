@@ -12,12 +12,13 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
 from tqdm import tqdm
 
+import src.utils.joining as utils
 from src.data_structures.loggers import RawLogger, RunLogger
+from src.methods.join_estimators import JoinMethod
 from src.utils.models import get_model
 
 logger_sh = logging.getLogger("pipeline")
 
-import src.utils.joining as utils
 
 # TODO: move this somewhere else
 model_folder = Path("data/models")
@@ -40,10 +41,9 @@ def prepare_X_y(
     y = src_df[target_column].to_pandas()
     df = src_df.drop(target_column).fill_null(value="null").fill_nan(value=np.nan)
     df = utils.cast_features(df)
-    cat_features = df.select(cs.string()).columns
     X = df.to_pandas()
 
-    return X, y, cat_features
+    return X, y
 
 
 def base_table(
@@ -65,76 +65,28 @@ def base_table(
     r2_results = []
     tree_count_list = []
 
+    join_method = JoinMethod(
+        scenario_logger=scenario_logger,
+        target_column=target_column,
+        chosen_model="catboost",
+        model_parameters=catboost_parameters,
+    )
+
     for idx, (train_split, test_split) in enumerate(splits):
-        raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
-        raw_logger.start_time("run")
-        run_logger.start_time("run", cumulative=True)
-        left_table_train = base_table[train_split]
-        left_table_test = base_table[test_split]
+        base_table_train = base_table[train_split]
+        base_table_test = base_table[test_split]
 
-        X, y, cat_features = prepare_X_y(left_table_train, target_column)
-        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
-        raw_logger.start_time("train")
-        run_logger.start_time("train", cumulative=True)
+        X_train, y_train = prepare_X_y(base_table_train, target_column)
+        X_test, y_test = prepare_X_y(base_table_test, target_column)
 
-        model = CatBoostRegressor(
-            cat_features=cat_features,
-            iterations=iterations,
-            l2_leaf_reg=0.01,
-            verbose=verbose,
-            od_type="Iter",
-            od_wait=10,
-        )
-        model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
-        raw_logger.results["best_iteration"] = model.best_iteration_
-        raw_logger.results["tree_count"] = model.tree_count_
-        tree_count_list.append(model.tree_count_)
+        join_method.fit(X_train, y_train)
 
-        raw_logger.end_time("train")
-        run_logger.end_time("train")
-
-        raw_logger.start_time("eval")
-        run_logger.start_time("eval", cumulative=True)
-        eval_data = left_table_test.fill_nan("null").fill_null("null")
-        y_test = eval_data[target_column].cast(pl.Float64)
-        eval_data = eval_data.drop(target_column).to_pandas()
-
-        y_pred = model.predict(eval_data)
+        y_pred = join_method.predict(X_test)
 
         r2 = r2_score(y_test, y_pred)
         r2_results.append(r2)
 
-        raw_logger.end_time("eval")
-        run_logger.end_time("eval")
-
-        raw_logger.results["r2score"] = r2
-        raw_logger.results["n_cols"] = len(left_table_train.schema)
-
-        raw_logger.set_run_status("SUCCESS")
-        raw_logger.end_time("run")
-        run_logger.end_time("run")
-        raw_logger.to_raw_log_file()
-
-    run_logger.results["avg_r2"] = np.mean(r2_results)
-    run_logger.results["std_r2"] = np.std(r2_results)
-
-    mdn_tree_count = np.median(tree_count_list)
-
-    run_logger.set_run_status("SUCCESS")
-
-    run_logger.to_run_log_file()
-
-    logger_sh.info("Base table R2 %.4f" % (run_logger.results["avg_r2"]))
-
-    results = {
-        "index": "base_table",
-        "case": "base_table",
-        "avg_r2": run_logger.results["avg_r2"],
-        "std_r2": run_logger.results["std_r2"],
-        "mdn_tree_count": mdn_tree_count,
-    }
-
-    return results
+    return
 
 
 def single_join(
@@ -144,7 +96,6 @@ def single_join(
     index_name,
     base_table,
     iterations=1000,
-    join_strategy="left",
     aggregation="first",
     top_k=None,
     target_column="target",
