@@ -63,6 +63,7 @@ def base_table(
     run_logger.start_time("run")
 
     r2_results = []
+    tree_count_list = []
 
     for idx, (train_split, test_split) in enumerate(splits):
         raw_logger = RawLogger(scenario_logger, idx, additional_parameters)
@@ -87,6 +88,7 @@ def base_table(
         model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
         raw_logger.results["best_iteration"] = model.best_iteration_
         raw_logger.results["tree_count"] = model.tree_count_
+        tree_count_list.append(model.tree_count_)
 
         raw_logger.end_time("train")
         run_logger.end_time("train")
@@ -115,6 +117,9 @@ def base_table(
 
     run_logger.results["avg_r2"] = np.mean(r2_results)
     run_logger.results["std_r2"] = np.std(r2_results)
+
+    mdn_tree_count = np.median(tree_count_list)
+
     run_logger.set_run_status("SUCCESS")
 
     run_logger.to_run_log_file()
@@ -126,6 +131,7 @@ def base_table(
         "case": "base_table",
         "avg_r2": run_logger.results["avg_r2"],
         "std_r2": run_logger.results["std_r2"],
+        "mdn_tree_count": mdn_tree_count,
     }
 
     return results
@@ -154,6 +160,7 @@ def single_join(
 
     best_candidate_hash = None
     best_candidate_r2 = -np.inf
+    best_tree_count_list = []
 
     dict_r2_by_cand = {}
     avg_r2_by_cand = {}
@@ -176,6 +183,7 @@ def single_join(
         }
         cnd_table = pl.read_parquet(cnd_md["full_path"])
         dict_r2_by_cand[hash_] = []
+        tree_count_list = []
         for idx, (train_split, test_split) in enumerate(splits):
             raw_logger = RawLogger(
                 scenario_logger=scenario_logger,
@@ -238,6 +246,7 @@ def single_join(
             model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
             raw_logger.results["best_iteration"] = model.best_iteration_
             raw_logger.results["tree_count"] = model.tree_count_
+            tree_count_list.append(model.tree_count_)
             raw_logger.end_time("train")
             run_logger.end_time("train")
 
@@ -287,10 +296,12 @@ def single_join(
 
         avg_r2 = np.mean(dict_r2_by_cand[hash_])
         avg_r2_by_cand[hash_] = avg_r2
+        mdn_tree_count = np.median(tree_count_list)
 
         if avg_r2 > best_candidate_r2:
             best_candidate_hash = hash_
             best_candidate_r2 = avg_r2
+            best_candidate_tree_count = mdn_tree_count
 
     df_ranking = pl.from_dicts(overall_results)
     df_ranking = (
@@ -307,6 +318,7 @@ def single_join(
     run_logger.results["avg_r2"] = np.mean(best_results)
     run_logger.results["std_r2"] = np.std(best_results)
     run_logger.results["best_candidate_hash"] = best_candidate_hash
+    run_logger.results["tree_count"] = best_candidate_tree_count
 
     run_logger.set_run_status("SUCCESS")
     run_logger.to_run_log_file()
@@ -321,6 +333,7 @@ def single_join(
         "best_candidate_hash": best_candidate_hash,
         "avg_r2": run_logger.results["avg_r2"],
         "std_r2": run_logger.results["std_r2"],
+        "mdn_tree_count": best_candidate_tree_count,
     }
 
     return results, df_ranking
@@ -401,7 +414,7 @@ def full_join(
         model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
         raw_logger.results["best_iteration"] = model.best_iteration_
         raw_logger.results["tree_count"] = model.tree_count_
-        tree_count_list += model.tree_count_
+        tree_count_list.append(model.tree_count_)
 
         raw_logger.end_time("train")
         run_logger.end_time("train")
