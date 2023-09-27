@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import toml
 
 from main_pipeline import single_run
-from src.data_structures.loggers import setup_run_logging
+from src.utils.logging import archive_experiment, setup_run_logging
 
 logger_sh = logging.getLogger("pipeline")
 # console handler for info
@@ -31,11 +31,20 @@ def parse_args():
         help="Path of the config file to be used.",
     )
 
+    parser.add_argument(
+        "-a",
+        "--archive",
+        required=False,
+        action="store_true",
+        help="If true, archive the current run.",
+    )
+
     args = parser.parse_args()
     return args
 
 
 def generate_run_variants(base_config):
+    # TODO: this needs updating. "DEFAULT" is a bad idea. Some arguments are not needed anymore.
     config_dict = base_config["DEFAULT"]
     run_sets = [k for k in base_config.keys() if k != "DEFAULT"]
     all_run_variants = []
@@ -67,3 +76,5 @@ if __name__ == "__main__":
         pprint.pprint(dd)
         ns = SimpleNamespace(**dd)
         single_run(ns, exp_name)
+    if args.archive:
+        archive_experiment(exp_name)
