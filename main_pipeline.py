@@ -8,8 +8,9 @@ import git
 import polars as pl
 
 import src.pipeline as pipeline
-from src.data_structures.loggers import ScenarioLogger, setup_run_logging
+from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import MetadataIndex, RawDataset
+from src.utils.logging import setup_run_logging
 
 repo = git.Repo(search_parent_directories=True)
 repo_sha = repo.head.object.hexsha
@@ -267,7 +268,6 @@ def single_run(args, run_name=None):
     scl.add_timestamp("end_process")
     scl.add_process_time()
 
-    scl.write_to_log("results/scenario_results.txt")
     scl.write_to_json()
     logger_scn.debug(scl.to_string())
     logger.info("Run end.")
