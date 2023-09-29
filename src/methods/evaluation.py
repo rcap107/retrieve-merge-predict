@@ -20,7 +20,13 @@ from tqdm import tqdm
 
 import src.utils.joining as ju
 from src.data_structures.loggers import RawLogger, RunLogger
-from src.methods.join_estimators import HighestContainmentJoin, NoJoin, SingleJoin
+from src.methods.join_estimators import (
+    BestSingleJoin,
+    FullJoin,
+    HighestContainmentJoin,
+    NoJoin,
+    SingleJoin,
+)
 from src.utils.models import get_model
 
 logger_sh = logging.getLogger("pipeline")
@@ -85,15 +91,34 @@ def evaluate_joins(
 
     splits = list(splits)
 
+    params_join_with_candidates = {
+        "scenario_logger": scenario_logger,
+        "candidate_joins": join_candidates,
+        "target_column": target_column,
+        "chosen_model": "catboost",
+        "model_parameters": model_parameters,
+        "join_parameters": join_parameters,
+    }
+
     estim_nojoin = NoJoin(scenario_logger, target_column, "catboost", model_parameters)
-    estim_highest_containment = HighestContainmentJoin(
-        scenario_logger,
-        join_candidates,
-        target_column,
-        "catboost",
-        model_parameters,
-        join_parameters,
+    estim_highest_containment = HighestContainmentJoin(**params_join_with_candidates)
+
+    # taking a random candidate for debugging single join
+    hash_, cand_join_mdata = next(iter(join_candidates.items()))
+    # SingleJoin
+    estim_single_join = SingleJoin(
+        scenario_logger=scenario_logger,
+        cand_join_mdata=cand_join_mdata,
+        target_column=target_column,
+        chosen_model="catboost",
+        model_parameters=model_parameters,
+        join_parameters=join_parameters,
     )
+
+    estim_best_single_join = BestSingleJoin(**params_join_with_candidates)
+
+    estim_full_join = FullJoin(**params_join_with_candidates)
+
     estimators = [estim_nojoin, estim_highest_containment]
 
     results = []
