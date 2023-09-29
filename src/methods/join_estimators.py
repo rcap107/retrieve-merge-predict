@@ -149,7 +149,7 @@ class SingleJoin(BaseJoinMethod):
     def __init__(
         self,
         scenario_logger=None,
-        candidate_join_mdata: CandidateJoin = None,  # dtype is "candidate_join.mdata"
+        cand_join_mdata: CandidateJoin = None,  # dtype is "candidate_join.mdata"
         target_column=None,
         chosen_model=None,
         model_parameters=None,
@@ -162,13 +162,13 @@ class SingleJoin(BaseJoinMethod):
         _join_params = {"aggregation": "first"}
         _join_params.update(join_parameters)
         self.join_parameters = _join_params
-        self.candidate_join_mdata = candidate_join_mdata
+        self.candidate_join_mdata = cand_join_mdata
         (
             _,
             cnd_md,
             self.left_on,
             self.right_on,
-        ) = candidate_join_mdata.get_join_information()
+        ) = cand_join_mdata.get_join_information()
         self.candidate_table = pl.read_parquet(cnd_md["full_path"])
 
     def fit(self, X, y):
@@ -397,6 +397,8 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
 
 class FullJoin(BaseJoinWithCandidatesMethod):
+    # TODO: add a note mentioning that the joins in `candidate_joins` have been
+    # TODO: vetted in some previous step and that this estimator will join them all
     def __init__(
         self,
         scenario_logger=None,
