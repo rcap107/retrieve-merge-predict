@@ -9,12 +9,18 @@ import polars as pl
 import polars.selectors as cs
 from catboost import CatBoostError, CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
+from sklearn.model_selection import (
+    GroupKFold,
+    GroupShuffleSplit,
+    ShuffleSplit,
+    cross_validate,
+    train_test_split,
+)
 from tqdm import tqdm
 
 import src.utils.joining as utils
 from src.data_structures.loggers import RawLogger, RunLogger
-from src.methods.join_estimators import JoinMethod
+from src.methods.join_estimators import HighestContainmentJoin, NoJoin, SingleJoin
 from src.utils.models import get_model
 
 logger_sh = logging.getLogger("pipeline")
@@ -46,6 +52,73 @@ def prepare_X_y(
     return X, y
 
 
+def evaluate_joins(
+    scenario_logger,
+    base_table,
+    join_candidates,
+    target_column="target",
+    split_kind="group_shuffle",
+    group_column="col_to_embed",
+    n_splits=5,
+    test_size=0.20,
+):
+    model_parameters = {
+        "l2_leaf_reg": 0.01,
+        "od_type": None,
+        "od_wait": None,
+        "iterations": 100,
+    }
+    join_parameters = {"aggregation": "first"}
+
+    groups = base_table.select(
+        pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
+    ).to_numpy()
+
+    if split_kind == "group_shuffle":
+        gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+        splits = gss.split(base_table, groups=groups)
+    elif split_kind == "shuffle":
+        ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
+        splits = ss.split(base_table)
+    else:
+        raise ValueError(f"Inappropriate value {split_kind} for `split_kind`.")
+
+    splits = list(splits)
+
+    estim_nojoin = NoJoin(scenario_logger, target_column, "catboost", model_parameters)
+    estim_highest_containment = HighestContainmentJoin(
+        scenario_logger,
+        join_candidates,
+        target_column,
+        "catboost",
+        model_parameters,
+        join_parameters,
+    )
+    estimators = [estim_nojoin, estim_highest_containment]
+
+    results = []
+
+    for idx, (train_split, test_split) in enumerate(splits):
+        base_table_train = base_table[train_split]
+        base_table_test = base_table[test_split]
+
+        X_train, y_train = prepare_X_y(base_table_train, target_column)
+        X_test, y_test = prepare_X_y(base_table_test, target_column)
+
+        for estim in estimators:
+            estim.fit(X_train, y_train)
+            y_pred = estim.predict(X_test)
+
+            r2 = r2_score(y_test, y_pred)
+            curr_res = {"estimator": estim.name, "fold": idx, "r2": r2}
+
+            results.append(curr_res)
+
+    df_results = pl.from_dicts(results)
+
+    print(df_results)
+
+
 def base_table(
     scenario_logger,
     splits,
@@ -66,6 +139,48 @@ def base_table(
     tree_count_list = []
 
     join_method = JoinMethod(
+        scenario_logger=scenario_logger,
+        target_column=target_column,
+        chosen_model="catboost",
+        model_parameters=catboost_parameters,
+    )
+
+    for idx, (train_split, test_split) in enumerate(splits):
+        base_table_train = base_table[train_split]
+        base_table_test = base_table[test_split]
+
+        X_train, y_train = prepare_X_y(base_table_train, target_column)
+        X_test, y_test = prepare_X_y(base_table_test, target_column)
+
+        join_method.fit(X_train, y_train)
+
+        y_pred = join_method.predict(X_test)
+
+        r2 = r2_score(y_test, y_pred)
+        r2_results.append(r2)
+
+    return
+
+
+def single_join_estimator(
+    scenario_logger,
+    splits,
+    join_candidates,
+    index_name,
+    base_table,
+    iterations=1000,
+    aggregation="first",
+    top_k=None,
+    target_column="target",
+    verbose=0,
+):
+    additional_parameters = {
+        "candidate_table": "best_candidate",
+        "index_name": index_name,
+        "join_strategy": "single_join",
+    }
+
+    join_method = SingleJoin(
         scenario_logger=scenario_logger,
         target_column=target_column,
         chosen_model="catboost",
@@ -173,7 +288,6 @@ def single_join(
                 cnd_table,
                 left_on=left_on,
                 right_on=right_on,
-                how=join_strategy,
                 aggregation=aggregation,
                 suffix="_right",
             )
