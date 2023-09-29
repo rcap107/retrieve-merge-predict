@@ -190,6 +190,7 @@ def single_run(args, run_name=None):
         feature_selection=args.feature_selection,
         model_selection=args.model_selection,
         exp_name=run_name,
+        debug=args.debug,
     )
 
     if not metadata_index_path.exists():
@@ -256,23 +257,9 @@ def single_run(args, run_name=None):
             join_candidates=candidates_by_index["minhash"],
             target_column="target",
         )
-        # pipeline.evaluate_joins(
-        #     df,
-        #     scl,
-        #     candidates_by_index=candidates_by_index,
-        #     verbose=0,
-        #     iterations=args.iterations,
-        #     n_splits=args.n_splits,
-        #     aggregation=args.aggregation,
-        #     top_k=5,
-        # )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
         scl.set_status("SUCCESS")
-        # except Exception as exception:
-        #     exception_name = exception.__class__.__name__
-        #     logger_scn.error("RAISED %s" % exception_name)
-        #     scl.set_status("FAILURE", exception_name)
     scl.add_timestamp("end_process")
     scl.add_process_time()
 

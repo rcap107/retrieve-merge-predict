@@ -75,8 +75,6 @@ def read_logs(exp_name):
 def setup_run_logging(setup_config=None):
     exp_name = get_exp_name()
     os.makedirs(f"results/logs/{exp_name}")
-    # with open(f"results/logs/{exp_name}/scenario_id", "w") as fp:
-    # fp.write("0")
     os.makedirs(f"results/logs/{exp_name}/json")
     os.makedirs(f"results/logs/{exp_name}/run_logs")
     os.makedirs(f"results/logs/{exp_name}/raw_logs")

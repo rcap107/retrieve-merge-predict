@@ -32,6 +32,7 @@ class ScenarioLogger:
         feature_selection,
         model_selection,
         exp_name=None,
+        debug=False,
     ) -> None:
         self.timestamps = {
             "start_process": dt.datetime.now(),
@@ -62,6 +63,7 @@ class ScenarioLogger:
         self.process_time = 0
         self.status = None
         self.exception_name = None
+        self.debug = debug
 
     def prepare_logger(self, run_name=None):
         self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
@@ -142,6 +144,9 @@ class ScenarioLogger:
             self.exception_name = ""
 
     def write_to_json(self, root_path="results/logs/"):
+        if self.debug:
+            print("ScenarioLogger is in debug mode, no logs will be written.")
+            return None
         res_dict = copy.deepcopy(vars(self))
         if self.results is not None:
             results = self.results.clone()

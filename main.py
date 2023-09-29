@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import toml
 
 from main_pipeline import single_run
-from src.utils.logging import archive_experiment, setup_run_logging
+from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
 
 logger_sh = logging.getLogger("pipeline")
 # console handler for info
@@ -36,7 +36,14 @@ def parse_args():
         "--archive",
         required=False,
         action="store_true",
-        help="If true, archive the current run.",
+        help="If specified, archive the current run.",
+    )
+
+    parser.add_argument(
+        "--debug",
+        required=False,
+        action="store_true",
+        help="If specified, skip writing logging.",
     )
 
     args = parser.parse_args()
@@ -67,8 +74,10 @@ if __name__ == "__main__":
 
     base_config = toml.load(args.input_path)
     run_variants = generate_run_variants(base_config)
-    exp_name = setup_run_logging(base_config)
-
+    if not args.debug:
+        exp_name = setup_run_logging(base_config)
+    else:
+        exp_name = get_exp_name()
     for idx, dd in enumerate(run_variants):
         print("#" * 80)
         print(f"### Run {idx+1}/{len(run_variants)}")
