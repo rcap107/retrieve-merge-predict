@@ -7,6 +7,7 @@ from pathlib import Path
 import git
 import polars as pl
 
+import src.methods.evaluation as em
 import src.pipeline as pipeline
 from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import MetadataIndex, RawDataset
@@ -248,16 +249,23 @@ def single_run(args, run_name=None):
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")
         logger.info("Starting evaluation.")
-        pipeline.evaluate_joins(
-            df,
+
+        em.evaluate_joins(
             scl,
-            candidates_by_index=candidates_by_index,
-            verbose=0,
-            iterations=args.iterations,
-            n_splits=args.n_splits,
-            aggregation=args.aggregation,
-            top_k=5,
+            df,
+            join_candidates=candidates_by_index["minhash"],
+            target_column="target",
         )
+        # pipeline.evaluate_joins(
+        #     df,
+        #     scl,
+        #     candidates_by_index=candidates_by_index,
+        #     verbose=0,
+        #     iterations=args.iterations,
+        #     n_splits=args.n_splits,
+        #     aggregation=args.aggregation,
+        #     top_k=5,
+        # )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
         scl.set_status("SUCCESS")
