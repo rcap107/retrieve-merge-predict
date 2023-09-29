@@ -293,7 +293,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         return self.model.predict(merged_test)
 
 
-class BestSingleJoin(BaseJoinMethod):
+class BestSingleJoin(BaseJoinWithCandidatesMethod):
     def __init__(
         self,
         scenario_logger=None,
@@ -301,18 +301,24 @@ class BestSingleJoin(BaseJoinMethod):
         target_column=None,
         chosen_model=None,
         model_parameters=None,
-        task="regression",
         join_parameters=None,
+        task="regression",
+        valid_size=0.2,
     ) -> None:
-        raise NotImplementedError
         super().__init__(
-            scenario_logger, target_column, chosen_model, model_parameters, task
+            scenario_logger,
+            candidate_joins,
+            target_column,
+            chosen_model,
+            model_parameters,
+            join_parameters,
+            task,
         )
-
         self.candidate_ranking = None
 
         self.best_candidate_hash = None
         self.best_candidate_r2 = -np.inf
+        self.valid_size = valid_size
 
     def get_best_candidates(self, top_k=None):
         if top_k is None:
@@ -321,7 +327,10 @@ class BestSingleJoin(BaseJoinMethod):
             return self.candidate_ranking.limit(top_k)
 
     def fit(self, X, y):
-        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+        X = self.prepare_table(X)
+        X_train, X_valid, y_train, y_valid = train_test_split(
+            X, y, test_size=self.valid_size
+        )
 
         ranking = []
 
@@ -329,12 +338,11 @@ class BestSingleJoin(BaseJoinMethod):
             self.candidate_joins.items(),
             total=self.n_candidates,
             leave=False,
-            desc="Training on candidates",
+            desc="BestSingleJoin",
         ):
-            src_md, cnd_md, left_on, right_on = mdata.get_join_information()
+            _, cnd_md, left_on, right_on = mdata.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
 
-            # TODO: dataframe typing needs to be fixed
             merged_train = ju.execute_join_with_aggregation(
                 pl.from_pandas(X_train),
                 cnd_table,
@@ -371,7 +379,7 @@ class BestSingleJoin(BaseJoinMethod):
 
     def predict(self, X):
         best_cnd_mdata = self.candidate_joins[self.best_candidate_hash]
-        src_md, cnd_md, left_on, right_on = best_cnd_mdata.get_join_information()
+        _, cnd_md, left_on, right_on = best_cnd_mdata.get_join_information()
         cnd_table = pl.read_parquet(cnd_md["full_path"])
         merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
@@ -388,7 +396,7 @@ class BestSingleJoin(BaseJoinMethod):
         pass
 
 
-class FullJoin(BaseJoinMethod):
+class FullJoin(BaseJoinWithCandidatesMethod):
     def __init__(
         self,
         scenario_logger=None,
@@ -400,17 +408,40 @@ class FullJoin(BaseJoinMethod):
         task="regression",
     ) -> None:
         super().__init__(
-            scenario_logger, target_column, chosen_model, model_parameters, task
+            scenario_logger,
+            candidate_joins,
+            target_column,
+            chosen_model,
+            model_parameters,
+            join_parameters,
+            task,
         )
-        raise NotImplementedError
-        self.candidate_joins = candidate_joins
-        self.join_parameters = join_parameters
+        if self.join_parameters["aggregation"] == "dfs":
+            print("Full join not available with DFS.")
+            return None
 
     def fit(self, X, y):
-        pass
+        X = self.prepare_table(X)
+
+        merged_train = X.clone().lazy()
+        merged_train = ju.execute_join_all_candidates(
+            merged_train, self.candidate_joins, self.join_parameters["aggregation"]
+        )
+        merged_train = self.prepare_table(merged_train)
+        self.cat_features = self.get_cat_features(merged_train)
+
+        self.model = self.build_model(merged_train, self.cat_features)
+
+        self.model.fit(merged_train, y)
 
     def predict(self, X):
-        pass
+        X = self.prepare_table(X)
+        merged_test = X.clone().lazy()
+        merged_test = ju.execute_join_all_candidates(
+            merged_test, self.candidate_joins, self.join_parameters["aggregation"]
+        )
+        merged_test = self.prepare_table(merged_test)
+        return self.model.predict(merged_test)
 
     def transform(self, X):
         pass
