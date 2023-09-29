@@ -159,6 +159,7 @@ class SingleJoin(BaseJoinMethod):
         super().__init__(
             scenario_logger, target_column, chosen_model, model_parameters, task
         )
+        self.name = "single_join"
         _join_params = {"aggregation": "first"}
         _join_params.update(join_parameters)
         self.join_parameters = _join_params
@@ -244,7 +245,8 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             self.candidate_joins.items(),
             total=self.n_candidates,
             leave=False,
-            desc="Training on candidates",
+            desc="HighestContainment",
+            position=0,
         ):
             _, cnd_md, left_on, right_on = mdata.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
@@ -314,10 +316,13 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             join_parameters,
             task,
         )
+        self.name = "best_single_join"
         self.candidate_ranking = None
 
-        self.best_candidate_hash = None
-        self.best_candidate_r2 = -np.inf
+        self.best_cnd_hash = None
+        self.best_cnd_r2 = -np.inf
+        self.best_cnd_table = None
+        self.left_on = self.right_on = None
         self.valid_size = valid_size
 
     def get_best_candidates(self, top_k=None):
@@ -339,6 +344,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             total=self.n_candidates,
             leave=False,
             desc="BestSingleJoin",
+            position=0,
         ):
             _, cnd_md, left_on, right_on = mdata.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
@@ -361,7 +367,9 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
                 suffix="_right",
             )
 
-            cat_features = merged_train.select(cs.string()).columns
+            merged_train = self.prepare_table(merged_train)
+            merged_valid = self.prepare_table(merged_valid)
+            cat_features = self.get_cat_features(merged_train)
             self.model = self.build_model(merged_train, cat_features)
 
             # TODO: This needs to be generalized
@@ -371,25 +379,44 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
             ranking.append({"candidate": hash_, "r2": r2})
 
-            if r2 > self.best_candidate_r2:
-                self.best_candidate_r2 = r2
-                self.best_candidate_hash = hash_
+            if r2 > self.best_cnd_r2:
+                self.best_cnd_r2 = r2
+                self.best_cnd_hash = hash_
+
+        # RETRAINING THE MODEL
+        best_join_mdata = self.candidate_joins[self.best_cnd_hash]
+        (
+            _,
+            best_cnd_md,
+            self.left_on,
+            self.right_on,
+        ) = best_join_mdata.get_join_information()
+        self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
+        best_train = ju.execute_join_with_aggregation(
+            pl.from_pandas(X),
+            self.best_cnd_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            aggregation=self.join_parameters["aggregation"],
+            suffix="_right",
+        )
+        self.cat_features = self.get_cat_features(best_train)
+        best_train = self.prepare_table(best_train)
+        self.model = self.build_model(best_train, self.cat_features)
+        self.model.fit(X=best_train, y=y)
 
         self.candidate_ranking = pl.from_dicts(ranking).sort("r2", descending=True)
 
     def predict(self, X):
-        best_cnd_mdata = self.candidate_joins[self.best_candidate_hash]
-        _, cnd_md, left_on, right_on = best_cnd_mdata.get_join_information()
-        cnd_table = pl.read_parquet(cnd_md["full_path"])
         merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
-            cnd_table,
-            left_on=left_on,
-            right_on=right_on,
+            self.best_cnd_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
-
+        merged_test = self.prepare_table(merged_test)
         return self.model.predict(merged_test)
 
     def transform(self, X):
@@ -418,14 +445,15 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             join_parameters,
             task,
         )
+        self.name = "full_join"
         if self.join_parameters["aggregation"] == "dfs":
             print("Full join not available with DFS.")
             return None
 
     def fit(self, X, y):
-        X = self.prepare_table(X)
+        # X = self.prepare_table(X)
 
-        merged_train = X.clone().lazy()
+        merged_train = pl.from_pandas(X).clone().lazy()
         merged_train = ju.execute_join_all_candidates(
             merged_train, self.candidate_joins, self.join_parameters["aggregation"]
         )
@@ -437,8 +465,8 @@ class FullJoin(BaseJoinWithCandidatesMethod):
         self.model.fit(merged_train, y)
 
     def predict(self, X):
-        X = self.prepare_table(X)
-        merged_test = X.clone().lazy()
+        # X = self.prepare_table(X)
+        merged_test = pl.from_pandas(X).clone().lazy()
         merged_test = ju.execute_join_all_candidates(
             merged_test, self.candidate_joins, self.join_parameters["aggregation"]
         )

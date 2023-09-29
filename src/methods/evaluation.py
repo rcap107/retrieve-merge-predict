@@ -119,11 +119,23 @@ def evaluate_joins(
 
     estim_full_join = FullJoin(**params_join_with_candidates)
 
-    estimators = [estim_nojoin, estim_highest_containment]
+    estimators = [
+        estim_nojoin,
+        estim_highest_containment,
+        estim_single_join,
+        estim_best_single_join,
+        estim_full_join,
+    ]
 
     results = []
 
-    for idx, (train_split, test_split) in enumerate(splits):
+    for idx, (train_split, test_split) in tqdm(
+        enumerate(splits),
+        total=len(splits),
+        desc="CV progress: ",
+        position=1,
+        leave=True,
+    ):
         base_table_train = base_table[train_split]
         base_table_test = base_table[test_split]
 
