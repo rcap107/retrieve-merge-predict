@@ -199,12 +199,13 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
     """
     merged = source_table.clone()
     hashes = []
-    for hash_, mdata in tqdm(
-        index_cand.items(),
-        total=len(index_cand),
-        leave=False,
-        desc="Executing full join",
-    ):
+    for hash_, mdata in index_cand.items():
+        # for hash_, mdata in tqdm(
+        #     index_cand.items(),
+        #     total=len(index_cand),
+        #     leave=False,
+        #     desc="Executing full join",
+        # ):
         cnd_md = mdata.candidate_metadata
         hashes.append(cnd_md["hash"])
         candidate_table = pl.read_parquet(cnd_md["full_path"])
@@ -312,7 +313,9 @@ def execute_join(
         # else:
         #     joined_table = aggregate_first(joined_table, left_table.columns)
 
-    return joined_table
+        return joined_table
+    else:
+        raise ValueError(f"Both `left_on` and `right_on` are None.")
 
 
 def aggregate_table(
