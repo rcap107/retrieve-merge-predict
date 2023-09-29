@@ -77,7 +77,7 @@ if __name__ == "__main__":
     if not args.debug:
         exp_name = setup_run_logging(base_config)
     else:
-        exp_name = get_exp_name()
+        exp_name = get_exp_name(debug=args.debug)
     for idx, dd in enumerate(run_variants):
         print("#" * 80)
         print(f"### Run {idx+1}/{len(run_variants)}")

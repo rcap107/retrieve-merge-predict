@@ -37,10 +37,10 @@ HEADER_LOGFILE = [
 ]
 
 
-def get_exp_name():
+def get_exp_name(debug=False):
     alphabet = string.ascii_lowercase + string.digits
     random_slug = "".join(random.choices(alphabet, k=8))
-    scenario_id = read_and_update_scenario_id()
+    scenario_id = read_and_update_scenario_id(debug=debug)
 
     exp_name = f"{scenario_id:04d}-{random_slug}"
     return exp_name
@@ -86,7 +86,9 @@ def setup_run_logging(setup_config=None):
     return exp_name
 
 
-def read_and_update_scenario_id(exp_name=None):
+def read_and_update_scenario_id(exp_name=None, debug=False):
+    if debug:
+        return 0
     if exp_name is None:
         scenario_id_path = SCENARIO_ID_PATH
     else:

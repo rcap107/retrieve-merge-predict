@@ -45,7 +45,7 @@ class ScenarioLogger:
             "end_evaluation": 0,
         }
         self.exp_name = exp_name
-        self.scenario_id = log.read_and_update_scenario_id(exp_name)
+        self.scenario_id = log.read_and_update_scenario_id(exp_name, debug=debug)
         self.prepare_logger(exp_name)
         self.run_id = 0
         self.start_timestamp = None
