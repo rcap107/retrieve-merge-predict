@@ -46,7 +46,7 @@ def cast_features(table: pl.DataFrame):
         try:
             table = table.with_columns(pl.col(col).cast(pl.Float64))
         except pl.ComputeError:
-            table = table.with_columns(pl.col(col).cast(pl.Categorical))
+            table = table.with_columns(pl.col(col).cast(pl.Utf8))
     return table
 
 
