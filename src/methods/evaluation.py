@@ -18,7 +18,7 @@ from sklearn.model_selection import (
 )
 from tqdm import tqdm
 
-import src.utils.joining as utils
+import src.utils.joining as ju
 from src.data_structures.loggers import RawLogger, RunLogger
 from src.methods.join_estimators import HighestContainmentJoin, NoJoin, SingleJoin
 from src.utils.models import get_model
@@ -36,7 +36,7 @@ def prepare_table_for_evaluation(src_df):
         src_df.with_columns(cs.string().fill_null("null"), cs.float().fill_null(np.nan))
     )
     # df = src_df.fill_null()
-    df = utils.cast_features(df)
+    df = ju.cast_features(df)
     return df
 
 
@@ -46,7 +46,7 @@ def prepare_X_y(
 ):
     y = src_df[target_column].to_pandas()
     df = src_df.drop(target_column).fill_null(value="null").fill_nan(value=np.nan)
-    df = utils.cast_features(df)
+    df = ju.cast_features(df)
     X = df.to_pandas()
 
     return X, y
@@ -283,7 +283,7 @@ def single_join(
 
             raw_logger.start_time("join")
             run_logger.start_time("join", cumulative=True)
-            merged = utils.execute_join_with_aggregation(
+            merged = ju.execute_join_with_aggregation(
                 left_table_train,
                 cnd_table,
                 left_on=left_on,
@@ -321,7 +321,7 @@ def single_join(
             if False:
                 merged_test = ja.transform(left_table_test)
 
-            merged_test = utils.execute_join_with_aggregation(
+            merged_test = ju.execute_join_with_aggregation(
                 left_table_test,
                 cnd_table,
                 left_on=left_on,
@@ -453,7 +453,7 @@ def full_join(
         run_logger.start_time("join", cumulative=True)
 
         merged = left_table_train.clone().lazy()
-        merged = utils.execute_join_all_candidates(merged, join_candidates, aggregation)
+        merged = ju.execute_join_all_candidates(merged, join_candidates, aggregation)
         merged = prepare_table_for_evaluation(merged)
 
         raw_logger.end_time("join")
@@ -489,7 +489,7 @@ def full_join(
         raw_logger.start_time("eval_join")
         run_logger.start_time("eval_join", cumulative=True)
 
-        merged_test = utils.execute_join_all_candidates(
+        merged_test = ju.execute_join_all_candidates(
             left_table_test, join_candidates, aggregation
         )
         raw_logger.end_time("eval_join")
@@ -615,7 +615,7 @@ def greedy_join(
 
             raw_logger.start_time("join")
             run_logger.start_time("join", cumulative=True)
-            merged = utils.execute_join_with_aggregation(
+            merged = ju.execute_join_with_aggregation(
                 left_table_train,
                 cnd_table,
                 left_on=left_on,
@@ -673,7 +673,7 @@ def greedy_join(
         raw_logger.start_time("eval_join")
         run_logger.start_time("eval_join", cumulative=True)
 
-        merged_test = utils.execute_join_all_candidates(
+        merged_test = ju.execute_join_all_candidates(
             left_table_test, join_candidates, aggregation
         )
         raw_logger.end_time("eval_join")

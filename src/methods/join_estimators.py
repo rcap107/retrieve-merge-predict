@@ -8,7 +8,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
 from tqdm import tqdm
 
-import src.utils.joining as utils
+import src.utils.joining as ju
+from src.data_structures.metadata import CandidateJoin
 
 
 class BaseJoinMethod(BaseEstimator):
@@ -31,6 +32,7 @@ class BaseJoinMethod(BaseEstimator):
             raise ValueError(f"Task {task} not supported.")
 
         self.model = None
+        self.cat_features = None
 
     def build_model(self, X, cat_features=None):
         if self.chosen_model == "catboost":
@@ -83,7 +85,7 @@ class BaseJoinMethod(BaseEstimator):
             table = pl.from_pandas(table)
 
         table = table.fill_null(value="null").fill_nan(value=np.nan)
-        table = utils.cast_features(table)
+        table = ju.cast_features(table)
         return table.to_pandas()
 
 
@@ -144,7 +146,60 @@ class NoJoin(BaseJoinMethod):
 
 
 class SingleJoin(BaseJoinMethod):
-    pass
+    def __init__(
+        self,
+        scenario_logger=None,
+        candidate_join_mdata: CandidateJoin = None,  # dtype is "candidate_join.mdata"
+        target_column=None,
+        chosen_model=None,
+        model_parameters=None,
+        join_parameters=None,
+        task="regression",
+    ) -> None:
+        super().__init__(
+            scenario_logger, target_column, chosen_model, model_parameters, task
+        )
+        _join_params = {"aggregation": "first"}
+        _join_params.update(join_parameters)
+        self.join_parameters = _join_params
+        self.candidate_join_mdata = candidate_join_mdata
+        (
+            _,
+            cnd_md,
+            self.left_on,
+            self.right_on,
+        ) = candidate_join_mdata.get_join_information()
+        self.candidate_table = pl.read_parquet(cnd_md["full_path"])
+
+    def fit(self, X, y):
+        X = self.prepare_table(X)
+        merged_train = ju.execute_join_with_aggregation(
+            pl.from_pandas(X),
+            self.candidate_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            aggregation=self.join_parameters["aggregation"],
+            suffix="_right",
+        )
+        merged_train = self.prepare_table(merged_train)
+        self.cat_features = self.get_cat_features(merged_train)
+
+        self.model = self.build_model(merged_train, self.cat_features)
+
+        self.model.fit(merged_train, y)
+
+    def predict(self, X):
+        X = self.prepare_table(X)
+        merged_test = ju.execute_join_with_aggregation(
+            pl.from_pandas(X),
+            self.candidate_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            aggregation=self.join_parameters["aggregation"],
+            suffix="_right",
+        )
+        merged_test = self.prepare_table(merged_test)
+        return self.model.predict(merged_test)
 
 
 class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
@@ -206,7 +261,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         mdata = self.candidate_joins[self.best_candidate_hash]
         _, best_cnd_md, left_on, right_on = mdata.get_join_information()
         best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
-        merged_train = utils.execute_join_with_aggregation(
+        merged_train = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
             best_cnd_table,
             left_on=left_on,
@@ -226,7 +281,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         best_cnd_mdata = self.candidate_joins[self.best_candidate_hash]
         _, cnd_md, left_on, right_on = best_cnd_mdata.get_join_information()
         cnd_table = pl.read_parquet(cnd_md["full_path"])
-        merged_test = utils.execute_join_with_aggregation(
+        merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
             cnd_table,
             left_on=left_on,
@@ -280,7 +335,7 @@ class BestSingleJoin(BaseJoinMethod):
             cnd_table = pl.read_parquet(cnd_md["full_path"])
 
             # TODO: dataframe typing needs to be fixed
-            merged_train = utils.execute_join_with_aggregation(
+            merged_train = ju.execute_join_with_aggregation(
                 pl.from_pandas(X_train),
                 cnd_table,
                 left_on=left_on,
@@ -289,7 +344,7 @@ class BestSingleJoin(BaseJoinMethod):
                 suffix="_right",
             )
 
-            merged_valid = utils.execute_join_with_aggregation(
+            merged_valid = ju.execute_join_with_aggregation(
                 pl.from_pandas(X_valid),
                 cnd_table,
                 left_on=left_on,
@@ -318,7 +373,7 @@ class BestSingleJoin(BaseJoinMethod):
         best_cnd_mdata = self.candidate_joins[self.best_candidate_hash]
         src_md, cnd_md, left_on, right_on = best_cnd_mdata.get_join_information()
         cnd_table = pl.read_parquet(cnd_md["full_path"])
-        merged_test = utils.execute_join_with_aggregation(
+        merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
             cnd_table,
             left_on=left_on,
