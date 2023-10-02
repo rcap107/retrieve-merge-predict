@@ -69,6 +69,7 @@ def setup_run_logging(setup_config=None):
     exp_name = get_exp_name()
     os.makedirs(f"results/logs/{exp_name}")
     os.makedirs(f"results/logs/{exp_name}/json")
+    os.makedirs(f"results/logs/{exp_name}/plots")
     os.makedirs(f"results/logs/{exp_name}/run_logs")
     os.makedirs(f"results/logs/{exp_name}/raw_logs")
 

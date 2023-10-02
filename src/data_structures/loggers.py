@@ -6,7 +6,9 @@ import logging
 from pathlib import Path
 from time import process_time
 
+import matplotlib.pyplot as plt
 import polars as pl
+import seaborn as sns
 from sklearn.metrics import mean_squared_error, r2_score
 
 import src.utils.logging as log
@@ -171,8 +173,35 @@ class ScenarioLogger:
         else:
             raise IOError(f"Invalid path {root_path}")
 
+    def write_summary_plot(self, root_path):
+        keys = [
+            "exp_name",
+            "scenario_id",
+            "base_table",
+            "git_hash",
+            "iterations",
+            "target_dl",
+            "aggregation",
+        ]
+        dict_print = {k: v for k, v in vars(self).items() if k in keys}
+        annotation = json.dumps(dict_print, indent=2)
+        fig = plt.figure()
+        axs = fig.subplots(nrows=2)
+        sns.boxplot(
+            data=self.results.to_pandas(), y="estimator", x="r2", ax=axs[0], orient="h"
+        )
+        axs[1].text(0, 0, annotation)
+        axs[1].axis("off")
+        plt.tight_layout()
+        fig_path = Path(root_path, self.exp_name, "plots", f"{self.scenario_id}.png")
+        fig.savefig(fig_path)
+
     def finish_run(self, root_path="results/logs/"):
-        self.write_to_json(root_path)
+        if not self.debug:
+            self.write_summary_plot(root_path)
+            self.write_to_json(root_path)
+        else:
+            print("ScenarioLogger is in debugging mode. No files will be created.")
 
 
 class RunLogger:

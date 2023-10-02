@@ -122,7 +122,7 @@ def evaluate_joins(
     estimators = [
         estim_nojoin,
         estim_highest_containment,
-        estim_single_join,
+        # estim_single_join,
         estim_best_single_join,
         estim_full_join,
     ]
@@ -161,8 +161,7 @@ def evaluate_joins(
             run_logger.end_time("predict")
 
             results = run_logger.measure_results(y_test, y_pred)
-            r2 = results["r2"]
-            curr_res = {"estimator": estim.name, "fold": idx, "r2": r2}
+            curr_res = {"estimator": estim.name, **results}
 
             # Additional info includes best candidate join and relative info
             run_logger.set_additional_info(estim.get_additional_info())
@@ -172,9 +171,8 @@ def evaluate_joins(
             run_logger.to_run_log_file()
             res_list.append(curr_res)
 
-    df_results = pl.from_dicts(res_list)
-
-    print(df_results)
+    scenario_logger.results = pl.from_dicts(res_list)
+    print(scenario_logger.results)
 
 
 def base_table(
