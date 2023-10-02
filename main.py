@@ -55,6 +55,7 @@ def generate_run_variants(base_config):
     config_dict = base_config["DEFAULT"]
     run_sets = [k for k in base_config.keys() if k != "DEFAULT"]
     all_run_variants = []
+    # TODO: Convert this to sklearn.model_selection.ParameterGrid(https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.ParameterGrid.html)
     for k in run_sets:
         config_dict.update(base_config[k])
         config_dict = {
