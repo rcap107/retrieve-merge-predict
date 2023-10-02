@@ -127,7 +127,7 @@ def evaluate_joins(
         estim_full_join,
     ]
 
-    results = []
+    res_list = []
 
     for idx, (train_split, test_split) in tqdm(
         enumerate(splits),
@@ -143,15 +143,36 @@ def evaluate_joins(
         X_test, y_test = prepare_X_y(base_table_test, target_column)
 
         for estim in estimators:
-            estim.fit(X_train, y_train)
-            y_pred = estim.predict(X_test)
+            run_logger = RunLogger(
+                scenario_logger, additional_parameters=estim.get_estimator_parameters()
+            )
+            run_logger.start_time("run")
+            if estim is None:
+                run_logger.set_run_status("FAILURE")
+                run_logger.end_time("run")
+                continue
 
-            r2 = r2_score(y_test, y_pred)
+            run_logger.start_time("fit")
+            estim.fit(X_train, y_train)
+            run_logger.end_time("fit")
+
+            run_logger.start_time("predict")
+            y_pred = estim.predict(X_test)
+            run_logger.end_time("predict")
+
+            results = run_logger.measure_results(y_test, y_pred)
+            r2 = results["r2"]
             curr_res = {"estimator": estim.name, "fold": idx, "r2": r2}
 
-            results.append(curr_res)
+            # Additional info includes best candidate join and relative info
+            run_logger.set_additional_info(estim.get_additional_info())
 
-    df_results = pl.from_dicts(results)
+            run_logger.end_time("run")
+            run_logger.set_run_status("SUCCESS")
+            run_logger.to_run_log_file()
+            res_list.append(curr_res)
+
+    df_results = pl.from_dicts(res_list)
 
     print(df_results)
 

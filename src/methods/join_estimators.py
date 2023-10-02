@@ -9,6 +9,7 @@ from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
 from tqdm import tqdm
 
 import src.utils.joining as ju
+from src.data_structures.loggers import RunLogger
 from src.data_structures.metadata import CandidateJoin
 
 
@@ -27,6 +28,7 @@ class BaseJoinMethod(BaseEstimator):
         self.chosen_model = chosen_model
         self.target_column = target_column
         self.task = task
+        self.joined_columns = None
 
         if task not in ["regression", "classification"]:
             raise ValueError(f"Task {task} not supported.")
@@ -79,6 +81,12 @@ class BaseJoinMethod(BaseEstimator):
 
         return cat_features
 
+    def get_estimator_parameters(self):
+        raise NotImplementedError
+
+    def get_additional_info(self):
+        raise NotImplementedError
+
     @staticmethod
     def prepare_table(table):
         if type(table) == pd.DataFrame:
@@ -128,7 +136,7 @@ class NoJoin(BaseJoinMethod):
     def fit(self, X, y):
         if X.shape[0] != y.shape[0]:
             raise ValueError
-
+        self.joined_columns = len(X.columns)
         X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
         cat_features = self.get_cat_features(X_train)
         self.model = self.build_model(X_train, cat_features)
@@ -144,12 +152,23 @@ class NoJoin(BaseJoinMethod):
     def transform(self, X):
         return X
 
+    def get_estimator_parameters(self):
+        return {"estimator": self.name}
+
+    def get_additional_info(self):
+        return {
+            "best_candidate_hash": "nojoin",
+            "left_on": "",
+            "right_on": "",
+            "joined_columns": self.joined_columns,
+        }
+
 
 class SingleJoin(BaseJoinMethod):
     def __init__(
         self,
         scenario_logger=None,
-        cand_join_mdata: CandidateJoin = None,  # dtype is "candidate_join.mdata"
+        cand_join_mdata: CandidateJoin = None,
         target_column=None,
         chosen_model=None,
         model_parameters=None,
@@ -171,11 +190,13 @@ class SingleJoin(BaseJoinMethod):
             self.right_on,
         ) = cand_join_mdata.get_join_information()
         self.candidate_table = pl.read_parquet(cnd_md["full_path"])
+        self.best_candidate_hash = cnd_md["hash"]
 
     def fit(self, X, y):
         X = self.prepare_table(X)
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
         merged_train = ju.execute_join_with_aggregation(
-            pl.from_pandas(X),
+            pl.from_pandas(X_train),
             self.candidate_table,
             left_on=self.left_on,
             right_on=self.right_on,
@@ -183,11 +204,22 @@ class SingleJoin(BaseJoinMethod):
             suffix="_right",
         )
         merged_train = self.prepare_table(merged_train)
+        self.joined_columns = len(merged_train.columns)
         self.cat_features = self.get_cat_features(merged_train)
+
+        merged_valid = ju.execute_join_with_aggregation(
+            pl.from_pandas(X_valid),
+            self.candidate_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            aggregation=self.join_parameters["aggregation"],
+            suffix="_right",
+        )
+        merged_valid = self.prepare_table(merged_valid)
 
         self.model = self.build_model(merged_train, self.cat_features)
 
-        self.model.fit(merged_train, y)
+        self.model.fit(merged_train, y_train, eval_set=(merged_valid, y_valid))
 
     def predict(self, X):
         X = self.prepare_table(X)
@@ -201,6 +233,17 @@ class SingleJoin(BaseJoinMethod):
         )
         merged_test = self.prepare_table(merged_test)
         return self.model.predict(merged_test)
+
+    def get_estimator_parameters(self):
+        return {"estimator": self.name, **self.join_parameters}
+
+    def get_additional_info(self):
+        return {
+            "best_candidate_hash": self.best_candidate_hash,
+            "left_on": self.left_on,
+            "right_on": self.right_on,
+            "joined_columns": self.joined_columns,
+        }
 
 
 class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
@@ -226,7 +269,9 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         self.name = "highest_containment"
         self.candidate_ranking = None
         self.cat_features = []
-        self.best_candidate_hash = None
+        self.best_cnd_hash = None
+        self.best_cnd_table = None
+        self.left_on = self.right_on = None
 
     @staticmethod
     def _measure_containment(
@@ -257,17 +302,18 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             containment_list.append({"candidate": hash_, "containment": containment})
 
         self.candidate_ranking = pl.from_dicts(containment_list)
-        self.best_candidate_hash = self.candidate_ranking.top_k(1, by="containment")[
+        self.best_cnd_hash = self.candidate_ranking.top_k(1, by="containment")[
             "candidate"
         ].item()
-        mdata = self.candidate_joins[self.best_candidate_hash]
-        _, best_cnd_md, left_on, right_on = mdata.get_join_information()
-        best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
+
+        mdata = self.candidate_joins[self.best_cnd_hash]
+        _, best_cnd_md, self.left_on, self.right_on = mdata.get_join_information()
+        self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
         merged_train = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
-            best_cnd_table,
-            left_on=left_on,
-            right_on=right_on,
+            self.best_cnd_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
@@ -280,19 +326,27 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
     def predict(self, X):
         X = self.prepare_table(X)
-        best_cnd_mdata = self.candidate_joins[self.best_candidate_hash]
-        _, cnd_md, left_on, right_on = best_cnd_mdata.get_join_information()
-        cnd_table = pl.read_parquet(cnd_md["full_path"])
         merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
-            cnd_table,
-            left_on=left_on,
-            right_on=right_on,
+            self.best_cnd_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
         merged_test = self.prepare_table(merged_test)
         return self.model.predict(merged_test)
+
+    def get_estimator_parameters(self):
+        return {"estimator": self.name, **self.join_parameters}
+
+    def get_additional_info(self):
+        return {
+            "best_candidate_hash": self.best_cnd_hash,
+            "left_on": self.left_on,
+            "right_on": self.right_on,
+            "joined_columns": self.joined_columns,
+        }
 
 
 class BestSingleJoin(BaseJoinWithCandidatesMethod):
@@ -402,6 +456,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         )
         self.cat_features = self.get_cat_features(best_train)
         best_train = self.prepare_table(best_train)
+        self.joined_columns = len(best_train.columns)
         self.model = self.build_model(best_train, self.cat_features)
         self.model.fit(X=best_train, y=y)
 
@@ -422,10 +477,21 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
     def transform(self, X):
         pass
 
+    def get_estimator_parameters(self):
+        return {"estimator": self.name, **self.join_parameters}
+
+    def get_additional_info(self):
+        return {
+            "best_candidate_hash": self.best_cnd_hash,
+            "left_on": self.left_on,
+            "right_on": self.right_on,
+            "joined_columns": self.joined_columns,
+        }
+
 
 class FullJoin(BaseJoinWithCandidatesMethod):
     # TODO: add a note mentioning that the joins in `candidate_joins` have been
-    # TODO: vetted in some previous step and that this estimator will join them all
+    # vetted in some previous step and that this estimator will join them all
     def __init__(
         self,
         scenario_logger=None,
@@ -458,6 +524,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             merged_train, self.candidate_joins, self.join_parameters["aggregation"]
         )
         merged_train = self.prepare_table(merged_train)
+        self.joined_columns = len(merged_train.columns)
         self.cat_features = self.get_cat_features(merged_train)
 
         self.model = self.build_model(merged_train, self.cat_features)
@@ -476,8 +543,20 @@ class FullJoin(BaseJoinWithCandidatesMethod):
     def transform(self, X):
         pass
 
+    def get_estimator_parameters(self):
+        return {"estimator": self.name, **self.join_parameters}
 
-class GreedyGreedyJoin(BaseJoinMethod):
+    def get_additional_info(self):
+        # TODO: add the list of all left_on, right_on
+        return {
+            "best_candidate_hash": "full_join",
+            "left_on": "",
+            "right_on": "",
+            "joined_columns": self.joined_columns,
+        }
+
+
+class StepwiseGreedyJoin(BaseJoinMethod):
     pass
 
 

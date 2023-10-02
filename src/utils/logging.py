@@ -10,30 +10,23 @@ import polars as pl
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
-HEADER_LOGFILE = [
+HEADER_RUN_LOGFILE = [
     "scenario_id",
-    "run_id",
     "status",
     "target_dl",
-    "git_hash",
-    "index_name",
     "base_table",
-    "candidate_table",
-    "iterations",
-    "join_strategy",
+    "estimator",
     "aggregation",
     "fold_id",
-    "time_train",
-    "time_eval",
-    "time_join",
-    "time_eval_join",
+    "time_fit",
+    "time_predict",
+    "time_run",
+    "r2score",
+    "rmse",
     "best_candidate_hash",
     "n_cols",
-    "r2score",
-    "avg_r2",
-    "std_r2",
-    "tree_count",
-    "best_iteration",
+    "left_on",
+    "right_on",
 ]
 
 

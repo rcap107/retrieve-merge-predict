@@ -7,9 +7,10 @@ from pathlib import Path
 from time import process_time
 
 import polars as pl
+from sklearn.metrics import mean_squared_error, r2_score
 
 import src.utils.logging as log
-from src.utils.logging import HEADER_LOGFILE
+from src.utils.logging import HEADER_RUN_LOGFILE
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
@@ -31,6 +32,8 @@ class ScenarioLogger:
         top_k,
         feature_selection,
         model_selection,
+        jd_method="minhash",
+        task="regression",
         exp_name=None,
         debug=False,
     ) -> None:
@@ -47,9 +50,11 @@ class ScenarioLogger:
         self.exp_name = exp_name
         self.scenario_id = log.read_and_update_scenario_id(exp_name, debug=debug)
         self.prepare_logger(exp_name)
+        self.task = task
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
+        self.jd_method = jd_method
         self.base_table = base_table
         self.git_hash = git_hash
         self.iterations = iterations
@@ -78,6 +83,7 @@ class ScenarioLogger:
     def get_parameters(self):
         return {
             "base_table": self.base_table,
+            "jd_method": self.jd_method,
             "iterations": self.iterations,
             "aggregation": self.aggregation,
             "target_dl": self.target_dl,
@@ -102,6 +108,7 @@ class ScenarioLogger:
                     self.scenario_id,
                     self.git_hash,
                     self.base_table,
+                    self.jd_method,
                     self.iterations,
                     self.aggregation,
                     self.target_dl,
@@ -173,25 +180,30 @@ class RunLogger:
         self,
         scenario_logger: ScenarioLogger,
         additional_parameters: dict,
-        json_path="results/json",
     ):
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
         self.path_run_logs = scenario_logger.path_run_logs
         self.path_raw_logs = scenario_logger.path_raw_logs
         self.run_id = scenario_logger.get_next_run_id()
+        self.task = scenario_logger.task
+        self.debug = scenario_logger.debug
         self.status = None
         self.timestamps = {}
         self.durations = {
             "time_run": "",
-            "time_eval": "",
-            "time_join": "",
-            "time_eval_join": "",
+            "time_fit": "",
+            "time_predict": "",
         }
 
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
-        self.results = {"r2": "", "rmse": ""}
-        self.json_path = json_path
+        self.results = {}
+        self.additional_info = {
+            "best_candidate_hash": None,
+            "left_on": None,
+            "right_on": None,
+            "joined_columns": None,
+        }
 
         self.mark_time("run")
 
@@ -202,7 +214,6 @@ class RunLogger:
             "left_on": "",
             "right_on": "",
             "git_hash": scenario_logger.git_hash,
-            "index_name": "base_table",
             "iterations": scenario_logger.iterations,
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
@@ -214,6 +225,9 @@ class RunLogger:
             parameters.update(additional_parameters)
 
         return parameters
+
+    def update_parameters(self, additional_parameters):
+        self.parameters.update(additional_parameters)
 
     def update_timestamps(self, additional_timestamps=None):
         if additional_timestamps is not None:
@@ -296,34 +310,43 @@ class RunLogger:
         else:
             raise KeyError(f"Label {label} not found in durations.")
 
+    def measure_results(self, y_true, y_pred):
+        if y_true.shape[0] != y_pred.shape[0]:
+            raise ValueError("The provided vectors have inconsistent shapes.")
+
+        if self.task == "regression":
+            self.results["r2"] = r2_score(y_true, y_pred)
+            self.results["rmse"] = mean_squared_error(y_true, y_pred, squared=False)
+            return self.results
+        elif self.task == "classification":
+            raise NotImplementedError
+        else:
+            raise ValueError()
+
+    def set_additional_info(self, info_dict: dict):
+        self.additional_info.update(info_dict)
+
     def to_dict(self):
         values = [
             self.scenario_id,
-            self.run_id,
             self.status,
             self.parameters["target_dl"],
-            self.parameters["git_hash"],
-            self.parameters["index_name"],
             self.parameters["base_table"],
-            self.parameters["candidate_table"],
-            self.parameters["iterations"],
-            self.parameters["join_strategy"],
+            self.parameters["estimator"],
             self.parameters["aggregation"],
             self.parameters.get("fold_id", ""),
-            self.durations.get("time_train", ""),
-            self.durations.get("time_eval", ""),
-            self.durations.get("time_join", ""),
-            self.durations.get("time_eval_join", ""),
-            self.results.get("best_candidate_hash", ""),
-            self.results.get("n_cols", ""),
-            self.results.get("r2score", ""),
-            self.results.get("avg_r2", ""),
-            self.results.get("std_r2", ""),
-            self.results.get("tree_count", ""),
-            self.results.get("best_iteration", ""),
+            self.durations.get("time_fit", ""),
+            self.durations.get("time_predict", ""),
+            self.durations.get("time_run", ""),
+            self.results.get("r2", ""),
+            self.results.get("rmse", ""),
+            self.additional_info.get("best_candidate_hash", ""),
+            self.additional_info.get("joined_columns", ""),
+            self.additional_info.get("left_on", ""),
+            self.additional_info.get("right_on", ""),
         ]
 
-        return dict(zip(HEADER_LOGFILE, values))
+        return dict(zip(HEADER_RUN_LOGFILE, values))
 
     def to_str(self):
         res_str = ",".join(
@@ -341,15 +364,18 @@ class RunLogger:
         self.to_logfile(self.path_run_logs)
 
     def to_logfile(self, path_logfile):
-        if Path(path_logfile).exists():
-            with open(path_logfile, "a") as fp:
-                writer = csv.DictWriter(fp, fieldnames=HEADER_LOGFILE)
-                writer.writerow(self.to_dict())
+        if not self.debug:
+            if Path(path_logfile).exists():
+                with open(path_logfile, "a") as fp:
+                    writer = csv.DictWriter(fp, fieldnames=HEADER_RUN_LOGFILE)
+                    writer.writerow(self.to_dict())
+            else:
+                with open(path_logfile, "w") as fp:
+                    writer = csv.DictWriter(fp, fieldnames=HEADER_RUN_LOGFILE)
+                    writer.writeheader()
+                    writer.writerow(self.to_dict())
         else:
-            with open(path_logfile, "w") as fp:
-                writer = csv.DictWriter(fp, fieldnames=HEADER_LOGFILE)
-                writer.writeheader()
-                writer.writerow(self.to_dict())
+            print(json.dumps(self.to_dict(), indent=2))
 
 
 class RawLogger(RunLogger):
