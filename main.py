@@ -6,6 +6,7 @@ import pprint
 from types import SimpleNamespace
 
 import toml
+from sklearn.model_selection import ParameterGrid
 
 from main_pipeline import single_run
 from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
@@ -50,35 +51,28 @@ def parse_args():
     return args
 
 
-def generate_run_variants(base_config):
-    # TODO: this needs updating. "DEFAULT" is a bad idea. Some arguments are not needed anymore.
-    config_dict = base_config["DEFAULT"]
-    run_sets = [k for k in base_config.keys() if k != "DEFAULT"]
-    all_run_variants = []
-    # TODO: Convert this to sklearn.model_selection.ParameterGrid(https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.ParameterGrid.html)
-    for k in run_sets:
+def generate_run_variants(base_config, debug=False):
+    base_config["input_data"]["debug"] = debug
+    sections = list(base_config.keys())
+    config_dict = {}
+    for k in base_config:
         config_dict.update(base_config[k])
-        config_dict = {
-            k: (v if type(v) == list else [v]) for k, v in config_dict.items()
-        }
+    config_dict = {k: (v if type(v) == list else [v]) for k, v in config_dict.items()}
+    grid = list(ParameterGrid(config_dict))
 
-        keys, values = zip(*config_dict.items())
-        run_variants = [dict(zip(keys, v)) for v in itertools.product(*values)]
-        all_run_variants += run_variants
-    return all_run_variants
+    return grid
 
 
 if __name__ == "__main__":
     args = parse_args()
     os.makedirs("results/logs", exist_ok=True)
-    os.makedirs("results/json", exist_ok=True)
 
     base_config = toml.load(args.input_path)
-    run_variants = generate_run_variants(base_config)
     if not args.debug:
         exp_name = setup_run_logging(base_config)
     else:
         exp_name = get_exp_name(debug=args.debug)
+    run_variants = generate_run_variants(base_config, debug=args.debug)
     for idx, dd in enumerate(run_variants):
         print("#" * 80)
         print(f"### Run {idx+1}/{len(run_variants)}")

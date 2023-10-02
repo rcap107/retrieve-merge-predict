@@ -32,8 +32,6 @@ class ScenarioLogger:
         target_dl,
         n_splits,
         top_k,
-        feature_selection,
-        model_selection,
         jd_method="minhash",
         task="regression",
         exp_name=None,
@@ -63,8 +61,6 @@ class ScenarioLogger:
         self.aggregation = aggregation
         self.target_dl = target_dl
         self.n_splits = n_splits
-        self.model_selection = model_selection
-        self.feature_selection = feature_selection
         self.top_k = top_k
         self.results = None
         self.process_time = 0
@@ -90,8 +86,6 @@ class ScenarioLogger:
             "aggregation": self.aggregation,
             "target_dl": self.target_dl,
             "n_splits": self.n_splits,
-            "model_selection": self.model_selection,
-            "feature_selection": self.feature_selection,
             "top_k": self.top_k,
         }
 
@@ -116,8 +110,6 @@ class ScenarioLogger:
                     self.target_dl,
                     self.n_splits,
                     self.top_k,
-                    self.feature_selection,
-                    self.model_selection,
                 ],
             )
         )
@@ -246,8 +238,6 @@ class RunLogger:
             "iterations": scenario_logger.iterations,
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
-            "model_selection": scenario_logger.model_selection,
-            "feature_selection": scenario_logger.feature_selection,
             "fold_id": "",
         }
         if additional_parameters is not None:

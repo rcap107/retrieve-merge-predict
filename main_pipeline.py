@@ -164,6 +164,16 @@ def parse_arguments(default=None):
 
 
 def single_run(args, run_name=None):
+    # TODO: clean this up
+    join_parameters = {
+        k: v for k, v in (vars(args)).items() if k in ["join_strategy", "aggregation"]
+    }
+    model_parameters = {
+        k: v
+        for k, v in (vars(args)).items()
+        if k in ["od_type", "od_wait", "iterations"]
+    }
+
     pipeline.prepare_dirtree()
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
@@ -187,8 +197,6 @@ def single_run(args, run_name=None):
         target_dl=args.yadl_version,
         n_splits=args.n_splits,
         top_k=args.top_k,
-        feature_selection=args.feature_selection,
-        model_selection=args.model_selection,
         exp_name=run_name,
         debug=args.debug,
     )
@@ -221,10 +229,10 @@ def single_run(args, run_name=None):
     if query_column not in df.columns:
         raise pl.ColumnNotFoundError()
 
-    if args.sample_size is not None and args.sample_size > 0:
-        query = df[query_column].sample(int(args.sample_size)).drop_nulls()
-    else:
-        query = df[query_column].drop_nulls()
+    # if args.sample_size is not None and args.sample_size > 0:
+    #     query = df[query_column].sample(int(args.sample_size)).drop_nulls()
+    # else:
+    query = df[query_column].drop_nulls()
 
     logger.info("Start querying")
     query_results, candidates_by_index = pipeline.querying(
@@ -238,14 +246,14 @@ def single_run(args, run_name=None):
     logger.info("End querying")
     scl.add_timestamp("end_querying")
 
-    if args.query_result_path and args.query_result_path is not None:
-        with open(args.query_result_path, "wb") as fp:
-            pickle.dump(candidates_by_index, fp)
-    else:
-        query_result_path = Path("results/generated_candidates")
-        os.makedirs(query_result_path, exist_ok=True)
-        with open(Path(query_result_path, f"{tab_name}.pickle"), "wb") as fp:
-            pickle.dump(candidates_by_index, fp)
+    # if args.query_result_path and args.query_result_path is not None:
+    #     with open(args.query_result_path, "wb") as fp:
+    #         pickle.dump(candidates_by_index, fp)
+    # else:
+    query_result_path = Path("results/generated_candidates")
+    os.makedirs(query_result_path, exist_ok=True)
+    with open(Path(query_result_path, f"{tab_name}.pickle"), "wb") as fp:
+        pickle.dump(candidates_by_index, fp)
 
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")
@@ -256,6 +264,8 @@ def single_run(args, run_name=None):
             df,
             join_candidates=candidates_by_index["minhash"],
             target_column="target",
+            join_parameters=join_parameters,
+            model_parameters=model_parameters,
         )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
@@ -263,7 +273,7 @@ def single_run(args, run_name=None):
     scl.add_timestamp("end_process")
     scl.add_process_time()
 
-    scl.write_to_json()
+    scl.finish_run()
     logger_scn.debug(scl.to_string())
     logger.info("Run end.")
 

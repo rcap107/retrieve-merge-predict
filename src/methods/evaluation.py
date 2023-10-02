@@ -67,14 +67,21 @@ def evaluate_joins(
     group_column="col_to_embed",
     n_splits=5,
     test_size=0.20,
+    join_parameters=None,
+    model_parameters=None,
 ):
-    model_parameters = {
+    m_params = {
         "l2_leaf_reg": 0.01,
         "od_type": None,
         "od_wait": None,
         "iterations": 100,
     }
-    join_parameters = {"aggregation": "first"}
+    j_params = {"aggregation": "first"}
+
+    if model_parameters is not None:
+        m_params.update(model_parameters)
+    if join_parameters is not None:
+        j_params.update(join_parameters)
 
     groups = base_table.select(
         pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
@@ -96,11 +103,11 @@ def evaluate_joins(
         "candidate_joins": join_candidates,
         "target_column": target_column,
         "chosen_model": "catboost",
-        "model_parameters": model_parameters,
-        "join_parameters": join_parameters,
+        "model_parameters": m_params,
+        "join_parameters": j_params,
     }
 
-    estim_nojoin = NoJoin(scenario_logger, target_column, "catboost", model_parameters)
+    estim_nojoin = NoJoin(scenario_logger, target_column, "catboost", m_params)
     estim_highest_containment = HighestContainmentJoin(**params_join_with_candidates)
 
     # taking a random candidate for debugging single join
@@ -111,8 +118,8 @@ def evaluate_joins(
         cand_join_mdata=cand_join_mdata,
         target_column=target_column,
         chosen_model="catboost",
-        model_parameters=model_parameters,
-        join_parameters=join_parameters,
+        model_parameters=m_params,
+        join_parameters=j_params,
     )
 
     estim_best_single_join = BestSingleJoin(**params_join_with_candidates)
