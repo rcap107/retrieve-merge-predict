@@ -9,42 +9,87 @@ from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
 from tqdm import tqdm
 
 import src.utils.joining as ju
-from src.data_structures.loggers import RunLogger
+from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import CandidateJoin
 
 
 class BaseJoinMethod(BaseEstimator):
+    """Base JoinEstimator class. This class is extended by the other estimators."""
+
     def __init__(
         self,
-        scenario_logger=None,
-        target_column=None,
-        chosen_model=None,
-        model_parameters=None,
-        task="regression",
+        scenario_logger: ScenarioLogger,
+        target_column: str = None,
+        chosen_model: str = None,
+        model_parameters: dict = None,
+        task: str = "regression",
     ) -> None:
+        """Base JoinEstimator class. This class is supposed to be extended by the
+        other estimators. It uses the `fit`/`predict` paradigm to implement the
+        evaluation of a join suggestion method.
+
+        Args:
+            scenario_logger (ScenarioLogger): ScenarioLogger object to be used for tracking
+            the parameters and the current experiment.
+            target_column (str, optional): Column that contains the target to be used for
+            supervised learning. Defaults to None.
+            chosen_model (str, optional): Which model to choose, either `catboost` or `linear`. Defaults to None.
+            model_parameters (dict, optional): Parameters to be passed to the model. Defaults to None.
+            task (str, optional): Task to be executed, either `regression` or `classification`. Defaults to "regression".
+
+        Raises:
+            ValueError: Raise ValueError if the value of `task` is not `regression` or `classification`.
+            ValueError: Raise ValueError if the value of `chosen_model` is not `catboost` or `linear`.
+        """
         super().__init__()
-        self.scenario_logger = scenario_logger
-        self.model_parameters = model_parameters
-        self.chosen_model = chosen_model
-        self.target_column = target_column
-        self.task = task
-        self.joined_columns = None
 
         if task not in ["regression", "classification"]:
             raise ValueError(f"Task {task} not supported.")
 
+        if chosen_model not in ["catboost", "linear"]:
+            raise ValueError(f"Model {chosen_model} not supported.")
+
+        self.scenario_logger = scenario_logger
+        self.model_parameters = model_parameters
+        self.model = chosen_model
+        self.target_column = target_column
+        self.task = task
+        self.joined_columns = None
+
         self.model = None
         self.cat_features = None
 
-    def build_model(self, X, cat_features=None):
-        if self.chosen_model == "catboost":
+    def build_model(self, X=None, cat_features=None):
+        """Build the model using the parameters supplied during __init__.
+        Note that multiple models may be created by a JoinEstimator during training.
+
+        Args:
+            X (pd.DataFrame, optional): Input dataframe used to build the linear model. Defaults to None.
+            cat_features (list, optional): List of features to be considered categorical by CatBoost. Defaults to None.
+
+        Raises:
+            ValueError: Raise ValueError if the model name provided is not `linear` or `catboost`.
+
+        Returns:
+            The required model.
+        """
+        if self.model == "catboost":
             return self.build_catboost(cat_features)
-        elif self.chosen_model == "linear":
+        elif self.model == "linear":
             return self.build_linear()
         else:
-            raise ValueError(f"Chosen model {self.chosen_model} is not recognized.")
+            raise ValueError(f"Chosen model {self.model} is not recognized.")
 
     def build_catboost(self, cat_features):
+        """Build a catboost model with the model parameters defined in the __init__
+        and with the categorical features provided in `cat_features`.
+
+        Args:
+            cat_features (list): List of features to be considered categorical.
+
+        Returns:
+            CatBoostRegressor or CatBoostClassifier: The initialized model.
+        """
         defaults = {
             "l2_leaf_reg": 0.01,
             "od_type": "Iter",
@@ -55,17 +100,40 @@ class BaseJoinMethod(BaseEstimator):
 
         parameters = dict(defaults)
         parameters.update(self.model_parameters)
-        model = CatBoostRegressor(cat_features=cat_features, **parameters)
-
-        return model
+        if self.task == "regression":
+            return CatBoostRegressor(cat_features=cat_features, **parameters)
+        elif self.task == "classification":
+            raise NotImplementedError
+            return CatBoostClassifier(cat_features=cat_features, **parameters)
+        else:
+            raise ValueError
+            return None
 
     def build_linear(self):
         raise NotImplementedError
 
     def fit(self, X, y):
+        """Abstract method, to be extended by other estimators. It should take a
+        prepared table `X` and a suitable target array `y`. It will execute all
+        the operations required to fit prepare and fit the model to be used later
+        in the `predict` step.
+
+        Args:
+            X (pd.DataFrame): Input dataframe.
+            y (pd.Series): Target column.
+        """
         raise NotImplementedError
 
     def predict(self, X):
+        """Abstract method, to be extended by other estimators.
+
+        It should take a prepared table `X`, which is fed to the prepared model.
+        If additional operations are required, they are executed (e.g., joining
+        X on a candidate table) before calling self.model.predict.
+
+        Args:
+            X (pd.DataFrame): Input dataframe.
+        """
         raise NotImplementedError
 
     def transform(self, X):
