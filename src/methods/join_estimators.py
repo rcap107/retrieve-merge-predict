@@ -47,8 +47,8 @@ class BaseJoinMethod(BaseEstimator):
     def build_catboost(self, cat_features):
         defaults = {
             "l2_leaf_reg": 0.01,
-            "od_type": None,
-            "od_wait": None,
+            "od_type": "Iter",
+            "od_wait": 10,
             "iterations": 100,
             "verbose": 0,
         }
@@ -319,6 +319,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             suffix="_right",
         )
         merged_train = self.prepare_table(merged_train)
+        self.joined_columns = len(merged_train.columns)
         self.cat_features = self.get_cat_features(merged_train)
 
         merged_valid = ju.execute_join_with_aggregation(
