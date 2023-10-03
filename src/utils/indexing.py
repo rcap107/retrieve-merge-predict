@@ -1,4 +1,5 @@
 import pickle
+from pathlib import Path
 
 from src.data_structures.indices import ManualIndex, MinHashIndex
 
@@ -28,3 +29,19 @@ def write_candidates_on_file(candidates, output_file_path, separator=","):
     # write the candidates
 
     # metam format is left_table;left_on_column;right_table;right_on_column
+
+
+def fix_path(path):
+    part_list = []
+    for part in Path(path).parts:
+
+        if part == "store":
+            part_list.append("store3")
+        elif part == "yago3-dl":
+            part_list.append("yadl")
+        elif part == "work":
+            continue
+        else:
+            part_list.append(part)
+
+    return Path(*part_list)
