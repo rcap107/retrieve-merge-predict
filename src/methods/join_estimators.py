@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -11,6 +13,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.validation import NotFittedError, check_is_fitted
 from tqdm import tqdm
 
+import src.utils.indexing as iu
 import src.utils.joining as ju
 from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import CandidateJoin
@@ -53,6 +56,7 @@ class BaseJoinMethod(BaseEstimator):
         if chosen_model not in ["catboost", "linear"]:
             raise ValueError(f"Model {chosen_model} not supported.")
 
+        self.name = "base_estimator"
         self.scenario_logger = scenario_logger
         self.model_parameters = model_parameters
         self.chosen_model = chosen_model
@@ -201,7 +205,7 @@ class BaseJoinMethod(BaseEstimator):
         return y_pred
 
     def get_estimator_parameters(self):
-        raise NotImplementedError
+        return {"estimator": self.name, "chosen_model": self.chosen_model}
 
     def get_additional_info(self):
         raise NotImplementedError
@@ -289,18 +293,22 @@ class NoJoin(BaseJoinMethod):
             raise ValueError
         self.joined_columns = len(X.columns)
 
-        self.build_model(X)
+        if self.with_validation:
+            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+            self.build_model(X_train)
 
-        self.fit_model(X, y)
+            self.fit_model(X_train, y_train, X_valid, y_valid)
+
+        else:
+            self.build_model(X)
+
+            self.fit_model(X, y)
 
     def predict(self, X):
         return self.predict_model(X)
 
     def transform(self, X):
         return X
-
-    def get_estimator_parameters(self):
-        return {"estimator": self.name}
 
     def get_additional_info(self):
         return {
@@ -341,7 +349,6 @@ class SingleJoin(BaseJoinMethod):
         self.best_candidate_hash = cnd_md["hash"]
 
     def fit(self, X, y):
-        self.fit_cat_enc(X)
         if self.with_validation:
             X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
         else:
@@ -465,6 +472,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
         mdata = self.candidate_joins[self.best_cnd_hash]
         _, best_cnd_md, self.left_on, self.right_on = mdata.get_join_information()
+
         self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
 
         if self.with_validation:
@@ -480,7 +488,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
         else:
-            merged_train, merged_valid = self._execute_joins(
+            merged_train = self._execute_joins(
                 X_train=X,
                 cnd_table=self.best_cnd_table,
                 left_on=self.left_on,
@@ -502,7 +510,9 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         return self.predict_model(merged_test)
 
     def get_estimator_parameters(self):
-        return {"estimator": self.name, **self.join_parameters}
+        d = super().get_estimator_parameters()
+        d.update(self.join_parameters)
+        return d
 
     def get_additional_info(self):
         return {
@@ -591,19 +601,13 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             self.right_on,
         ) = best_join_mdata.get_join_information()
         self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
-        best_train = ju.execute_join_with_aggregation(
-            pl.from_pandas(X),
-            self.best_cnd_table,
-            left_on=self.left_on,
-            right_on=self.right_on,
-            aggregation=self.join_parameters["aggregation"],
-            suffix="_right",
+        best_train, best_valid = self._execute_joins(
+            X_train, X_valid, self.best_cnd_table, self.left_on, self.right_on
         )
         self.joined_columns = len(best_train.columns)
 
         self.build_model(best_train)
-        self.fit_model(best_train, y, skip_validation=True)
-
+        self.fit_model(best_train, y_train, best_valid, y_valid)
         self.candidate_ranking = pl.from_dicts(ranking).sort("r2", descending=True)
 
     def predict(self, X):
@@ -621,7 +625,9 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         pass
 
     def get_estimator_parameters(self):
-        return {"estimator": self.name, **self.join_parameters}
+        d = super().get_estimator_parameters()
+        d.update(self.join_parameters)
+        return d
 
     def get_additional_info(self):
         return {
@@ -714,7 +720,9 @@ class FullJoin(BaseJoinWithCandidatesMethod):
         pass
 
     def get_estimator_parameters(self):
-        return {"estimator": self.name, **self.join_parameters}
+        d = super().get_estimator_parameters()
+        d.update(self.join_parameters)
+        return d
 
     def get_additional_info(self):
         # TODO: add the list of all left_on, right_on
