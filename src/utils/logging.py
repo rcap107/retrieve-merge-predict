@@ -49,20 +49,14 @@ def read_log_tar(exp_name):
 
 def read_logs(exp_name):
     path_target_run = Path("results/logs/", exp_name)
-    path_raw_logs = Path(path_target_run, "raw_logs")
     path_agg_logs = Path(path_target_run, "run_logs")
-
-    logs = []
-    for f in path_raw_logs.glob("*.log"):
-        logs.append(pl.read_csv(f))
-    df_raw = pl.concat(logs)
 
     logs = []
     for f in path_agg_logs.glob("*.log"):
         logs.append(pl.read_csv(f))
     df_agg = pl.concat(logs)
 
-    return df_raw, df_agg
+    return df_agg
 
 
 def setup_run_logging(setup_config=None):
