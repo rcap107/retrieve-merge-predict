@@ -194,6 +194,7 @@ def single_run(args, run_name=None):
         git_hash=repo_sha,
         iterations=args.iterations,
         aggregation=args.aggregation,
+        chosen_model=args.chosen_model,
         target_dl=args.yadl_version,
         n_splits=args.n_splits,
         top_k=args.top_k,
@@ -264,6 +265,13 @@ def single_run(args, run_name=None):
             df,
             join_candidates=candidates_by_index["minhash"],
             target_column="target",
+            chosen_model=args.chosen_model,
+            join_estimators=[
+                "no_join",
+                "highest_containment",
+                "best_single_join",
+                "full_join",
+            ],
             join_parameters=join_parameters,
             model_parameters=model_parameters,
         )

@@ -67,9 +67,12 @@ def evaluate_joins(
     group_column="col_to_embed",
     n_splits=5,
     test_size=0.20,
+    chosen_model="catboost",
+    join_estimators=None,
     join_parameters=None,
     model_parameters=None,
 ):
+
     m_params = {
         "l2_leaf_reg": 0.01,
         "od_type": None,
@@ -102,13 +105,24 @@ def evaluate_joins(
         "scenario_logger": scenario_logger,
         "candidate_joins": join_candidates,
         "target_column": target_column,
-        "chosen_model": "linear",
+        "chosen_model": chosen_model,
         "model_parameters": m_params,
         "join_parameters": j_params,
     }
+    estimators = []
+    if "no_join" in join_estimators:
+        estimators.append(
+            NoJoin(scenario_logger, target_column, chosen_model, m_params)
+        )
+    if "highest_containment" in join_estimators:
+        estimators.append(HighestContainmentJoin(**params_join_with_candidates))
+    if "best_single_join" in join_estimators:
+        estimators.append(BestSingleJoin(**params_join_with_candidates))
+    if "full_join" in join_estimators:
+        estimators.append(FullJoin(**params_join_with_candidates))
 
-    estim_nojoin = NoJoin(scenario_logger, target_column, "linear", m_params)
-    estim_highest_containment = HighestContainmentJoin(**params_join_with_candidates)
+    if len(estimators) == 0:
+        raise ValueError("No estimators were prepared. ")
 
     # taking a random candidate for debugging single join
     hash_, cand_join_mdata = next(iter(join_candidates.items()))
@@ -121,17 +135,6 @@ def evaluate_joins(
     #     model_parameters=m_params,
     #     join_parameters=j_params,
     # )
-
-    estim_best_single_join = BestSingleJoin(**params_join_with_candidates)
-
-    estim_full_join = FullJoin(**params_join_with_candidates)
-
-    estimators = [
-        estim_nojoin,
-        estim_highest_containment,
-        estim_best_single_join,
-        estim_full_join,
-    ]
 
     res_list = []
 

@@ -28,6 +28,7 @@ class ScenarioLogger:
         base_table,
         git_hash,
         iterations,
+        chosen_model,
         aggregation,
         target_dl,
         n_splits,
@@ -54,6 +55,7 @@ class ScenarioLogger:
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
+        self.chosen_model = chosen_model
         self.jd_method = jd_method
         self.base_table = base_table
         self.git_hash = git_hash
@@ -169,6 +171,7 @@ class ScenarioLogger:
         keys = [
             "exp_name",
             "scenario_id",
+            "chosen_model",
             "base_table",
             "git_hash",
             "iterations",
@@ -353,6 +356,7 @@ class RunLogger:
             self.parameters["base_table"],
             self.parameters["estimator"],
             self.parameters["aggregation"],
+            self.parameters["chosen_model"],
             self.parameters.get("fold_id", ""),
             self.durations.get("time_fit", ""),
             self.durations.get("time_predict", ""),
