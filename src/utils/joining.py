@@ -151,7 +151,7 @@ def execute_join_with_aggregation(
     right_on=None,
     how="left",
     aggregation=None,
-    suffix=None,
+    suffix="_right",
 ):
     if on is not None:
         if left_on is None and right_on is None:
@@ -199,13 +199,13 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
     """
     merged = source_table.clone()
     hashes = []
-    for hash_, mdata in index_cand.items():
-        # for hash_, mdata in tqdm(
-        #     index_cand.items(),
-        #     total=len(index_cand),
-        #     leave=False,
-        #     desc="Executing full join",
-        # ):
+    # for hash_, mdata in index_cand.items():
+    for hash_, mdata in tqdm(
+        index_cand.items(),
+        total=len(index_cand),
+        leave=False,
+        desc="Full Join",
+    ):
         cnd_md = mdata.candidate_metadata
         hashes.append(cnd_md["hash"])
         candidate_table = pl.read_parquet(cnd_md["full_path"])
