@@ -17,6 +17,7 @@ HEADER_RUN_LOGFILE = [
     "base_table",
     "estimator",
     "aggregation",
+    "chosen_model",
     "fold_id",
     "time_fit",
     "time_predict",
