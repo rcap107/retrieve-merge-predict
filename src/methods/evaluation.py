@@ -102,12 +102,12 @@ def evaluate_joins(
         "scenario_logger": scenario_logger,
         "candidate_joins": join_candidates,
         "target_column": target_column,
-        "chosen_model": "catboost",
+        "chosen_model": "linear",
         "model_parameters": m_params,
         "join_parameters": j_params,
     }
 
-    estim_nojoin = NoJoin(scenario_logger, target_column, "catboost", m_params)
+    estim_nojoin = NoJoin(scenario_logger, target_column, "linear", m_params)
     estim_highest_containment = HighestContainmentJoin(**params_join_with_candidates)
 
     # taking a random candidate for debugging single join
@@ -127,11 +127,10 @@ def evaluate_joins(
     estim_full_join = FullJoin(**params_join_with_candidates)
 
     estimators = [
-        estim_nojoin,
-        estim_highest_containment,
-        # estim_single_join,
+        # estim_nojoin,
+        # estim_highest_containment,
         estim_best_single_join,
-        estim_full_join,
+        # estim_full_join,
     ]
 
     res_list = []
