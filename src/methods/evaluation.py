@@ -113,24 +113,24 @@ def evaluate_joins(
     # taking a random candidate for debugging single join
     hash_, cand_join_mdata = next(iter(join_candidates.items()))
     # SingleJoin
-    estim_single_join = SingleJoin(
-        scenario_logger=scenario_logger,
-        cand_join_mdata=cand_join_mdata,
-        target_column=target_column,
-        chosen_model="catboost",
-        model_parameters=m_params,
-        join_parameters=j_params,
-    )
+    # estim_single_join = SingleJoin(
+    #     scenario_logger=scenario_logger,
+    #     cand_join_mdata=cand_join_mdata,
+    #     target_column=target_column,
+    #     chosen_model="catboost",
+    #     model_parameters=m_params,
+    #     join_parameters=j_params,
+    # )
 
     estim_best_single_join = BestSingleJoin(**params_join_with_candidates)
 
     estim_full_join = FullJoin(**params_join_with_candidates)
 
     estimators = [
-        # estim_nojoin,
-        # estim_highest_containment,
+        estim_nojoin,
+        estim_highest_containment,
         estim_best_single_join,
-        # estim_full_join,
+        estim_full_join,
     ]
 
     res_list = []

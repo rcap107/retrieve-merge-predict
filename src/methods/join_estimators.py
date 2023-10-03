@@ -190,9 +190,11 @@ class BaseJoinMethod(BaseEstimator):
 
     def predict_model(self, X):
         if self.chosen_model == "linear":
+            X = self.prepare_table(X)
             X_enc = self.cat_encoder.transform(X)
             y_pred = self.model.predict(X_enc)
         elif self.chosen_model == "catboost":
+            X = self.prepare_table(X)
             y_pred = self.model.predict(X)
         else:
             raise ValueError
@@ -320,6 +322,7 @@ class SingleJoin(BaseJoinMethod):
         join_parameters=None,
         task="regression",
     ) -> None:
+        raise NotImplementedError
         super().__init__(
             scenario_logger, target_column, chosen_model, model_parameters, task
         )
@@ -450,7 +453,6 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         ):
             _, cnd_md, left_on, right_on = mdata.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
-            # cnd_table = self.prepare_table(cnd_table)
             containment = self._measure_containment(
                 pl.from_pandas(X), cnd_table, left_on, right_on
             )
@@ -467,12 +469,23 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
         if self.with_validation:
             X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
-            merged_train, merged_valid = self._execute_joins(X_train, X_valid)
+            merged_train, merged_valid = self._execute_joins(
+                X_train=X_train,
+                X_valid=X_valid,
+                cnd_table=self.best_cnd_table,
+                left_on=self.left_on,
+                right_on=self.right_on,
+            )
             self.joined_columns = len(merged_train.columns)
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
         else:
-            merged_train = self._execute_joins(X)
+            merged_train, merged_valid = self._execute_joins(
+                X_train=X,
+                cnd_table=self.best_cnd_table,
+                left_on=self.left_on,
+                right_on=self.right_on,
+            )
             self.joined_columns = len(merged_train.columns)
             self.build_model(merged_train)
             self.fit_model(merged_train, y)
@@ -486,29 +499,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
-        merged_test = self.prepare_table(merged_test)
         return self.predict_model(merged_test)
-
-    def _execute_joins(self, X_train, X_valid=None):
-        merged_train = ju.execute_join_with_aggregation(
-            pl.from_pandas(X_train),
-            self.best_cnd_table,
-            left_on=self.left_on,
-            right_on=self.right_on,
-            aggregation=self.join_parameters["aggregation"],
-        )
-
-        if X_valid is not None:
-            merged_valid = ju.execute_join_with_aggregation(
-                pl.from_pandas(X_valid),
-                self.best_cnd_table,
-                left_on=self.left_on,
-                right_on=self.right_on,
-                aggregation=self.join_parameters["aggregation"],
-            )
-            return merged_train, merged_valid
-        else:
-            return merged_train
 
     def get_estimator_parameters(self):
         return {"estimator": self.name, **self.join_parameters}
@@ -579,9 +570,6 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
                 X_train, X_valid, cnd_table, left_on, right_on
             )
 
-            merged_train = self.prepare_table(merged_train)
-            merged_valid = self.prepare_table(merged_valid)
-
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
 
@@ -613,7 +601,6 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         )
         self.joined_columns = len(best_train.columns)
 
-        best_train = self.prepare_table(best_train)
         self.build_model(best_train)
         self.fit_model(best_train, y, skip_validation=True)
 
@@ -628,7 +615,6 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
-        merged_test = self.prepare_table(merged_test)
         return self.predict_model(merged_test)
 
     def transform(self, X):
@@ -697,41 +683,32 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             return None
 
     def fit(self, X, y):
-        self.fit_cat_enc(X)
         if self.with_validation:
             X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
-        else:
-            X_train = X
-            y_train = y
-        merged_train = pl.from_pandas(X_train).clone().lazy()
-        merged_train = ju.execute_join_all_candidates(
-            merged_train, self.candidate_joins, self.join_parameters["aggregation"]
-        )
-        self.joined_columns = len(merged_train.columns)
-
-        merged_train = self.prepare_table(merged_train)
-
-        if self.with_validation:
+            merged_train = pl.from_pandas(X_train).clone().lazy()
+            merged_train = ju.execute_join_all_candidates(
+                merged_train, self.candidate_joins, self.join_parameters["aggregation"]
+            )
             merged_valid = pl.from_pandas(X_valid).clone().lazy()
             merged_valid = ju.execute_join_all_candidates(
                 merged_valid, self.candidate_joins, self.join_parameters["aggregation"]
             )
-            merged_valid = self.prepare_table(merged_valid)
-
-        self.model = self.build_model(merged_train)
-
-        if self.with_validation:
-            self.model.fit(merged_train, y_train, eval_set=(merged_valid, y_valid))
+            self.build_model(merged_train)
+            self.fit_model(merged_train, y_train, merged_valid, y_valid)
         else:
-            self.model.fit(merged_train, y_train)
+            merged_train = pl.from_pandas(X).clone().lazy()
+            merged_train = ju.execute_join_all_candidates(
+                merged_train, self.candidate_joins, self.join_parameters["aggregation"]
+            )
+            self.build_model(merged_train)
+            self.fit_model(merged_train, y)
 
     def predict(self, X):
         merged_test = pl.from_pandas(X).clone().lazy()
         merged_test = ju.execute_join_all_candidates(
             merged_test, self.candidate_joins, self.join_parameters["aggregation"]
         )
-        merged_test = self.prepare_table(merged_test)
-        return self.model.predict(merged_test)
+        return self.predict_model(merged_test)
 
     def transform(self, X):
         pass
