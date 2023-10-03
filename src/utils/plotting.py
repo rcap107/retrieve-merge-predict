@@ -252,14 +252,13 @@ def prepare_pivoted_table(df):
             [
                 "scenario_id",
                 "base_table",
-                "candidate_table",
-                "iterations",
                 "join_strategy",
                 "aggregation",
                 "r2score",
-                "time_train",
-                "time_join",
                 "n_cols",
+                "time_fit",
+                "time_predict",
+                "time_run",
             ]
         )
     )
