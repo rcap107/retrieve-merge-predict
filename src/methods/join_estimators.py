@@ -51,7 +51,7 @@ class BaseJoinMethod(BaseEstimator):
 
         self.scenario_logger = scenario_logger
         self.model_parameters = model_parameters
-        self.model = chosen_model
+        self.chosen_model = chosen_model
         self.target_column = target_column
         self.task = task
         self.joined_columns = None
@@ -73,9 +73,9 @@ class BaseJoinMethod(BaseEstimator):
         Returns:
             The required model.
         """
-        if self.model == "catboost":
+        if self.chosen_model == "catboost":
             return self.build_catboost(cat_features)
-        elif self.model == "linear":
+        elif self.chosen_model == "linear":
             return self.build_linear()
         else:
             raise ValueError(f"Chosen model {self.model} is not recognized.")
