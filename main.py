@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import pprint
+from datetime import datetime as dt
 from types import SimpleNamespace
 
 import toml
@@ -67,6 +68,7 @@ if __name__ == "__main__":
     args = parse_args()
     os.makedirs("results/logs", exist_ok=True)
 
+    start_run = dt.now()
     base_config = toml.load(args.input_path)
     if not args.debug:
         exp_name = setup_run_logging(base_config)
@@ -82,3 +84,7 @@ if __name__ == "__main__":
         single_run(ns, exp_name)
     if args.archive:
         archive_experiment(exp_name)
+    end_run = dt.now()
+    run_duration = end_run - start_run
+    print(f"Run duration: {run_duration.total_seconds():2.f} seconds")
+    # finish_run()
