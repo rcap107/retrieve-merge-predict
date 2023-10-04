@@ -221,7 +221,7 @@ class CandidateJoin:
 
 class RawDataset:
     def __init__(self, full_df_path, source_dl, metadata_dir) -> None:
-        self.path = Path(full_df_path).resolve()
+        self.path = Path(full_df_path)
 
         if not self.path.exists():
             raise IOError(f"File {self.path} not found.")
