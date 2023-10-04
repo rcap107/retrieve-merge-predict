@@ -16,7 +16,9 @@ from sklearn.model_selection import (
     cross_validate,
     train_test_split,
 )
-from tqdm import tqdm
+
+# from tqdm import tqdm
+from tqdm.contrib.telegram import tqdm
 
 import src.utils.joining as ju
 from src.data_structures.loggers import RawLogger, RunLogger
