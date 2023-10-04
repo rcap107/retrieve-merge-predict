@@ -274,6 +274,7 @@ def single_run(args, run_name=None):
             ],
             join_parameters=join_parameters,
             model_parameters=model_parameters,
+            n_splits=args.n_splits,
         )
         logger.info("End evaluation.")
         scl.add_timestamp("end_evaluation")
