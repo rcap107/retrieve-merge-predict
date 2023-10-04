@@ -86,5 +86,5 @@ if __name__ == "__main__":
         archive_experiment(exp_name)
     end_run = dt.now()
     run_duration = end_run - start_run
-    print(f"Run duration: {run_duration.total_seconds():2.f} seconds")
+    print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
     # finish_run()
