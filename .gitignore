@@ -9,6 +9,7 @@ catboost_info/
 results/
 *.tex
 wandb/
+telegram_*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
