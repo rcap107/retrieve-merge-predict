@@ -1,3 +1,4 @@
+import random
 from collections import deque
 from pathlib import Path
 
@@ -770,6 +771,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         budget_type: str = "iterations",
         budget_amount=10,
         valid_size=0.2,
+        # Add more metrics
         metric="r2",
         ranking_metric="containment",
         max_candidates: int = 50,
@@ -793,13 +795,17 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         # Calling this "current_metric" to be more generic
         self.current_metric = -np.inf
+        self.current_X_train = None
+        self.current_X_valid = None
         self.selected_candidates = {}
         self.valid_size = valid_size
         self.blacklist = deque([], maxlen=max_candidates)
         self.candidate_ranking = None
         self.max_candidates = max_candidates
+        self.with_validation = with_validation
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
+        self.epsilon = 0
 
         self.wrap_up_joiner = None
 
@@ -819,6 +825,9 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         r2 = r2_score(y_valid, y_pred)
         self.current_metric = r2
 
+        self.current_X_train = X_train
+        self.current_X_valid = X_valid
+
         # TODO: rewrite this to account for different budget types
         for iter in tqdm(
             range(self.budget_amount),
@@ -832,19 +841,25 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 break
             _, cnd_md, left_on, right_on = cnd_mdata.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
+            cnd_hash = cnd_md["hash"]
 
-            merged_train, merged_valid = self._execute_joins(
-                X_train, X_valid, cnd_table, left_on, right_on
+            temp_X_train, temp_X_valid = self._execute_joins(
+                self.current_X_train,
+                self.current_X_valid,
+                cnd_table,
+                left_on,
+                right_on,
+                suffix=cnd_hash[:10],
             )
 
-            self.build_model(merged_train)
-            self.fit_model(merged_train, y_train, merged_valid, y_valid)
+            self.build_model(temp_X_train)
+            self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
 
-            y_pred = self.predict_model(merged_valid)
+            y_pred = self.predict_model(temp_X_valid)
             # TODO: this should be generalized to any metric
             r2 = r2_score(y_valid, y_pred)
 
-            self.update_ranking(cnd_mdata, r2)
+            self.update_ranking(cnd_mdata, r2, temp_X_train, temp_X_valid)
 
         if len(self.selected_candidates) > 0:
             self.wrap_up_joiner = FullJoin(
@@ -881,31 +896,32 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         return candidate_ranking
 
     def get_candidate(self):
-        # Selecting an unknown candidate
         if len(self.candidate_ranking) > 0:
             _cnd = self.candidate_ranking.popleft()
             return self.candidate_joins[_cnd]
         elif len(self.blacklist) > 0:
             # All candidates have been evaluated, selecting one of the discarded candidates
             # TODO: add a more clever selection of discarded candidates
+            random.shuffle(self.blacklist)
             _cnd = self.blacklist.popleft()
             return self.candidate_joins[_cnd]
         else:
             # No more candidates are left, stop iterations
             return None
 
-    def update_ranking(self, cnd_mdata, metric):
+    def update_ranking(self, cnd_mdata, metric, temp_X_train, temp_X_valid):
         cnd_hash = cnd_mdata.candidate_id
         # TODO: add epsilon to account for variance
-        if metric > self.current_metric:
+        self.already_evaluated[cnd_hash] += 1
+        if metric > self.current_metric + self.epsilon:
             self.selected_candidates.update({cnd_hash: cnd_mdata})
             self.current_metric = metric
+            self.current_X_train = temp_X_train
+            self.current_X_valid = temp_X_valid
         else:
-            if self.already_evaluated[cnd_hash] == 0:
+            # self.candidate_ranking.append(cnd_hash)
+            if self.already_evaluated[cnd_hash] < 3:
                 self.blacklist.append(cnd_hash)
-                self.already_evaluated[cnd_hash] = 1
-            elif cnd_hash in self.blacklist:
-                self.blacklist.remove(cnd_hash)
 
     def predict(self, X):
         return self.wrap_up_joiner.predict(X)
@@ -936,23 +952,35 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             )
 
     def _execute_joins(
-        self, X_train, X_valid=None, cnd_table=None, left_on=None, right_on=None
+        self,
+        X_train,
+        X_valid=None,
+        cnd_table=None,
+        left_on=None,
+        right_on=None,
+        suffix="_right",
     ):
+        if isinstance(X_train, pd.DataFrame):
+            X_train = pl.from_pandas(X_train)
         merged_train = ju.execute_join_with_aggregation(
-            pl.from_pandas(X_train),
+            X_train,
             cnd_table,
             left_on=left_on,
             right_on=right_on,
             aggregation=self.join_parameters["aggregation"],
+            suffix=suffix,
         )
 
         if X_valid is not None:
+            if isinstance(X_valid, pd.DataFrame):
+                X_valid = pl.from_pandas(X_valid)
             merged_valid = ju.execute_join_with_aggregation(
-                pl.from_pandas(X_valid),
+                X_valid,
                 cnd_table,
                 left_on=left_on,
                 right_on=right_on,
                 aggregation=self.join_parameters["aggregation"],
+                suffix=suffix,
             )
             return merged_train, merged_valid
         else:
