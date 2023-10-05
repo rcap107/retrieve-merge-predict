@@ -16,9 +16,7 @@ from sklearn.model_selection import (
     cross_validate,
     train_test_split,
 )
-
-# from tqdm import tqdm
-from tqdm.contrib.telegram import tqdm
+from tqdm import tqdm
 
 import src.utils.joining as ju
 from src.data_structures.loggers import RawLogger, RunLogger
@@ -28,8 +26,12 @@ from src.methods.join_estimators import (
     HighestContainmentJoin,
     NoJoin,
     SingleJoin,
+    StepwiseGreedyJoin,
 )
 from src.utils.models import get_model
+
+# from tqdm.contrib.telegram import tqdm
+
 
 logger_sh = logging.getLogger("pipeline")
 
@@ -111,6 +113,20 @@ def evaluate_joins(
         "model_parameters": m_params,
         "join_parameters": j_params,
     }
+
+    params_greedy_join = {
+        "scenario_logger": scenario_logger,
+        "candidate_joins": join_candidates,
+        "target_column": target_column,
+        "chosen_model": chosen_model,
+        "model_parameters": m_params,
+        "join_parameters": j_params,
+        "budget_type": "iterations",
+        "budget_amount": 10,
+        "metric": "r2",
+        "ranking_metric": "containment",
+    }
+
     estimators = []
     if "no_join" in join_estimators:
         estimators.append(
@@ -122,12 +138,13 @@ def evaluate_joins(
         estimators.append(BestSingleJoin(**params_join_with_candidates))
     if "full_join" in join_estimators:
         estimators.append(FullJoin(**params_join_with_candidates))
-
+    if "stepwise_greedy_join" in join_estimators:
+        estimators.append(StepwiseGreedyJoin(**params_greedy_join))
     if len(estimators) == 0:
         raise ValueError("No estimators were prepared. ")
 
-    # taking a random candidate for debugging single join
-    hash_, cand_join_mdata = next(iter(join_candidates.items()))
+    # # taking a random candidate for debugging single join
+    # hash_, cand_join_mdata = next(iter(join_candidates.items()))
     # SingleJoin
     # estim_single_join = SingleJoin(
     #     scenario_logger=scenario_logger,

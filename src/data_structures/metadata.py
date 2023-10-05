@@ -170,6 +170,14 @@ class CandidateJoin:
         else:
             raise ValueError
 
+    def get_chosen_hash(self, case):
+        if case == "source":
+            return self.source_metadata["hash"]
+        elif case == "candidate":
+            return self.candidate_metadata["hash"]
+        else:
+            raise ValueError
+
     def generate_candidate_id(self):
         """Generate a unique id for this candidate relationship. The same pair of tables can have multiple candidate
         relationships, so this function takes the index, source table, candidate table, left/right columns and combines them

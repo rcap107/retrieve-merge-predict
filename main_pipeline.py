@@ -267,10 +267,11 @@ def single_run(args, run_name=None):
             target_column="target",
             chosen_model=args.chosen_model,
             join_estimators=[
-                "no_join",
-                "highest_containment",
-                "best_single_join",
-                "full_join",
+                # "no_join",
+                # "highest_containment",
+                # "best_single_join",
+                # "full_join",
+                "stepwise_greedy_join"
             ],
             join_parameters=join_parameters,
             model_parameters=model_parameters,
