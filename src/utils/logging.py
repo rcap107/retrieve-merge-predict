@@ -48,8 +48,11 @@ def read_log_tar(exp_name):
     pass
 
 
-def read_logs(exp_name):
-    path_target_run = Path("results/logs/", exp_name)
+def read_logs(exp_name=None, exp_path=None):
+    if exp_name is not None:
+        path_target_run = Path("results/logs/", exp_name)
+    else:
+        path_target_run = Path(exp_path)
     path_agg_logs = Path(path_target_run, "run_logs")
 
     logs = []
