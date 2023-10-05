@@ -321,13 +321,19 @@ class NoJoin(BaseJoinMethod):
         )
         self.name = "nojoin"
 
-    def fit(self, X, y):
-        if X.shape[0] != y.shape[0]:
-            raise ValueError
+    def fit(
+        self, X=None, y=None, X_train=None, y_train=None, X_valid=None, y_valid=None
+    ):
+        # TODO: ADD ERROR CHECKING HERE
         self.joined_columns = len(X.columns)
 
         if self.with_validation:
-            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+            if X is not None and y is not None:
+                if X.shape[0] != y.shape[0]:
+                    raise ValueError
+                X_train, X_valid, y_train, y_valid = train_test_split(
+                    X, y, test_size=0.2
+                )
             self.build_model(X_train)
 
             self.fit_model(X_train, y_train, X_valid, y_valid)
@@ -472,8 +478,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
     def fit(self, X, y):
         # Find the exact containment ranking
-        containment_list = build_containment_ranking(X, self.candidate_joins)
-        self.candidate_ranking = pl.from_dicts(containment_list)
+        self.candidate_ranking = build_containment_ranking(X, self.candidate_joins)
         # Select the top-1 candidate
         self.best_cnd_hash = self.candidate_ranking.top_k(1, by="containment")[
             "candidate"
@@ -698,7 +703,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             return None
 
     def fit(
-        self, X=None, y=None, X_train=None, X_valid=None, y_train=None, y_valid=None
+        self, X=None, y=None, X_train=None, y_train=None, X_valid=None, y_valid=None
     ):
         if self.with_validation:
             if X is not None and y is not None:
@@ -716,6 +721,9 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
         else:
+            if X is None and y is None:
+                X = X_train
+                y = y_train
             merged_train = pl.from_pandas(X).clone().lazy()
             merged_train = ju.execute_join_all_candidates(
                 merged_train, self.candidate_joins, self.join_parameters["aggregation"]
@@ -816,6 +824,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             range(self.budget_amount),
             total=self.budget_amount,
             desc="StepwiseGreedyJoin - Iterating: ",
+            leave=False,
         ):
             cnd_mdata = self.get_candidate()
             if cnd_mdata is None:
@@ -837,19 +846,28 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
             self.update_ranking(cnd_mdata, r2)
 
-        self.wrap_up_joiner = FullJoin(
-            self.scenario_logger,
-            self.selected_candidates,
-            self.target_column,
-            self.chosen_model,
-            self.model_parameters,
-            self.join_parameters,
-            self.task,
-        )
+        if len(self.selected_candidates) > 0:
+            self.wrap_up_joiner = FullJoin(
+                self.scenario_logger,
+                self.selected_candidates,
+                self.target_column,
+                self.chosen_model,
+                self.model_parameters,
+                self.join_parameters,
+                self.task,
+            )
+        else:
+            self.wrap_up_joiner = NoJoin(
+                self.scenario_logger,
+                self.target_column,
+                self.chosen_model,
+                self.model_parameters,
+            )
+
         self.wrap_up_joiner.fit(
             X_train=X_train,
-            X_valid=X_valid,
             y_train=y_train,
+            X_valid=X_valid,
             y_valid=y_valid,
         )
 
