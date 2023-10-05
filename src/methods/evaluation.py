@@ -122,7 +122,7 @@ def evaluate_joins(
         "model_parameters": m_params,
         "join_parameters": j_params,
         "budget_type": "iterations",
-        "budget_amount": 10,
+        "budget_amount": 50,
         "metric": "r2",
         "ranking_metric": "containment",
     }

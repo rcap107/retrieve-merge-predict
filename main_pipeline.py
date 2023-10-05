@@ -247,10 +247,6 @@ def single_run(args, run_name=None):
     logger.info("End querying")
     scl.add_timestamp("end_querying")
 
-    # if args.query_result_path and args.query_result_path is not None:
-    #     with open(args.query_result_path, "wb") as fp:
-    #         pickle.dump(candidates_by_index, fp)
-    # else:
     query_result_path = Path("results/generated_candidates")
     os.makedirs(query_result_path, exist_ok=True)
     with open(Path(query_result_path, f"{tab_name}.pickle"), "wb") as fp:
@@ -267,11 +263,11 @@ def single_run(args, run_name=None):
             target_column="target",
             chosen_model=args.chosen_model,
             join_estimators=[
-                # "no_join",
-                # "highest_containment",
-                # "best_single_join",
-                # "full_join",
-                "stepwise_greedy_join"
+                "no_join",
+                "highest_containment",
+                "best_single_join",
+                "full_join",
+                "stepwise_greedy_join",
             ],
             join_parameters=join_parameters,
             model_parameters=model_parameters,
