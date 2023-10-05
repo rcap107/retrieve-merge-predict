@@ -1,3 +1,4 @@
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -11,12 +12,44 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.validation import NotFittedError, check_is_fitted
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 import src.utils.indexing as iu
 import src.utils.joining as ju
 from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import CandidateJoin
+
+SUPPORTED_BUDGET_TYPES = ["iterations"]
+SUPPORTED_RANKING_METHODS = ["containment"]
+
+
+def measure_containment(
+    source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on, right_on
+):
+    unique_source = source_table[left_on].unique()
+    unique_cand = cand_table[right_on].unique()
+
+    s1 = set(unique_source[left_on].to_series().to_list())
+    s2 = set(unique_cand[right_on].to_series().to_list())
+    return len(s1.intersection(s2)) / len(s1)
+
+
+def build_containment_ranking(X, candidate_joins):
+    containment_list = []
+    for hash_, mdata in tqdm(
+        candidate_joins.items(),
+        total=len(candidate_joins),
+        leave=False,
+        desc="Building Containment Ranking: ",
+        position=0,
+    ):
+        _, cnd_md, left_on, right_on = mdata.get_join_information()
+        cnd_table = pl.read_parquet(cnd_md["full_path"])
+        containment = measure_containment(
+            pl.from_pandas(X), cnd_table, left_on, right_on
+        )
+        containment_list.append({"candidate": hash_, "containment": containment})
+    return pl.from_dicts(containment_list)
 
 
 class BaseJoinMethod(BaseEstimator):
@@ -437,33 +470,9 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         self.best_cnd_table = None
         self.left_on = self.right_on = None
 
-    @staticmethod
-    def _measure_containment(
-        source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on, right_on
-    ):
-        unique_source = source_table[left_on].unique()
-        unique_cand = cand_table[right_on].unique()
-
-        s1 = set(unique_source[left_on].to_series().to_list())
-        s2 = set(unique_cand[right_on].to_series().to_list())
-        return len(s1.intersection(s2)) / len(s1)
-
     def fit(self, X, y):
         # Find the exact containment ranking
-        containment_list = []
-        for hash_, mdata in tqdm(
-            self.candidate_joins.items(),
-            total=self.n_candidates,
-            leave=False,
-            desc="HighestContainment",
-            position=0,
-        ):
-            _, cnd_md, left_on, right_on = mdata.get_join_information()
-            cnd_table = pl.read_parquet(cnd_md["full_path"])
-            containment = self._measure_containment(
-                pl.from_pandas(X), cnd_table, left_on, right_on
-            )
-            containment_list.append({"candidate": hash_, "containment": containment})
+        containment_list = build_containment_ranking(X, self.candidate_joins)
         self.candidate_ranking = pl.from_dicts(containment_list)
         # Select the top-1 candidate
         self.best_cnd_hash = self.candidate_ranking.top_k(1, by="containment")[
@@ -688,9 +697,14 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             print("Full join not available with DFS.")
             return None
 
-    def fit(self, X, y):
+    def fit(
+        self, X=None, y=None, X_train=None, X_valid=None, y_train=None, y_valid=None
+    ):
         if self.with_validation:
-            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+            if X is None and y is None:
+                X_train, X_valid, y_train, y_valid = train_test_split(
+                    X, y, test_size=0.2
+                )
             merged_train = pl.from_pandas(X_train).clone().lazy()
             merged_train = ju.execute_join_all_candidates(
                 merged_train, self.candidate_joins, self.join_parameters["aggregation"]
@@ -734,8 +748,195 @@ class FullJoin(BaseJoinWithCandidatesMethod):
         }
 
 
-class StepwiseGreedyJoin(BaseJoinMethod):
-    pass
+class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
+    def __init__(
+        self,
+        scenario_logger: ScenarioLogger = None,
+        candidate_joins=None,
+        target_column=None,
+        chosen_model=None,
+        model_parameters=None,
+        with_validation: bool = True,
+        join_parameters=None,
+        task="regression",
+        budget_type: str = "iterations",
+        budget_amount=10,
+        valid_size=0.2,
+        metric="r2",
+        ranking_metric="containment",
+        max_candidates: int = 50,
+    ) -> None:
+        super().__init__(
+            scenario_logger,
+            candidate_joins,
+            target_column,
+            chosen_model,
+            model_parameters,
+            join_parameters,
+            task,
+        )
+
+        self.name = "stepwise_greedy_join"
+        self.budget_type, self.budget_amount = self._check_budget(
+            budget_type, budget_amount
+        )
+        self.ranking_metric = self._check_ranking_method(ranking_metric)
+        self.valid_size = valid_size
+
+        # Calling this "current_metric" to be more generic
+        self.current_metric = -np.inf
+        self.selected_candidates = {}
+        self.valid_size = valid_size
+        self.blacklist = deque([], maxlen=max_candidates)
+        self.candidate_ranking = None
+        self.max_candidates = max_candidates
+        self.already_evaluated = {
+            cnd_mdata["hash"]: 0 for cnd_mdata in self.candidate_joins.values()
+        }
+
+        self.wrap_up_joiner = None
+
+    def fit(self, X, y):
+        X_train, X_valid, y_train, y_valid = train_test_split(
+            X, y, test_size=self.valid_size
+        )
+
+        self.candidate_ranking = self.build_ranking(X)
+
+        # BASE TABLE
+        self.build_model(X_train)
+        self.fit_model(X_train, y_train, X_valid, y_valid)
+        y_pred = self.predict_model(X_valid)
+
+        # TODO: later, generalize this to more metrics
+        r2 = r2_score(y_valid, y_pred)
+        self.current_metric = r2
+
+        # TODO: rewrite this to account for different budget types
+        for iter in tqdm(
+            range(self.budget_amount),
+            total=self.budget_amount,
+            desc="StepwiseGreedyJoin - Iterating: ",
+        ):
+            cnd_mdata = self.get_candidate()
+            if cnd_mdata is None:
+                # No more candidates:
+                break
+            _, cnd_md, left_on, right_on = cnd_mdata.get_join_information()
+            cnd_table = pl.read_parquet(cnd_md["full_path"])
+
+            merged_train, merged_valid = self._execute_joins(
+                X_train, X_valid, cnd_table, left_on, right_on
+            )
+
+            self.build_model(merged_train)
+            self.fit_model(merged_train, y_train, merged_valid, y_valid)
+
+            y_pred = self.predict_model(merged_valid)
+            # TODO: this should be generalized to any metric
+            r2 = r2_score(y_valid, y_pred)
+
+            self.update_ranking(cnd_mdata, r2)
+
+        self.wrap_up_joiner = FullJoin(
+            self.scenario_logger,
+            self.selected_candidates,
+            self.target_column,
+            self.chosen_model,
+            self.model_parameters,
+            self.join_parameters,
+            self.task,
+        )
+        self.wrap_up_joiner.fit(
+            X_train=X_train,
+            X_valid=X_valid,
+            y_train=y_train,
+            y_train=y_train,
+        )
+
+    def build_ranking(self, X):
+        if self.ranking_metric == "containment":
+            containment_list = build_containment_ranking(X, self.candidate_joins)
+            _ranking = pl.from_dicts(containment_list)
+            candidate_ranking = deque(
+                _ranking["candidate"].to_list(), maxlen=self.max_candidates
+            )
+
+        return candidate_ranking
+
+    def get_candidate(self):
+        # Selecting an unknown candidate
+        if len(self.candidate_ranking) > 0:
+            return self.candidate_ranking.popleft()
+        elif len(self.blacklist) > 0:
+            # All candidates have been evaluated, selecting one of the discarded candidates
+            # TODO: add a more clever selection of discarded candidates
+            return self.blacklist.popleft()
+        else:
+            # No more candidates are left, stop iterations
+            return None
+
+    def update_ranking(self, cnd_mdata, metric):
+        cnd_hash = cnd_mdata["hash"]
+        # TODO: add epsilon to account for variance
+        if metric > self.current_metric:
+            self.selected_candidates.update({cnd_hash: cnd_mdata})
+            self.current_metric = metric
+        else:
+            if self.already_evaluated[cnd_hash] == 0:
+                self.blacklist.append(cnd_hash)
+                self.already_evaluated[cnd_hash] = 1
+
+    def predict(self, X):
+        return self.wrap_up_joiner.predict(X)
+
+    def _check_ranking_method(self, ranking_method):
+        if ranking_method not in SUPPORTED_RANKING_METHODS:
+            raise ValueError(
+                f"`ranking_method` {ranking_method} not in SUPPORTED_RANKING_METHODS."
+            )
+        else:
+            return ranking_method
+
+    def _check_budget(self, budget_type, budget_amount):
+        if budget_type == "iterations":
+            try:
+                budget_amount = int(budget_amount)
+            except:
+                raise ValueError(f"A non-numeric number of iterations was provided.")
+            if not isinstance(budget_amount, int):
+                raise ValueError(f"`budget_amount` must be integer")
+            if budget_amount <= 0:
+                raise ValueError(f"The number of iterations must be strictly positive.")
+            return budget_type, budget_amount
+        # TODO: ADD MORE BUDGET TYPES LATER
+        else:
+            raise ValueError(
+                f"Provided budget_type {budget_type} not in SUPPORTED_BUDGET_TYPES."
+            )
+
+    def _execute_joins(
+        self, X_train, X_valid=None, cnd_table=None, left_on=None, right_on=None
+    ):
+        merged_train = ju.execute_join_with_aggregation(
+            pl.from_pandas(X_train),
+            cnd_table,
+            left_on=left_on,
+            right_on=right_on,
+            aggregation=self.join_parameters["aggregation"],
+        )
+
+        if X_valid is not None:
+            merged_valid = ju.execute_join_with_aggregation(
+                pl.from_pandas(X_valid),
+                cnd_table,
+                left_on=left_on,
+                right_on=right_on,
+                aggregation=self.join_parameters["aggregation"],
+            )
+            return merged_train, merged_valid
+        else:
+            return merged_train
 
 
 class OptimumGreedyJoin(BaseJoinMethod):
