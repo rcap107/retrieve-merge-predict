@@ -1,4 +1,5 @@
 import random
+import string
 from collections import deque
 from pathlib import Path
 
@@ -326,7 +327,6 @@ class NoJoin(BaseJoinMethod):
         self, X=None, y=None, X_train=None, y_train=None, X_valid=None, y_valid=None
     ):
         # TODO: ADD ERROR CHECKING HERE
-        self.joined_columns = len(X.columns)
 
         if self.with_validation:
             if X is not None and y is not None:
@@ -337,11 +337,12 @@ class NoJoin(BaseJoinMethod):
                 )
             self.build_model(X_train)
 
+            self.joined_columns = len(X_train.columns)
             self.fit_model(X_train, y_train, X_valid, y_valid)
 
         else:
             self.build_model(X)
-
+            self.joined_columns = len(X.columns)
             self.fit_model(X, y)
 
     def predict(self, X):
@@ -805,7 +806,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.with_validation = with_validation
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
-        self.epsilon = 0
+        self.epsilon = 0.01
 
         self.wrap_up_joiner = None
 
@@ -835,11 +836,11 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             desc="StepwiseGreedyJoin - Iterating: ",
             leave=False,
         ):
-            cnd_mdata = self.get_candidate()
-            if cnd_mdata is None:
+            cjoin = self.get_candidate()
+            if cjoin is None:
                 # No more candidates:
                 break
-            _, cnd_md, left_on, right_on = cnd_mdata.get_join_information()
+            _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
             cnd_hash = cnd_md["hash"]
 
@@ -849,7 +850,8 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 cnd_table,
                 left_on,
                 right_on,
-                suffix=cnd_hash[:10],
+                # suffix="".join(random.choices(list(string.ascii_letters), k=8)),
+                suffix=cjoin.candidate_id[:10],
             )
 
             self.build_model(temp_X_train)
@@ -859,7 +861,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             # TODO: this should be generalized to any metric
             r2 = r2_score(y_valid, y_pred)
 
-            self.update_ranking(cnd_mdata, r2, temp_X_train, temp_X_valid)
+            self.update_ranking(cjoin, r2, temp_X_train, temp_X_valid)
 
         if len(self.selected_candidates) > 0:
             self.wrap_up_joiner = FullJoin(
@@ -878,13 +880,15 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 self.chosen_model,
                 self.model_parameters,
             )
-
-        self.wrap_up_joiner.fit(
-            X_train=X_train,
-            y_train=y_train,
-            X_valid=X_valid,
-            y_valid=y_valid,
-        )
+            if self.chosen_model == "catboost":
+                self.wrap_up_joiner.fit(
+                    X_train=X_train,
+                    y_train=y_train,
+                    X_valid=X_valid,
+                    y_valid=y_valid,
+                )
+            else:
+                self.wrap_up_joiner.fit(X, y)
 
     def build_ranking(self, X):
         if self.ranking_metric == "containment":
@@ -895,11 +899,12 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         return candidate_ranking
 
-    def get_candidate(self):
+    def get_candidate(self) -> CandidateJoin | None:
         if len(self.candidate_ranking) > 0:
             _cnd = self.candidate_ranking.popleft()
             return self.candidate_joins[_cnd]
-        elif len(self.blacklist) > 0:
+        elif 0 < len(self.blacklist) < self.n_candidates:
+            # If the length of the blacklist is == n_candidates, then all candidates have already been discarded, stopping
             # All candidates have been evaluated, selecting one of the discarded candidates
             # TODO: add a more clever selection of discarded candidates
             random.shuffle(self.blacklist)
@@ -909,19 +914,19 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             # No more candidates are left, stop iterations
             return None
 
-    def update_ranking(self, cnd_mdata, metric, temp_X_train, temp_X_valid):
-        cnd_hash = cnd_mdata.candidate_id
+    def update_ranking(self, cjoin, metric, temp_X_train, temp_X_valid):
+        cjoin_hash = cjoin.candidate_id
         # TODO: add epsilon to account for variance
-        self.already_evaluated[cnd_hash] += 1
+        self.already_evaluated[cjoin_hash] += 1
         if metric > self.current_metric + self.epsilon:
-            self.selected_candidates.update({cnd_hash: cnd_mdata})
+            self.selected_candidates.update({cjoin_hash: cjoin})
             self.current_metric = metric
             self.current_X_train = temp_X_train
             self.current_X_valid = temp_X_valid
         else:
             # self.candidate_ranking.append(cnd_hash)
-            if self.already_evaluated[cnd_hash] < 3:
-                self.blacklist.append(cnd_hash)
+            if self.already_evaluated[cjoin_hash] < 2:
+                self.blacklist.append(cjoin_hash)
 
     def predict(self, X):
         return self.wrap_up_joiner.predict(X)
@@ -989,10 +994,10 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
     def get_additional_info(self):
         # TODO: add the list of all left_on, right_on
         return {
-            "best_candidate_hash": "stepwise_greedy_join",
-            "left_on": "",
-            "right_on": "",
             "joined_columns": self.joined_columns,
+            "budget_type": self.budget_type,
+            "budget_amount": self.budget_amount,
+            "epsilon": self.epsilon,
         }
 
 
