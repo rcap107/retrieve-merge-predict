@@ -27,14 +27,12 @@ class ScenarioLogger:
         self,
         base_table,
         git_hash,
-        iterations,
-        chosen_model,
-        aggregation,
         target_dl,
-        n_splits,
-        top_k,
-        jd_method="minhash",
-        task="regression",
+        discovery_parameters,
+        training_parameters,
+        model_parameters,
+        estimator_parameters,
+        join_parameters,
         exp_name=None,
         debug=False,
     ) -> None:
@@ -55,19 +53,48 @@ class ScenarioLogger:
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
-        self.chosen_model = chosen_model
-        self.jd_method = jd_method
+
+        self.model_parameters = {
+            "chosen_model": "linear",
+            "iterations": 100,
+            "with_validation": True,
+            "l2_leaf_reg": 0.01,
+            "od_type": None,
+            "od_wait": None,
+        }
+        self.model_parameters.update(model_parameters)
+
+        self.discovery_parameters = {
+            "target_dl": None,
+            "jd_method": "minhash",
+            "top_k": 50,
+            "query_column": None,
+        }
+        self.discovery_parameters.update(discovery_parameters)
+
+        self.join_parameters = {
+            "aggregation": "first",
+        }
+        self.join_parameters.update(join_parameters)
+
+        self.training_parameters = {"n_splits": 5, "task": "regression"}
+        self.training_parameters.update(training_parameters)
+
+        self.estimator_parameters = {
+            "target_column": None,
+            "budget_type": "iterations",
+            "budget_amount": 50,
+            "evaluation_metric": "r2",
+            "ranking_metric": "containment",
+        }
+        self.estimator_parameters.update(estimator_parameters)
+
         self.base_table = base_table
         self.git_hash = git_hash
-        self.iterations = iterations
-        self.aggregation = aggregation
         self.target_dl = target_dl
-        self.n_splits = n_splits
-        self.top_k = top_k
+
         self.results = None
-        self.process_time = 0
         self.status = None
-        self.exception_name = None
         self.debug = debug
 
     def prepare_logger(self, run_name=None):
