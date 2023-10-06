@@ -75,6 +75,9 @@ def evaluate_joins(
     join_estimators=None,
     join_parameters=None,
     model_parameters=None,
+    # TODO: rewrite this properly
+    greedy_iterations=50,
+    epsilon=0,
 ):
 
     m_params = {
@@ -122,7 +125,8 @@ def evaluate_joins(
         "model_parameters": m_params,
         "join_parameters": j_params,
         "budget_type": "iterations",
-        "budget_amount": 50,
+        "budget_amount": greedy_iterations,
+        "epsilon": epsilon,
         "metric": "r2",
         "ranking_metric": "containment",
     }

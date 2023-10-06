@@ -776,6 +776,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         metric="r2",
         ranking_metric="containment",
         max_candidates: int = 50,
+        epsilon=0,
     ) -> None:
         super().__init__(
             scenario_logger,
@@ -806,7 +807,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.with_validation = with_validation
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
-        self.epsilon = 0.01
+        self.epsilon = epsilon
 
         self.wrap_up_joiner = None
 
