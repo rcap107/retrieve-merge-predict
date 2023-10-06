@@ -363,10 +363,10 @@ class RunLogger:
             self.durations.get("time_run", ""),
             self.results.get("r2", ""),
             self.results.get("rmse", ""),
-            self.additional_info.get("best_candidate_hash", ""),
             self.additional_info.get("joined_columns", ""),
-            self.additional_info.get("left_on", ""),
-            self.additional_info.get("right_on", ""),
+            self.additional_info.get("budget_type", ""),
+            self.additional_info.get("budget_amount", ""),
+            self.additional_info.get("epsilon", ""),
         ]
 
         return dict(zip(HEADER_RUN_LOGFILE, values))
