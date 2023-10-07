@@ -874,6 +874,13 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 self.join_parameters,
                 self.task,
             )
+            self.wrap_up_joiner.fit(
+                X_train=X_train,
+                y_train=y_train,
+                X_valid=X_valid,
+                y_valid=y_valid,
+            )
+
         else:
             self.wrap_up_joiner = NoJoin(
                 self.scenario_logger,
