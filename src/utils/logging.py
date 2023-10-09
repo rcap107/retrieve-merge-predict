@@ -24,10 +24,10 @@ HEADER_RUN_LOGFILE = [
     "time_run",
     "r2score",
     "rmse",
-    "best_candidate_hash",
     "n_cols",
-    "left_on",
-    "right_on",
+    "budget_type",
+    "budget_amount",
+    "epsilon",
 ]
 
 

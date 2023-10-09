@@ -732,6 +732,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             )
             self.build_model(merged_train)
             self.fit_model(merged_train, y)
+        self.joined_columns = len(merged_train.columns)
 
     def predict(self, X):
         merged_test = pl.from_pandas(X).clone().lazy()
@@ -807,6 +808,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.with_validation = with_validation
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
+        self.base_epsilon = epsilon
         self.epsilon = epsilon
 
         self.wrap_up_joiner = None
@@ -831,7 +833,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.current_X_valid = X_valid
 
         # TODO: rewrite this to account for different budget types
-        for iter in tqdm(
+        for iter_ in tqdm(
             range(self.budget_amount),
             total=self.budget_amount,
             desc="StepwiseGreedyJoin - Iterating: ",
@@ -898,6 +900,8 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             else:
                 self.wrap_up_joiner.fit(X, y)
 
+        self.joined_columns = self.wrap_up_joiner.joined_columns
+
     def build_ranking(self, X):
         if self.ranking_metric == "containment":
             _ranking = build_containment_ranking(X, self.candidate_joins)
@@ -922,6 +926,10 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             # No more candidates are left, stop iterations
             return None
 
+    def get_curr_eps(self, n):
+        # TODO: expand as needed
+        return 1 / (np.log(n) + 1) * self.base_epsilon
+
     def update_ranking(self, cjoin, metric, temp_X_train, temp_X_valid):
         cjoin_hash = cjoin.candidate_id
         # TODO: add epsilon to account for variance
@@ -931,6 +939,8 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             self.current_metric = metric
             self.current_X_train = temp_X_train
             self.current_X_valid = temp_X_valid
+            n_cnd = len(self.selected_candidates)
+            self.epsilon = self.get_curr_eps(n_cnd)
         else:
             # self.candidate_ranking.append(cnd_hash)
             if self.already_evaluated[cjoin_hash] < 2:
