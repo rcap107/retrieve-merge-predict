@@ -1015,7 +1015,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             "joined_columns": self.joined_columns,
             "budget_type": self.budget_type,
             "budget_amount": self.budget_amount,
-            "epsilon": self.epsilon,
+            "epsilon": self.base_epsilon,
         }
 
 
