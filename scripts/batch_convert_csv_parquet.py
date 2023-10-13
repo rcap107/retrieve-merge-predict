@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 
 import polars as pl
+import polars.selectors as cs
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 logging.basicConfig(
@@ -56,8 +58,45 @@ def parse_args():
         help="Input format to use when converting.",
     )
 
+    parser.add_argument(
+        "--n_jobs",
+        type=int,
+        action="store",
+        default="1",
+        help="Number of parallel jobs to run.",
+    )
+
     args = parser.parse_args()
     return args
+
+
+def convert_csv_to_parquet(idx, table_path, dir_in, dir_out):
+    # Read the file
+    df = pl.read_csv(table_path, infer_schema_length=None, ignore_errors=True)
+    df.columns = [f"c_{c_idx}_" + _.strip() for c_idx, _ in enumerate(df.columns)]
+    # Try to save using the given output format, log errors
+    try:
+        dest_path = Path(*[p for p in table_path.parts if p not in dir_in.parts])
+        os.makedirs(dest_path.parent, exist_ok=True)
+        destination_path = Path(dir_out, dest_path).with_suffix(".parquet")
+        df.with_columns(cs.string().str.strip()).write_parquet(destination_path)
+    except pl.ComputeError:
+        logging.error("Failed: {}".format(table_path))
+
+
+def convert_in_parallel(dir_in: Path, dir_out: Path, input_format="csv", n_jobs=1):
+    total_files = sum((1 for _ in dir_in.glob(f"*.{input_format}")))
+    if total_files == 0:
+        raise RuntimeError(
+            f"No files with format {input_format} were found in {dir_in}."
+        )
+
+    Parallel(n_jobs=n_jobs, verbose=0)(
+        delayed(convert_csv_to_parquet)(idx, table_path, dir_in, dir_out)
+        for idx, table_path in tqdm(
+            enumerate(dir_in.glob(f"*.{input_format}")), total=total_files
+        )
+    )
 
 
 def convert_in_batch(
@@ -115,12 +154,14 @@ def main():
     if not dir_out.exists():
         raise FileNotFoundError(f"Output folder {args.output_folder} does not exist.")
 
-    convert_in_batch(
-        dir_in,
-        dir_out,
-        input_format=args.input_format,
-        output_format=args.destination_format,
-    )
+    convert_in_parallel(dir_in, dir_out, n_jobs=args.n_jobs)
+
+    # convert_in_batch(
+    #     dir_in,
+    #     dir_out,
+    #     input_format=args.input_format,
+    #     output_format=args.destination_format,
+    # )
 
 
 # %%
