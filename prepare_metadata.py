@@ -3,6 +3,10 @@ import datetime as dt
 import logging
 import os
 from pathlib import Path
+from types import SimpleNamespace
+
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 import src.pipeline as pipeline
 from src.data_structures.metadata import MetadataIndex, RawDataset
@@ -87,11 +91,20 @@ def prepare_metadata_from_case(case, data_folder, save_to_full=False):
     if data_folder.exists():
         os.makedirs(f"data/metadata/{case}", exist_ok=True)
         os.makedirs(f"data/metadata/_mdi", exist_ok=True)
-        for dataset_path in data_folder.glob("**/*.parquet"):
-            ds = RawDataset(dataset_path, "yadl", f"data/metadata/{case}")
-            ds.save_metadata_to_json(f"data/metadata/{case}")
-            if save_to_full:
-                ds.save_metadata_to_json("data/metadata/full")
+
+        total_files = sum(1 for f in data_folder.glob("**/*.parquet"))
+
+        metadata_dest = f"data/metadata/{case}"
+        Parallel(n_jobs=-1, verbose=0)(
+            delayed(save_single_table)(dataset_path, "yadl", metadata_dest)
+            for dataset_path in tqdm(
+                data_folder.glob("**/*.parquet"), total=total_files
+            )
+        )
+
+        # for dataset_path in data_folder.glob("**/*.parquet"):
+        #     ds = RawDataset(dataset_path, "yadl", )
+        #     ds.save_metadata_to_json(f"data/metadata/{case}")
         metadata_index = MetadataIndex(f"data/metadata/{case}")
         metadata_index.save_index(f"data/metadata/_mdi/md_index_{case}.pickle")
     else:
@@ -127,12 +140,22 @@ def prepare_indices(
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    # args = parse_args()
+    a = {
+        "case": "open_data_large",
+        "data_folder": "data/open_data_large",
+        "save_indices": True,
+        "save_to_full": False,
+        "selected_indices": ["lazo"],
+        "base_table": None,
+        "n_jobs": -1,
+    }
 
+    args = SimpleNamespace(**a)
     start_time = dt.datetime.now()
-    logger.info("START - Metadata creation - %s" % args.case)
-    prepare_metadata_from_case(args.case, args.data_folder, args.save_to_full)
-    logger.info("END - Metadata creation - %s" % args.case)
+    # logger.info("START - Metadata creation - %s" % args.case)
+    # prepare_metadata_from_case(args.case, args.data_folder, args.save_to_full)
+    # logger.info("END - Metadata creation - %s" % args.case)
 
     if args.save_indices:
         logger.info("START - Index creation")
