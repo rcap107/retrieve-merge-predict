@@ -4,6 +4,7 @@ import pickle
 from pathlib import Path
 
 import polars as pl
+from joblib import dump, load
 from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
 
 from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
@@ -46,6 +47,7 @@ def prepare_default_configs(data_dir, selected_indices=None):
                 "thresholds": [20],
                 "oneshot": True,
                 "num_perm": 128,
+                "n_jobs": -1,
             },
         }
         if selected_indices is not None:
@@ -165,7 +167,7 @@ def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
 
     for index_path in index_dir.glob("**/*.pickle"):
         with open(index_path, "rb") as fp:
-            input_dict = pickle.load(fp)
+            input_dict = load(fp)
             iname = input_dict["index_name"]
             if iname in selected_indices:
                 if iname == "minhash":
