@@ -1,16 +1,18 @@
 import json
 import logging
-import pickle
 from pathlib import Path
+from sys import getsizeof
 
 import lazo_index_service
 import numpy as np
 import polars as pl
-from datasketch import MinHash, MinHashLSHEnsemble
-from joblib import Parallel, delayed
+from datasketch import LeanMinHash, MinHash, MinHashLSHEnsemble
+from joblib import Parallel, delayed, dump, load
+from lazo_index_service.errors import LazoError
 from tqdm import tqdm
 
 mh_logger = logging.getLogger("metadata_logger")
+LAZO_MESSAGE_SIZE_LIMIT = 4194304
 
 
 class BaseIndex:
@@ -128,12 +130,12 @@ class ManualIndex(BaseIndex):
         }
         output_path = Path(output_path).with_stem(f"{self.index_name}_{self.tab_name}")
         with open(output_path, "wb") as fp:
-            pickle.dump(out_dict, fp)
+            dump(out_dict, fp)
 
     def load_index(self, index_path):
         if Path(index_path).exists():
             with open(index_path, "rb") as fp:
-                in_dict = pickle.load(fp)
+                in_dict = load(fp)
                 self.df = in_dict["df_overlap"]
                 self.tab_name = in_dict["tab_name"]
         else:
@@ -163,6 +165,7 @@ class MinHashIndex:
         num_part=32,
         oneshot=True,
         index_file=None,
+        n_jobs=1,
     ) -> None:
         """
         If `index_file` is provided, the data structures required for the index are loaded from the given
@@ -179,7 +182,7 @@ class MinHashIndex:
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
             oneshot (bool, optional): If False, index will have to be finalized by the user. Defaults to True.
-            index_file (str, optional): Path to a pickle containing a pre-computed index.
+            index_file (str, optional): Path to a file containing a pre-computed index.
         """
         self.index_name = "minhash"
 
@@ -189,6 +192,7 @@ class MinHashIndex:
         self.thresholds = sorted(thresholds)
         self.initialized = False
         self.ensembles = {}
+        self.n_jobs = n_jobs
 
         if index_file is not None:
             self.load_index(index_file)
@@ -208,24 +212,21 @@ class MinHashIndex:
             # Do nothing, the user will load the data manually.
             pass
 
-    def _index_single_table(self, df: pl.DataFrame, tab_name) -> dict:
-        """Generate the minhashes for a single dataframe.
+    def _index_single_table(self, path) -> dict:
+        with open(path, "r") as fp:
+            mdata_dict = json.load(fp)
+        ds_hash = mdata_dict["hash"]
+        df = pl.read_parquet(mdata_dict["full_path"])
 
-        Args:
-            df (pl.DataFrame): The input dataframe.
-            tab_name (str): The name of the table, used for indexing.
-
-        Returns:
-            minhashes (dict): The minhashes generated for the given table.
-        """
         minhashes = {}
         for col in df.columns:
-            key = tab_name + "__" + col
+            key = ds_hash + "__" + col
             m = MinHash(num_perm=self.num_perm)
             uniques = df[col].drop_nulls().unique().cast(str)
             for u in uniques:
                 m.update(u.encode("utf8"))
-            minhashes[key] = (m, len(uniques))
+            lean_m = LeanMinHash(seed=m.seed, hashvalues=m.hashvalues)
+            minhashes[key] = (lean_m, len(uniques))
         return minhashes
 
     def add_tables_from_path(self, data_path):
@@ -236,46 +237,22 @@ class MinHashIndex:
             data_path (Path): Path to the directory to scan for metadata.
         """
         total_files = sum(1 for f in data_path.glob("*.json"))
-
-        if total_files > 0:
-            for path in tqdm(
-                data_path.glob("*.json"),
-                total=total_files,
-                desc="Loading metadata in index",
-            ):
-                mdata_dict = json.load(open(path, "r"))
-                ds_hash = mdata_dict["hash"]
-                df = pl.read_parquet(mdata_dict["full_path"])
-                try:
-                    self.add_single_table(df, ds_hash)
-                except AttributeError:
-                    mh_logger.error("Error with file %s", str(mdata_dict["full_path"]))
-        else:
+        if total_files == 0:
             raise RuntimeError("No metadata files were found.")
 
-    def add_tables_from_dict(self, df_dict):
-        """Given a dictionary of pl.DataFrames, generate minhashes for each dataframe.
+        paths = list(data_path.glob("*.json"))
+        t_list = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            delayed(self._index_single_table)(path)
+            for _, path in tqdm(
+                enumerate(paths),
+                total=total_files,
+                desc="Loading metadata in index",
+            )
+        )
 
-        Args:
-            df_dict (dict[str: pl.DataFrame]): Dictionary of dataframes.
-        """
         t_dict = {}
-        for tab_name, df in df_dict.items():
-            # print(tab_name)
-            t_dict.update(self._index_single_table(df, tab_name))
-
-        # self.minhashes.update(t_dict)
-        self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
-
-    def add_single_table(self, df: pl.DataFrame, tab_name):
-        """Add a single table to the minhash dictionary.
-
-
-        Args:
-            df (pl.DataFrame): _description_
-            tab_name (_type_): _description_
-        """
-        t_dict = self._index_single_table(df, tab_name)
+        for _ in t_list:
+            t_dict.update(_)
         self.hash_index += [(key, m, setlen) for key, (m, setlen) in t_dict.items()]
 
     def create_ensembles(self):
@@ -363,13 +340,14 @@ class MinHashIndex:
         else:
             raise RuntimeError("Ensembles are not initialized.")
 
-    def save_ensembles_to_pickle(self, output_path):
-        """Save the ensembles to file in the given `output_path` as a pickle.
+    def save_ensembles(self, output_path):
+        """Save the ensembles to file in the given `output_path`.
 
         Args:
             output_path (str): Output path.
         """
-        pickle.dump(self.ensembles, open(output_path, "wb"))
+        with open(output_path, "wb") as fp:
+            dump(self.ensembles, fp)
 
     def save_index(self, output_path):
         out_dict = {
@@ -382,13 +360,13 @@ class MinHashIndex:
         }
 
         with open(output_path, "wb") as fp:
-            pickle.dump(out_dict, fp)
+            dump(out_dict, fp)
 
     def load_index(self, index_file=None, index_dict=None):
         if index_file is not None:
             if Path(index_file).exists():
                 with open(index_file, "rb") as fp:
-                    index_dict = pickle.load(fp)
+                    index_dict = load(fp)
                     self.hash_index = index_dict["hash_index"]
                     self.num_perm = index_dict["num_perm"]
                     self.num_part = index_dict["num_part"]
@@ -453,20 +431,29 @@ class LazoIndex:
 
     def _index_single_table(self, df: pl.DataFrame, tab_name: str):
         for col in df.columns:
-            partitions = self._partition_list_for_indexing(
-                df[col].unique().to_list(), partition_size=self.partition_size
-            )
+            partitions = self._partition_list_for_indexing(df[col].unique().to_list())
             for partition in partitions:
-                (
-                    n_permutations,
-                    hash_values,
-                    cardinality,
-                ) = self.lazo_client.index_data(partition, tab_name, col)
+                try:
+                    (
+                        n_permutations,
+                        hash_values,
+                        cardinality,
+                    ) = self.lazo_client.index_data(partition, tab_name, col)
+                except LazoError as e:
+                    print(e)
+                    print(tab_name, col)
+                    mh_logger.error("Failed tab %s col %s " % tab_name, col)
+                    continue
 
-    def _partition_list_for_indexing(self, value_list: list, partition_size: int):
-        n_partitions = len(value_list) // partition_size + 1
+    def _partition_list_for_indexing(self, value_list: list):
+        size_of_list = sum([getsizeof(val) for val in value_list]) + getsizeof(
+            value_list
+        )
+
+        n_partitions = size_of_list // LAZO_MESSAGE_SIZE_LIMIT + 2
         partitions = [
-            list(a) for a in np.array_split(np.array(value_list), n_partitions)
+            list(a)
+            for a in np.array_split(np.array(value_list, dtype=str), n_partitions)
         ]
 
         return partitions
@@ -530,7 +517,7 @@ class LazoIndex:
             _type_: Results of the query, which include the table name, column name and similarity score.
         """
         # Note that I am clamping the query to the first `partition_size` elements
-        query_part = self._partition_list_for_indexing(query, self.partition_size)[0]
+        query_part = self._partition_list_for_indexing(query)[0]
         query_results = self.lazo_client.query_data(query_part)
 
         return query_results
@@ -542,7 +529,7 @@ class LazoIndex:
     def load_index(self, index_file):
         if Path(index_file).exists():
             with open(index_file, "rb") as fp:
-                params = pickle.load(fp)
+                params = load(fp)
                 self.host = params["host"]
                 self.port = params["port"]
                 self.partition_size = params["partition_size"]
@@ -557,4 +544,4 @@ class LazoIndex:
             "partition_size": self.partition_size,
         }
         with open(output_path, "wb") as fp:
-            pickle.dump(out_dict, fp)
+            dump(out_dict, fp)
