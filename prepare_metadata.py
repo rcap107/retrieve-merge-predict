@@ -146,16 +146,18 @@ if __name__ == "__main__":
         "data_folder": "data/open_data_large",
         "save_indices": True,
         "save_to_full": False,
-        "selected_indices": ["lazo"],
+        "selected_indices": ["minhash"],
         "base_table": None,
         "n_jobs": -1,
+        "build_metadata": False,
     }
 
     args = SimpleNamespace(**a)
-    start_time = dt.datetime.now()
-    # logger.info("START - Metadata creation - %s" % args.case)
-    # prepare_metadata_from_case(args.case, args.data_folder, args.save_to_full)
-    # logger.info("END - Metadata creation - %s" % args.case)
+    if args.build_metadata:
+        start_time = dt.datetime.now()
+        logger.info("START - Metadata creation - %s" % args.case)
+        prepare_metadata_from_case(args.case, args.data_folder, args.save_to_full)
+        logger.info("END - Metadata creation - %s" % args.case)
 
     if args.save_indices:
         logger.info("START - Index creation")
