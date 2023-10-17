@@ -442,7 +442,7 @@ class LazoIndex:
                 except LazoError as e:
                     print(e)
                     print(tab_name, col)
-                    mh_logger.error("Failed tab %s col %s " % tab_name, col)
+                    mh_logger.error("Failed tab %s col %s " % (tab_name, col))
                     continue
 
     def _partition_list_for_indexing(self, value_list: list):
