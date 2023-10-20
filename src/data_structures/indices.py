@@ -6,12 +6,29 @@ from sys import getsizeof
 import lazo_index_service
 import numpy as np
 import polars as pl
+import polars.selectors as cs
 from datasketch import LeanMinHash, MinHash, MinHashLSHEnsemble
 from joblib import Parallel, delayed, dump, load
 from lazo_index_service.errors import LazoError
 from tqdm import tqdm
 
-mh_logger = logging.getLogger("metadata_logger")
+jd_logger = logging.getLogger("metadata_logger")
+jd_logger.setLevel(logging.DEBUG)
+
+sh_logger = logging.getLogger("sh_logger")
+sh_logger.setLevel(logging.ERROR)
+
+log_format = "%(message)s"
+formatter = logging.Formatter(fmt=log_format)
+
+fh = logging.FileHandler(filename="results/logging_jd.log")
+fh.setFormatter(formatter)
+sh = logging.StreamHandler()
+sh.setFormatter(formatter)
+
+jd_logger.addHandler(fh)
+sh_logger.addHandler(sh)
+
 LAZO_MESSAGE_SIZE_LIMIT = 4194304
 
 
@@ -216,7 +233,8 @@ class MinHashIndex:
         with open(path, "r") as fp:
             mdata_dict = json.load(fp)
         ds_hash = mdata_dict["hash"]
-        df = pl.read_parquet(mdata_dict["full_path"])
+        # Selecting only string columns
+        df = pl.read_parquet(mdata_dict["full_path"]).select(cs.string())
 
         minhashes = {}
         for col in df.columns:
@@ -430,7 +448,8 @@ class LazoIndex:
             self.data_dir = data_dir
 
     def _index_single_table(self, df: pl.DataFrame, tab_name: str):
-        for col in df.columns:
+        jd_logger.debug("STARTING: Tab %s" % tab_name)
+        for col in df.select(cs.string()).columns:
             partitions = self._partition_list_for_indexing(df[col].unique().to_list())
             for partition in partitions:
                 try:
@@ -442,15 +461,18 @@ class LazoIndex:
                 except LazoError as e:
                     print(e)
                     print(tab_name, col)
-                    mh_logger.error("Failed tab %s col %s " % (tab_name, col))
+                    jd_logger.error("FAILURE: tab %s col %s " % (tab_name, col))
+                    sh_logger.error("FAILURE: tab %s col %s " % (tab_name, col))
                     continue
+        jd_logger.debug("SUCCESS: Tab %s " % tab_name)
 
     def _partition_list_for_indexing(self, value_list: list):
         size_of_list = sum([getsizeof(val) for val in value_list]) + getsizeof(
             value_list
         )
 
-        n_partitions = size_of_list // LAZO_MESSAGE_SIZE_LIMIT + 2
+        # Taking smaller partitions to try to avoid OOM error
+        n_partitions = size_of_list // LAZO_MESSAGE_SIZE_LIMIT + 4
         partitions = [
             list(a)
             for a in np.array_split(np.array(value_list, dtype=str), n_partitions)
