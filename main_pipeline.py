@@ -178,10 +178,12 @@ def single_run(args, run_name=None):
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
 
-    yadl_version = args.yadl_version
-    metadata_dir = Path(f"data/metadata/{yadl_version}")
-    metadata_index_path = Path(f"data/metadata/_mdi/md_index_{yadl_version}.pickle")
-    index_dir = Path(f"data/metadata/_indices/{yadl_version}")
+    data_lake_version = args.yadl_version
+    metadata_dir = Path(f"data/metadata/{data_lake_version}")
+    metadata_index_path = Path(
+        f"data/metadata/_mdi/md_index_{data_lake_version}.pickle"
+    )
+    index_dir = Path(f"data/metadata/_indices/{data_lake_version}")
 
     query_tab_path = Path(args.source_table_path)
     if not query_tab_path.exists():
