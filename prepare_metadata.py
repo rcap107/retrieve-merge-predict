@@ -142,14 +142,14 @@ def prepare_indices(
 if __name__ == "__main__":
     # args = parse_args()
     a = {
-        "case": "open_data_large",
-        "data_folder": "data/open_data_large",
+        "case": "wordnet_big",
+        "data_folder": "data/wordnet_big",
         "save_indices": True,
         "save_to_full": False,
         "selected_indices": ["minhash"],
         "base_table": None,
         "n_jobs": -1,
-        "build_metadata": False,
+        "build_metadata": True,
     }
 
     args = SimpleNamespace(**a)
