@@ -80,7 +80,7 @@ def convert_csv_to_parquet(table_path, dir_in, dir_out):
     # Try to infer the dialect
     with open(table_path) as csvfile:
         try:
-            dialect = Sniffer().sniff(csvfile.read(1024))
+            dialect = Sniffer().sniff(csvfile.read(1024), delimiters=";,^ \t")
             has_header = Sniffer().has_header(sample=csvfile.read(1024))
             delimiter = dialect.delimiter
             # if delimiter not in [",", ";"]:
