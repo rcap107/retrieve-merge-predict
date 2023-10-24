@@ -302,7 +302,7 @@ class MinHashIndex:
         """
         result_dict = {}
         for result in query_result:
-            table, column = result.split("__")
+            table, column = result.split("__", maxsplit=1)
 
             result_dict[(table, column)] = threshold
         return result_dict
