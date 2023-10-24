@@ -26,7 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "config_file",
+        "input_path",
         action="store",
         help="Path of the config file to be used.",
     )
