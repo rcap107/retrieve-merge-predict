@@ -106,7 +106,7 @@ def prepare_metadata_from_case(case, data_folder, save_to_full=False):
         # for dataset_path in data_folder.glob("**/*.parquet"):
         #     ds = RawDataset(dataset_path, "yadl", )
         #     ds.save_metadata_to_json(f"data/metadata/{case}")
-        metadata_index = MetadataIndex(f"data/metadata/{case}")
+        metadata_index = MetadataIndex(data_lake_variant=case, f"data/metadata/{case}")
         metadata_index.save_index(f"data/metadata/_mdi/md_index_{case}.pickle")
     else:
         raise FileNotFoundError(f"Invalid path {data_folder}")
