@@ -1,9 +1,20 @@
+import os
 import pickle
 from pathlib import Path
 
-from src.data_structures.indices import ManualIndex, MinHashIndex
+import polars as pl
+from joblib import dump, load
+
+from src.data_structures.indices import LazoIndex, MinHashIndex
+from src.data_structures.metadata import (
+    CandidateJoin,
+    MetadataIndex,
+    QueryResult,
+    RawDataset,
+)
 
 DEFAULT_INDEX_DIR = Path("data/metadata/_indices")
+DEFAULT_QUERY_RESULT_DIR = Path("results/generated_candidates")
 
 
 def prepare_default_configs(data_dir, selected_indices=None):
@@ -73,3 +84,66 @@ def write_candidates_on_file(candidates, output_file_path, separator=","):
     # write the candidates
 
     # metam format is left_table;left_on_column;right_table;right_on_column
+
+
+def generate_candidates(
+    index_name: str,
+    index_result: list,
+    metadata_index: MetadataIndex,
+    mdata_source: dict,
+    query_column: str,
+    top_k=15,
+):
+    candidates = {}
+    for res in index_result:
+        hash_, column, similarity = res
+        mdata_cand = metadata_index.query_by_hash(hash_)
+        cjoin = CandidateJoin(
+            indexing_method=index_name,
+            source_table_metadata=mdata_source,
+            candidate_table_metadata=mdata_cand,
+            how="left",
+            left_on=query_column,
+            right_on=column,
+            similarity_score=similarity,
+        )
+        candidates[cjoin.candidate_id] = cjoin
+
+    if top_k > 0:
+        # TODO rewrite this so it's cleaner
+        ranking = [(k, v.similarity_score) for k, v in candidates.items()]
+        clamped = [x[0] for x in sorted(ranking, key=lambda x: x[1], reverse=True)][
+            :top_k
+        ]
+
+        candidates = {k: v for k, v in candidates.items() if k in clamped}
+    return candidates
+
+
+def load_index(data_lake_version, index_name):
+    index_path = Path(
+        DEFAULT_INDEX_DIR, data_lake_version, f"{index_name}_index.pickle"
+    )
+    if index_name == "minhash":
+        with open(index_path, "rb") as fp:
+            input_dict = load(fp)
+        index = MinHashIndex()
+        index.load_index(index_dict=input_dict)
+    elif index_name == "lazo":
+        index = LazoIndex()
+        index.load_index(index_path)
+    else:
+        raise ValueError(f"Unknown index {index_name}.")
+    return index
+
+
+def query_index(
+    index: MinHashIndex | LazoIndex, query_tab_path, query_column, mdata_index
+):
+    query_tab_metadata = RawDataset(
+        query_tab_path.resolve(), "queries", "data/metadata/queries"
+    )
+    query_tab_metadata.save_metadata_to_json()
+
+    query_result = QueryResult(index, query_tab_metadata, query_column, mdata_index)
+    query_result.save_to_pickle()

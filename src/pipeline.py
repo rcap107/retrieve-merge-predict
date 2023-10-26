@@ -7,7 +7,7 @@ import polars as pl
 from joblib import dump, load
 from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
 
-from src.data_structures.indices import LazoIndex, ManualIndex, MinHashIndex
+from src.data_structures.indices import LazoIndex, MinHashIndex
 from src.data_structures.metadata import CandidateJoin, MetadataIndex
 from src.methods import evaluation as em
 
@@ -18,18 +18,6 @@ def prepare_dirtree():
     os.makedirs("results/logs", exist_ok=True)
     os.makedirs("results/generated_candidates", exist_ok=True)
     os.makedirs("data/metadata/queries", exist_ok=True)
-
-
-def prepare_config_manual(base_table_path, mdata_path, n_jobs):
-    base_table = pl.read_parquet(base_table_path)
-    return {
-        "manual": {
-            "df_base": base_table,
-            "tab_name": Path(base_table_path).stem,
-            "mdata_path": mdata_path,
-            "n_jobs": n_jobs,
-        }
-    }
 
 
 def prepare_indices(index_configurations: dict):
@@ -50,8 +38,6 @@ def prepare_indices(index_configurations: dict):
             index_dict[index] = LazoIndex(**config)
         elif index == "minhash":
             index_dict[index] = MinHashIndex(**config)
-        elif index == "manual":
-            index_dict[index] = ManualIndex(**config)
         else:
             raise NotImplementedError
 
@@ -89,17 +75,13 @@ def load_index(index_path: str | Path, tab_name=None):
         elif iname == "lazo":
             index = LazoIndex()
             index.load_index(index_path)
-        elif iname == "manual":
-            if "manual_" + tab_name in index_path.stem:
-                index = ManualIndex()
-                index.load_index(index_path=index_path)
         else:
             raise ValueError(f"Unknown index {iname}.")
 
     return index
 
 
-def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
+def load_indices(index_dir, selected_indices=["minhash"]):
     """Given `index_dir`, scan the directory and load all the indices in an index dictionary.
 
     Args:
@@ -114,10 +96,6 @@ def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
     Returns:
         dict: The `index_dict` containing the loaded indices.
     """
-
-    if "manual" in selected_indices and tab_name is None:
-        raise RuntimeError("'manual' index requires 'tab_name' to be non-null.")
-
     index_dir = Path(index_dir)
     if not index_dir.exists():
         raise IOError(f"Index dir {index_dir} does not exist.")
@@ -134,68 +112,12 @@ def load_indices(index_dir, selected_indices=["minhash"], tab_name=None):
                 elif iname == "lazo":
                     index = LazoIndex()
                     index.load_index(index_path)
-                elif iname == "manual":
-                    if "manual_" + tab_name in index_path.stem:
-                        index = ManualIndex()
-                        index.load_index(index_path=index_path)
-                    else:
-                        continue
                 else:
                     raise ValueError(f"Unknown index {iname}.")
 
                 index_dict[iname] = index
 
     return index_dict
-
-
-def generate_candidates(
-    index_name: str,
-    index_result: list,
-    metadata_index: MetadataIndex,
-    mdata_source: dict,
-    query_column: str,
-    top_k=15,
-):
-    """Given the index results in `index_result`, generate a candidate join for each of them. The candidate join will
-    not execute the join operation: it holds the information (path, join columns) necessary for it.
-
-    This information is extracted using `metadata_index` for the join columns and `mdata_source` for the source
-    table. `query_column` is the join column in the source table.
-
-    Args:
-        index_name (str): Name of the index that generated the candidates.
-        index_result (list): List of potential join candidates as they were provided by an index.
-        metadata_index (MetadataIndex): Metadata Index that holds the metadata of all tables in the data lake.
-        mdata_source (dict): Metadata of the source table.
-        query_column (str): Label of the query column.
-
-    Returns:
-        dict: Dictionary containing the candidates, the candidate id is the index.
-    """
-    candidates = {}
-    for res in index_result:
-        hash_, column, similarity = res
-        mdata_cand = metadata_index.query_by_hash(hash_)
-        cjoin = CandidateJoin(
-            indexing_method=index_name,
-            source_table_metadata=mdata_source,
-            candidate_table_metadata=mdata_cand,
-            how="left",
-            left_on=query_column,
-            right_on=column,
-            similarity_score=similarity,
-        )
-        candidates[cjoin.candidate_id] = cjoin
-
-    if top_k > 0:
-        # TODO rewrite this so it's cleaner
-        ranking = [(k, v.similarity_score) for k, v in candidates.items()]
-        clamped = [x[0] for x in sorted(ranking, key=lambda x: x[1], reverse=True)][
-            :top_k
-        ]
-
-        candidates = {k: v for k, v in candidates.items() if k in clamped}
-    return candidates
 
 
 def querying(
@@ -232,84 +154,3 @@ def querying(
         candidates_by_index[index] = candidates
 
     return query_results, candidates_by_index
-
-
-def evaluate_joins(
-    base_table,
-    scenario_logger,
-    candidates_by_index: dict,
-    verbose=1,
-    iterations=1000,
-    n_splits=5,
-    test_size=0.25,
-    aggregation="first",
-    group_column="col_to_embed",
-    split_kind="group_shuffle",
-    top_k=5,
-):
-    # prepare_logger(scenario_logger.scenario_id)
-
-    groups = base_table.select(
-        pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
-    ).to_numpy()
-
-    if split_kind == "group_shuffle":
-        gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
-        splits = gss.split(base_table, groups=groups)
-    elif split_kind == "shuffle":
-        ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
-        splits = ss.split(base_table)
-    else:
-        raise ValueError(f"Inappropriate value {split_kind} for `split_kind`.")
-
-    splits = list(splits)
-    summary_results = []
-
-    results = em.base_table(
-        scenario_logger,
-        splits,
-        base_table,
-        target_column="target",
-        iterations=iterations,
-        verbose=verbose,
-    )
-    summary_results.append(results)
-
-    # Iterate over each index and run experiments on that
-    for index_name, join_candidates in candidates_by_index.items():
-        # Join on each candidate, one at a time
-        results, df_ranking = em.single_join(
-            scenario_logger,
-            splits,
-            join_candidates,
-            index_name,
-            base_table,
-            iterations,
-            aggregation=aggregation,
-            verbose=verbose,
-            top_k=top_k,
-        )
-
-        summary_results.append(results)
-
-        # Join all candidates at the same time
-        results = em.full_join(
-            scenario_logger,
-            splits,
-            join_candidates,
-            index_name,
-            base_table,
-            iterations=iterations,
-            verbose=verbose,
-            aggregation=aggregation,
-        )
-
-        summary_results.append(results)
-
-    summary = pl.from_dicts(summary_results)
-    print(f'SOURCE TABLE: {scenario_logger.get_parameters()["base_table"]}')
-    print(summary)
-
-    scenario_logger.set_results(summary)
-
-    return

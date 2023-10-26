@@ -10,7 +10,7 @@ import polars as pl
 import src.methods.evaluation as em
 import src.pipeline as pipeline
 from src.data_structures.loggers import ScenarioLogger
-from src.data_structures.metadata import MetadataIndex, RawDataset
+from src.data_structures.metadata import QUERY_RESULTS_PATH, MetadataIndex, RawDataset
 from src.utils.logging import setup_run_logging
 
 repo = git.Repo(search_parent_directories=True)
@@ -191,6 +191,15 @@ def single_run(args, run_name=None):
 
     tab_name = query_tab_path.stem
 
+    query_result_path = "{}__{}__{}__{}.pickle".format(
+        args.yadl_version,
+        args.index_name,
+        tab_name,
+        args.query_column,
+    )
+    with open(Path(QUERY_RESULTS_PATH, query_result_path), "rb") as fp:
+        query_result = pickle.load(fp)
+
     scl = ScenarioLogger(
         base_table=tab_name,
         git_hash=repo_sha,
@@ -204,55 +213,47 @@ def single_run(args, run_name=None):
         debug=args.debug,
     )
 
-    if not metadata_index_path.exists():
-        raise FileNotFoundError(
-            f"Path to metadata index {metadata_index_path} is invalid."
-        )
-    mdata_index = MetadataIndex(index_path=metadata_index_path)
+    # if not metadata_index_path.exists():
+    #     raise FileNotFoundError(
+    #         f"Path to metadata index {metadata_index_path} is invalid."
+    #     )
+    # mdata_index = MetadataIndex(data_lake_variant=data_lake_version, index_path=metadata_index_path)
+    # scl.pretty_print()
 
-    scl.add_timestamp("start_load_index")
-    indices = pipeline.load_indices(
-        index_dir, selected_indices=args.selected_indices, tab_name=tab_name
-    )
-
-    scl.add_timestamp("end_load_index")
-
-    scl.pretty_print()
-
-    # Query index
-    # Removing duplicate rows
-    scl.add_timestamp("start_querying")
+    # # Query index
+    # # Removing duplicate rows
+    # scl.add_timestamp("start_querying")
     df = pl.read_parquet(query_tab_path).unique()
-    query_tab_metadata = RawDataset(
-        query_tab_path.resolve(), "queries", "data/metadata/queries"
-    )
-    query_tab_metadata.save_metadata_to_json()
+    # query_tab_metadata = RawDataset(
+    #     query_tab_path.resolve(), "queries", "data/metadata/queries"
+    # )
+    # query_tab_metadata.save_metadata_to_json()
 
-    query_column = args.query_column
-    if query_column not in df.columns:
-        raise pl.ColumnNotFoundError()
+    # query_column = args.query_column
+    # if query_column not in df.columns:
+    #     raise pl.ColumnNotFoundError()
 
-    # if args.sample_size is not None and args.sample_size > 0:
-    #     query = df[query_column].sample(int(args.sample_size)).drop_nulls()
-    # else:
-    query = df[query_column].drop_nulls()
+    # # if args.sample_size is not None and args.sample_size > 0:
+    # #     query = df[query_column].sample(int(args.sample_size)).drop_nulls()
+    # # else:
+    # query = df[query_column].drop_nulls()
 
-    logger.info("Start querying")
-    query_results, candidates_by_index = pipeline.querying(
-        query_tab_metadata.metadata,
-        query_column,
-        query,
-        indices,
-        mdata_index,
-        args.top_k,
-    )
-    logger.info("End querying")
-    scl.add_timestamp("end_querying")
+    # logger.info("Start querying")
+    # query_results, candidates_by_index = pipeline.querying(
+    #     query_tab_metadata.metadata,
+    #     query_column,
+    #     query,
+    #     indices,
+    #     mdata_index,
+    #     args.top_k,
+    # )
+    # logger.info("End querying")
+    # scl.add_timestamp("end_querying")
 
-    query_result_path = Path("results/generated_candidates")
-    os.makedirs(query_result_path, exist_ok=True)
-    with open(Path(query_result_path, f"{tab_name}.pickle"), "wb") as fp:
-        pickle.dump(candidates_by_index, fp)
+    # query_result_path = Path("results/generated_candidates")
+    # os.makedirs(query_result_path, exist_ok=True)
+    # with open(Path(query_result_path, f"{tab_name}.pickle"), "wb") as fp:
+    #     pickle.dump(candidates_by_index, fp)
 
     if not args.dry_run:
         scl.add_timestamp("start_evaluation")
@@ -261,7 +262,8 @@ def single_run(args, run_name=None):
         em.evaluate_joins(
             scl,
             df,
-            join_candidates=candidates_by_index["minhash"],
+            # join_candidates=candidates_by_index["minhash"],
+            join_candidates=query_result.candidates,
             target_column="target",
             chosen_model=args.chosen_model,
             join_estimators=[
