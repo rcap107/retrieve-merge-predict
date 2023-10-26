@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 import src.pipeline as pipeline
 from src.data_structures.metadata import MetadataIndex, RawDataset
+from src.utils.indexing import prepare_default_configs
 
 log_format = "%(asctime)s - %(message)s"
 
@@ -124,14 +125,7 @@ def prepare_indices(
     case_dir = Path(index_dir, case)
     os.makedirs(case_dir, exist_ok=True)
 
-    index_configurations = pipeline.prepare_default_configs(
-        metadata_dir, selected_indices
-    )
-    if "manual" in selected_indices:
-        config_manual = pipeline.prepare_config_manual(
-            base_table_path, metadata_dir, n_jobs
-        )
-        index_configurations.update(config_manual)
+    index_configurations = prepare_default_configs(metadata_dir, selected_indices)
     print("Preparing indices.")
     indices = pipeline.prepare_indices(index_configurations)
     print("Saving indices.")

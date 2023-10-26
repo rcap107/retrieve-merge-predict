@@ -20,48 +20,6 @@ def prepare_dirtree():
     os.makedirs("data/metadata/queries", exist_ok=True)
 
 
-def prepare_default_configs(data_dir, selected_indices=None):
-    """Prepare default configurations for various indexing methods and provide the
-    data directory that contains the metadata of the tables to be indexed.
-
-    Args:
-        data_dir (str): Path to the directory that contains the metadata.
-        selected_indices (str, optional): If provided, prepare and run only the selected indices.
-
-    Raises:
-        IOError: Raise IOError if `data_dir` is incorrect.
-
-    Returns:
-        dict: Configuration dictionary
-    """
-    if Path(data_dir).exists():
-        configs = {
-            "lazo": {
-                "data_dir": data_dir,
-                "partition_size": 50_000,
-                "host": "localhost",
-                "port": 15449,
-            },
-            "minhash": {
-                "data_dir": data_dir,
-                "thresholds": [20],
-                "oneshot": True,
-                "num_perm": 128,
-                "n_jobs": -1,
-            },
-        }
-        if selected_indices is not None:
-            return {
-                index_name: config
-                for index_name, config in configs.items()
-                if index_name in selected_indices
-            }
-        else:
-            return configs
-    else:
-        raise IOError(f"Invalid path {data_dir}")
-
-
 def prepare_config_manual(base_table_path, mdata_path, n_jobs):
     base_table = pl.read_parquet(base_table_path)
     return {
