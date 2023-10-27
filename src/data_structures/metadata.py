@@ -42,7 +42,7 @@ class MetadataIndex:
         elif metadata_dir is not None:
             metadata_dir = Path(metadata_dir)
             if (not metadata_dir.exists()) or (not metadata_dir.is_dir()):
-                raise IOError(f"Metadata path invalid.")
+                raise IOError("Metadata path invalid.")
             self.index = self.create_index(metadata_dir)
         else:
             raise ValueError("Either `metadata_dir` or `index_path` must be provided.")

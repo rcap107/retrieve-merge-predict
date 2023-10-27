@@ -25,16 +25,9 @@ logging.basicConfig(
 class ScenarioLogger:
     def __init__(
         self,
-        base_table,
+        base_table_name,
         git_hash,
-        iterations,
-        chosen_model,
-        aggregation,
-        target_dl,
-        n_splits,
-        top_k,
-        jd_method="minhash",
-        task="regression",
+        run_config,
         exp_name=None,
         debug=False,
     ) -> None:
@@ -51,19 +44,29 @@ class ScenarioLogger:
         self.exp_name = exp_name
         self.scenario_id = log.read_and_update_scenario_id(exp_name, debug=debug)
         self.prepare_logger(exp_name)
-        self.task = task
+
+        self.estim_parameters = run_config["estimators"]
+        self.model_parameters = run_config["evaluation_models"]
+        self.join_parameters = run_config["join_parameters"]
+        self.run_parameters = run_config["run_parameters"]
+        self.query_info = run_config["query_cases"]
+
+        self.task = self.run_parameters["task"]
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
-        self.chosen_model = chosen_model
-        self.jd_method = jd_method
-        self.base_table = base_table
+        self.chosen_model = self.model_parameters["chosen_model"]
+        self.jd_method = self.run_parameters["join_discovery_method"]
+        self.base_table_name = base_table_name
         self.git_hash = git_hash
-        self.iterations = iterations
-        self.aggregation = aggregation
-        self.target_dl = target_dl
-        self.n_splits = n_splits
-        self.top_k = top_k
+        if self.chosen_model == "catboost":
+            self.iterations = self.model_parameters["catboost"]["iterations"]
+        else:
+            self.iterations = 0
+        self.aggregation = self.join_parameters["aggregation"]
+        self.target_dl = self.run_parameters["data_lake"]
+        self.n_splits = self.run_parameters["n_splits"]
+        self.top_k = self.run_parameters["top_k"]
         self.results = None
         self.process_time = 0
         self.status = None
@@ -82,7 +85,7 @@ class ScenarioLogger:
 
     def get_parameters(self):
         return {
-            "base_table": self.base_table,
+            "base_table": self.base_table_name,
             "jd_method": self.jd_method,
             "iterations": self.iterations,
             "aggregation": self.aggregation,
@@ -105,7 +108,7 @@ class ScenarioLogger:
                 [
                     self.scenario_id,
                     self.git_hash,
-                    self.base_table,
+                    self.base_table_name,
                     self.jd_method,
                     self.iterations,
                     self.aggregation,
@@ -124,7 +127,7 @@ class ScenarioLogger:
     def pretty_print(self):
         print(f"Run name: {self.exp_name}")
         print(f"Scenario ID: {self.scenario_id}")
-        print(f"Base table: {self.base_table}")
+        print(f"Base table: {self.base_table_name}")
         print(f"Iterations: {self.iterations}")
         print(f"Aggregation: {self.aggregation}")
         print(f"DL Variant: {self.target_dl}")
@@ -233,7 +236,7 @@ class RunLogger:
 
     def get_parameters(self, scenario_logger: ScenarioLogger, additional_parameters):
         parameters = {
-            "base_table": scenario_logger.base_table,
+            "base_table": scenario_logger.base_table_name,
             "candidate_table": "",
             "left_on": "",
             "right_on": "",

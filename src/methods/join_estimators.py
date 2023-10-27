@@ -61,9 +61,7 @@ class BaseJoinMethod(BaseEstimator):
         self,
         scenario_logger: ScenarioLogger,
         target_column: str = None,
-        chosen_model: str = None,
         model_parameters: dict = None,
-        with_validation: bool = True,
         task: str = "regression",
     ) -> None:
         """Base JoinEstimator class. This class is supposed to be extended by the
@@ -75,7 +73,6 @@ class BaseJoinMethod(BaseEstimator):
             the parameters and the current experiment.
             target_column (str, optional): Column that contains the target to be used for
             supervised learning. Defaults to None.
-            chosen_model (str, optional): Which model to choose, either `catboost` or `linear`. Defaults to None.
             model_parameters (dict, optional): Parameters to be passed to the model. Defaults to None.
             task (str, optional): Task to be executed, either `regression` or `classification`. Defaults to "regression".
 
@@ -88,17 +85,18 @@ class BaseJoinMethod(BaseEstimator):
         if task not in ["regression", "classification"]:
             raise ValueError(f"Task {task} not supported.")
 
-        if chosen_model not in ["catboost", "linear"]:
-            raise ValueError(f"Model {chosen_model} not supported.")
+        self.chosen_model = model_parameters["chosen_model"]
+
+        if self.chosen_model not in ["catboost", "linear"]:
+            raise ValueError(f"Model {self.chosen_model} not supported.")
 
         self.name = "base_estimator"
         self.scenario_logger = scenario_logger
         self.model_parameters = model_parameters
-        self.chosen_model = chosen_model
         self.target_column = target_column
         self.task = task
         self.joined_columns = None
-        self.with_validation = with_validation
+        self.with_validation = True
 
         self.model = None
         self.cat_features = None
@@ -270,14 +268,11 @@ class BaseJoinWithCandidatesMethod(BaseJoinMethod):
         scenario_logger=None,
         candidate_joins=None,
         target_column=None,
-        chosen_model=None,
         model_parameters=None,
         join_parameters=None,
         task="regression",
     ) -> None:
-        super().__init__(
-            scenario_logger, target_column, chosen_model, model_parameters, task
-        )
+        super().__init__(scenario_logger, target_column, model_parameters, task)
         self.candidate_joins = candidate_joins
         self.n_candidates = len(candidate_joins)
 
@@ -314,13 +309,10 @@ class NoJoin(BaseJoinMethod):
         self,
         scenario_logger=None,
         target_column=None,
-        chosen_model=None,
         model_parameters=None,
         task="regression",
     ) -> None:
-        super().__init__(
-            scenario_logger, target_column, chosen_model, model_parameters, task
-        )
+        super().__init__(scenario_logger, target_column, model_parameters, task)
         self.name = "nojoin"
 
     def fit(
@@ -457,7 +449,6 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         scenario_logger=None,
         candidate_joins=None,
         target_column=None,
-        chosen_model=None,
         model_parameters=None,
         join_parameters=None,
         task="regression",
@@ -466,7 +457,6 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             scenario_logger,
             candidate_joins,
             target_column,
-            chosen_model,
             model_parameters,
             join_parameters,
             task,
@@ -545,7 +535,6 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         scenario_logger=None,
         candidate_joins=None,
         target_column=None,
-        chosen_model=None,
         model_parameters=None,
         join_parameters=None,
         task="regression",
@@ -555,7 +544,6 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             scenario_logger,
             candidate_joins,
             target_column,
-            chosen_model,
             model_parameters,
             join_parameters,
             task,
@@ -685,7 +673,6 @@ class FullJoin(BaseJoinWithCandidatesMethod):
         scenario_logger=None,
         candidate_joins=None,
         target_column=None,
-        chosen_model=None,
         model_parameters=None,
         join_parameters=None,
         task="regression",
@@ -694,7 +681,6 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             scenario_logger,
             candidate_joins,
             target_column,
-            chosen_model,
             model_parameters,
             join_parameters,
             task,
@@ -765,25 +751,21 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         scenario_logger: ScenarioLogger = None,
         candidate_joins=None,
         target_column=None,
-        chosen_model=None,
         model_parameters=None,
-        with_validation: bool = True,
         join_parameters=None,
-        task="regression",
-        budget_type: str = "iterations",
-        budget_amount=10,
-        valid_size=0.2,
-        # Add more metrics
-        metric="r2",
+        budget_type=None,
+        budget_amount=None,
+        epsilon=None,
         ranking_metric="containment",
-        max_candidates: int = 50,
-        epsilon=0,
+        metric="r2",
+        valid_size=0.2,
+        max_candidates=50,
+        task="regression",
     ) -> None:
         super().__init__(
             scenario_logger,
             candidate_joins,
             target_column,
-            chosen_model,
             model_parameters,
             join_parameters,
             task,
@@ -805,7 +787,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.blacklist = deque([], maxlen=max_candidates)
         self.candidate_ranking = None
         self.max_candidates = max_candidates
-        self.with_validation = with_validation
+        self.with_validation = True
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
         self.base_epsilon = epsilon
