@@ -73,6 +73,8 @@ def pack(dict_to_pack):
                 }
             )
             packed[s0] = pp
+        elif n_splits == 1:
+            packed[key] = value
         else:
             raise ValueError
     return packed
