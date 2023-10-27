@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import toml
 from sklearn.model_selection import ParameterGrid
 
-from main_pipeline import single_run
+from src.pipeline import prepare_config_dict, single_run
 from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
 
 logger_sh = logging.getLogger("pipeline")
@@ -68,11 +68,11 @@ if __name__ == "__main__":
 
     start_run = dt.now()
     base_config = toml.load(args.input_path)
+    run_variants = prepare_config_dict(base_config)
     if not args.debug:
         exp_name = setup_run_logging(base_config)
     else:
         exp_name = get_exp_name(debug=args.debug)
-    run_variants = generate_run_variants(base_config, debug=args.debug)
     for idx, dd in enumerate(run_variants):
         print("#" * 80)
         print(f"### Run {idx+1}/{len(run_variants)}")
