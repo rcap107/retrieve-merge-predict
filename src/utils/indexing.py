@@ -147,3 +147,15 @@ def query_index(
 
     query_result = QueryResult(index, query_tab_metadata, query_column, mdata_index)
     query_result.save_to_pickle()
+
+
+def load_query_result(yadl_version, index_name, tab_name, query_column):
+    query_result_path = "{}__{}__{}__{}.pickle".format(
+        yadl_version,
+        index_name,
+        tab_name,
+        query_column,
+    )
+    with open(Path(DEFAULT_QUERY_RESULT_DIR, query_result_path), "rb") as fp:
+        query_result = pickle.load(fp)
+    return query_result
