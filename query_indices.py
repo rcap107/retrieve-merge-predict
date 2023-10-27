@@ -4,12 +4,11 @@ from pathlib import Path
 import polars as pl
 import toml
 
-import src.pipeline as pipeline
 from src.data_structures.metadata import MetadataIndex, RawDataset
 from src.utils.indexing import load_index, query_index
 
 # %%
-config = toml.load("config/proto_config2.ini")
+config = toml.load("config/join_discovery/minhash_open_data_us.ini")
 
 jd_method = config["join_discovery_method"]
 data_lake_version = config["data_lake"]
@@ -25,7 +24,7 @@ if not metadata_index_path.exists():
 mdata_index = MetadataIndex(
     data_lake_variant=data_lake_version, index_path=metadata_index_path
 )
-#%%
+# %%
 index = load_index(data_lake_version, jd_method)
 
 # %%
