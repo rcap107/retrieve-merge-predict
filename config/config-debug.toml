@@ -54,12 +54,11 @@ catboost.l2_leaf_reg=0.01
 
 ["estimators"]
 no_join.active=true
-stepwise_greedy_join.active=false
-# highest_containment.active=true
-# best_single_join.active=true
-# full_join.active=true
+stepwise_greedy_join.active=true
+highest_containment.active=true
+best_single_join.active=true
+full_join.active=true
 stepwise_greedy_join.budget_type="iterations"
 stepwise_greedy_join.budget_amount=[20]
 stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
-stepwise_greedy_join.metric="r2"
