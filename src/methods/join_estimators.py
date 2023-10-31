@@ -10,7 +10,7 @@ import polars.selectors as cs
 from catboost import CatBoostClassifier, CatBoostRegressor
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression, SGDClassifier
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import auc, f1_score, mean_squared_error, r2_score, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from tqdm import tqdm, trange
@@ -332,14 +332,20 @@ class BaseJoinWithCandidatesMethod(BaseJoinEstimator):
         else:
             return merged_train
 
+    def _evaluate_candidate(self, y_true, y_pred):
+        if self.task == "regression":
+            return r2_score(y_true, y_pred)
+        else:
+            return f1_score(y_true, y_pred)
+
 
 class NoJoin(BaseJoinEstimator):
     def __init__(
         self,
-        scenario_logger=None,
-        target_column=None,
-        model_parameters=None,
-        task="regression",
+        scenario_logger: ScenarioLogger = None,
+        target_column: str = None,
+        model_parameters: dict = None,
+        task: str = "regression",
     ) -> None:
         super().__init__(scenario_logger, target_column, model_parameters, task)
         self.name = "nojoin"
@@ -475,12 +481,12 @@ class SingleJoin(BaseJoinEstimator):
 class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
     def __init__(
         self,
-        scenario_logger=None,
-        candidate_joins=None,
-        target_column=None,
-        model_parameters=None,
-        join_parameters=None,
-        task="regression",
+        scenario_logger: ScenarioLogger = None,
+        candidate_joins: dict = None,
+        target_column: str = None,
+        model_parameters: dict = None,
+        join_parameters: dict = None,
+        task: str = "regression",
     ) -> None:
         super().__init__(
             scenario_logger,
@@ -595,7 +601,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         self.candidate_ranking = None
 
         self.best_cnd_hash = None
-        self.best_cnd_r2 = -np.inf
+        self.best_cnd_metric = -np.inf
         self.best_cnd_table = None
         self.left_on = self.right_on = None
         self.valid_size = valid_size
@@ -631,12 +637,12 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
 
             y_pred = self.predict_model(merged_valid)
-            r2 = r2_score(y_valid, y_pred)
+            metric = self._evaluate_candidate(y_valid, y_pred)
 
-            ranking.append({"candidate": hash_, "r2": r2})
+            ranking.append({"candidate": hash_, "metric": metric})
 
-            if r2 > self.best_cnd_r2:
-                self.best_cnd_r2 = r2
+            if metric > self.best_cnd_metric:
+                self.best_cnd_metric = metric
                 self.best_cnd_hash = hash_
 
         # RETRAINING THE MODEL
@@ -655,7 +661,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
         self.build_model(best_train)
         self.fit_model(best_train, y_train, best_valid, y_valid)
-        self.candidate_ranking = pl.from_dicts(ranking).sort("r2", descending=True)
+        self.candidate_ranking = pl.from_dicts(ranking).sort("metric", descending=True)
 
     def predict(self, X):
         merged_test = ju.execute_join_with_aggregation(
@@ -718,9 +724,9 @@ class FullJoin(BaseJoinWithCandidatesMethod):
         scenario_logger: ScenarioLogger = None,
         candidate_joins: dict = None,
         target_column: str = None,
-        model_parameters=None,
-        join_parameters=None,
-        task="regression",
+        model_parameters: dict = None,
+        join_parameters: dict = None,
+        task: str = "regression",
     ) -> None:
         super().__init__(
             scenario_logger,
@@ -791,21 +797,22 @@ class FullJoin(BaseJoinWithCandidatesMethod):
 
 
 class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
+    """StepwiseGreedyJoin produces a full join path employing a greedy strategy. It evaluates"""
+
     def __init__(
         self,
         scenario_logger: ScenarioLogger = None,
-        candidate_joins=None,
-        target_column=None,
-        model_parameters=None,
-        join_parameters=None,
-        budget_type=None,
-        budget_amount=None,
-        epsilon=None,
-        ranking_metric="containment",
-        metric="r2",
-        valid_size=0.2,
-        max_candidates=50,
-        task="regression",
+        candidate_joins: dict = None,
+        target_column: str = None,
+        model_parameters: dict = None,
+        join_parameters: dict = None,
+        budget_type: str = None,
+        budget_amount: str = None,
+        epsilon: float = None,
+        ranking_metric: str = "containment",
+        valid_size: float = 0.2,
+        max_candidates: int = 50,
+        task: str = "regression",
     ) -> None:
         super().__init__(
             scenario_logger,
@@ -841,21 +848,20 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.wrap_up_joiner = None
         self.wrap_up_joiner_params = model_parameters
 
-    def fit(self, X, y):
+    def fit(self, X: pd.DataFrame, y):
         X_train, X_valid, y_train, y_valid = train_test_split(
             X, y, test_size=self.valid_size
         )
 
-        self.candidate_ranking = self.build_ranking(X)
+        self.candidate_ranking = self._build_ranking(X)
 
         # BASE TABLE
         self.build_model(X_train)
         self.fit_model(X_train, y_train, X_valid, y_valid)
         y_pred = self.predict_model(X_valid)
 
-        # TODO: later, generalize this to more metrics
-        r2 = r2_score(y_valid, y_pred)
-        self.current_metric = r2
+        metric = self._evaluate_candidate(y_valid, y_pred)
+        self.current_metric = metric
 
         self.current_X_train = X_train
         self.current_X_valid = X_valid
@@ -867,7 +873,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             desc="StepwiseGreedyJoin - Iterating: ",
             leave=False,
         ):
-            cjoin = self.get_candidate()
+            cjoin = self._get_candidate()
             if cjoin is None:
                 # No more candidates:
                 break
@@ -881,7 +887,6 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 cnd_table,
                 left_on,
                 right_on,
-                # suffix="".join(random.choices(list(string.ascii_letters), k=8)),
                 suffix=cjoin.candidate_id[:10],
             )
 
@@ -889,10 +894,9 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
 
             y_pred = self.predict_model(temp_X_valid)
-            # TODO: this should be generalized to any metric
-            r2 = r2_score(y_valid, y_pred)
+            metric = self._evaluate_candidate(y_valid, y_pred)
 
-            self.update_ranking(cjoin, r2, temp_X_train, temp_X_valid)
+            self._update_ranking(cjoin, metric, temp_X_train, temp_X_valid)
 
         if len(self.selected_candidates) > 0:
             self.wrap_up_joiner = FullJoin(
@@ -929,7 +933,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         self.joined_columns = self.wrap_up_joiner.joined_columns
 
-    def build_ranking(self, X):
+    def _build_ranking(self, X):
         if self.ranking_metric == "containment":
             _ranking = build_containment_ranking(X, self.candidate_joins)
             candidate_ranking = deque(
@@ -938,7 +942,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         return candidate_ranking
 
-    def get_candidate(self) -> CandidateJoin | None:
+    def _get_candidate(self) -> CandidateJoin | None:
         if len(self.candidate_ranking) > 0:
             _cnd = self.candidate_ranking.popleft()
             return self.candidate_joins[_cnd]
@@ -953,13 +957,12 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             # No more candidates are left, stop iterations
             return None
 
-    def get_curr_eps(self, n):
+    def _get_curr_eps(self, n):
         # TODO: expand as needed
         return 1 / (np.log(n) + 1) * self.base_epsilon
 
-    def update_ranking(self, cjoin, metric, temp_X_train, temp_X_valid):
+    def _update_ranking(self, cjoin, metric, temp_X_train, temp_X_valid):
         cjoin_hash = cjoin.candidate_id
-        # TODO: add epsilon to account for variance
         self.already_evaluated[cjoin_hash] += 1
         if metric > self.current_metric + self.epsilon:
             self.selected_candidates.update({cjoin_hash: cjoin})
@@ -967,7 +970,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             self.current_X_train = temp_X_train
             self.current_X_valid = temp_X_valid
             n_cnd = len(self.selected_candidates)
-            self.epsilon = self.get_curr_eps(n_cnd)
+            self.epsilon = self._get_curr_eps(n_cnd)
         else:
             # self.candidate_ranking.append(cnd_hash)
             if self.already_evaluated[cjoin_hash] < 2:
@@ -989,11 +992,11 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             try:
                 budget_amount = int(budget_amount)
             except:
-                raise ValueError(f"A non-numeric number of iterations was provided.")
+                raise ValueError("A non-numeric number of iterations was provided.")
             if not isinstance(budget_amount, int):
-                raise ValueError(f"`budget_amount` must be integer")
+                raise ValueError("`budget_amount` must be integer")
             if budget_amount <= 0:
-                raise ValueError(f"The number of iterations must be strictly positive.")
+                raise ValueError("The number of iterations must be strictly positive.")
             return budget_type, budget_amount
         # TODO: ADD MORE BUDGET TYPES LATER
         else:
