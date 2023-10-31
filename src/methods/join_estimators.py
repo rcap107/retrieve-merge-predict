@@ -170,9 +170,9 @@ class BaseJoinEstimator(BaseEstimator):
             ValueError: Raise ValueError if the value in `self.task` is not a
             valid task (`regression` or `classification`).
         """
+        self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
         if self.task == "regression":
             self.model = LinearRegression()
-            self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
         elif self.task == "classification":
             self.model = SGDClassifier()
         else:
@@ -231,7 +231,7 @@ class BaseJoinEstimator(BaseEstimator):
         self, X_train, y_train, X_valid=None, y_valid=None, skip_validation=False
     ):
         if self.chosen_model == "linear":
-            assert isinstance(self.model, LinearRegression, SGDClassifier)
+            assert isinstance(self.model, (LinearRegression, SGDClassifier))
             X_train = self.prepare_table(X_train)
             self.cat_encoder.fit(X_train)
             X_enc = self.cat_encoder.transform(X_train)

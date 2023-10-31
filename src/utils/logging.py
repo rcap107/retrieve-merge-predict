@@ -24,6 +24,8 @@ HEADER_RUN_LOGFILE = [
     "time_run",
     "r2score",
     "rmse",
+    "f1score",
+    "auc",
     "n_cols",
     "budget_type",
     "budget_amount",

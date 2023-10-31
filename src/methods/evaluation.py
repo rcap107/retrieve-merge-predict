@@ -19,7 +19,7 @@ from sklearn.model_selection import (
 from tqdm import tqdm
 
 import src.utils.joining as ju
-from src.data_structures.loggers import RawLogger, RunLogger
+from src.data_structures.loggers import RunLogger
 from src.methods.join_estimators import (
     BestSingleJoin,
     FullJoin,
