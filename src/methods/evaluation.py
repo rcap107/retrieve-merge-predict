@@ -28,7 +28,6 @@ from src.methods.join_estimators import (
     SingleJoin,
     StepwiseGreedyJoin,
 )
-from src.utils.models import get_model
 
 # from tqdm.contrib.telegram import tqdm
 
@@ -61,35 +60,31 @@ def prepare_splits(run_parameters, base_table=None, group_column=None):
     return splits
 
 
-def prepare_table_for_evaluation(src_df):
-    df = src_df.with_columns(
-        src_df.with_columns(cs.string().fill_null("null"), cs.float().fill_null(np.nan))
-    )
-    # df = src_df.fill_null()
-    df = ju.cast_features(df)
-    return df
-
-
-def prepare_X_y(
-    src_df,
-    target_column,
-):
+def prepare_X_y(src_df, target_column, schema=None):
     y = src_df[target_column].to_pandas()
-    df = src_df.drop(target_column).fill_null(value="null").fill_nan(value=np.nan)
-    df = ju.cast_features(df)
-    X = df.to_pandas()
+    df = src_df.clone().cast(schema).fill_null(value="null").fill_nan(value=np.nan)
+    if schema is None:
+        df = ju.cast_features(df)
+    else:
+        df = df.cast(schema)
+    X = df.drop(target_column).to_pandas()
 
     return X, y
 
 
 def prepare_estimator(
-    estimator_name, estimator_parameters, join_candidates, join_parameters
+    estimator_name,
+    estimator_parameters,
+    join_candidates,
+    join_parameters,
+    base_table_schema,
 ):
+    estimator_parameters.pop("active")
     if estimator_name == "no_join":
-        return NoJoin(estimator_parameters)
+        return NoJoin(**estimator_parameters)
 
-    estimator_parameters.update(join_parameters)
-    estimator_parameters.update({"join_candidates": join_candidates})
+    estimator_parameters["join_parameters"] = join_parameters
+    estimator_parameters.update({"candidate_joins": join_candidates})
 
     if estimator_name == "highest_containment":
         return HighestContainmentJoin(**estimator_parameters)
@@ -103,7 +98,7 @@ def prepare_estimator(
 
 def evaluate_joins(
     scenario_logger,
-    base_table,
+    base_table: pl.DataFrame,
     join_candidates,
     target_column="target",
     group_column="col_to_embed",
@@ -117,19 +112,25 @@ def evaluate_joins(
     estim_common_parameters = {
         "scenario_logger": scenario_logger,
         "target_column": target_column,
-        "estim_parameters": None,
         "model_parameters": model_parameters,
         "task": run_parameters["task"],
     }
 
     estimators = []
 
-    for estim in estim_parameters["estimators"]:
+    for estim in estim_parameters:
         params = dict(estim_common_parameters)
         params.update(estim_parameters.get(estim, {}))
-        estimators.append(
-            prepare_estimator(estim, params, join_candidates, join_parameters)
-        )
+        if estim_parameters[estim]["active"]:
+            estimators.append(
+                prepare_estimator(
+                    estim,
+                    params,
+                    join_candidates,
+                    join_parameters,
+                    base_table_schema=base_table.schema,
+                )
+            )
 
     if len(estimators) == 0:
         raise ValueError("No estimators were prepared. ")
@@ -146,8 +147,9 @@ def evaluate_joins(
         base_table_train = base_table[train_split]
         base_table_test = base_table[test_split]
 
-        X_train, y_train = prepare_X_y(base_table_train, target_column)
-        X_test, y_test = prepare_X_y(base_table_test, target_column)
+        schema = base_table_train.schema
+        X_train, y_train = prepare_X_y(base_table_train, target_column, schema=schema)
+        X_test, y_test = prepare_X_y(base_table_test, target_column, schema=schema)
 
         for estim in estimators:
             run_logger = RunLogger(

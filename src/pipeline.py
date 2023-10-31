@@ -124,17 +124,18 @@ def single_run(run_config, run_name=None):
     logger, logger_scn = prepare_logger()
     logger.info("Starting run.")
 
-    query_tab_path = Path(query_info["tab_path"])
+    query_tab_path = Path(query_info["table_path"])
     if not query_tab_path.exists():
         raise FileNotFoundError(f"File {query_tab_path} not found.")
 
     tab_name = query_tab_path.stem
 
     query_result = load_query_result(
-        run_parameters["data_lake"],
-        run_parameters["join_discovery_method"],
+        query_info["data_lake"],
+        query_info["join_discovery_method"],
         tab_name,
         query_info["query_column"],
+        top_k=run_parameters["top_k"],
     )
 
     scl = ScenarioLogger(

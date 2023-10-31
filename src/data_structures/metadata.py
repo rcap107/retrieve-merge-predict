@@ -344,6 +344,14 @@ class QueryResult:
 
         self.candidates = {k: tmp_cand[k] for k in ranked_results}
 
+    def select_top_k(self, top_k):
+        if top_k > 0:
+            self.candidates = {
+                k: v
+                for idx, (k, v) in enumerate(self.candidates.items())
+                if idx < top_k
+            }
+
     def save_to_pickle(self):
         output_name = "{}__{}__{}__{}.pickle".format(
             self.data_lake_version,

@@ -14,7 +14,7 @@ from src.data_structures.metadata import (
 )
 
 DEFAULT_INDEX_DIR = Path("data/metadata/_indices")
-DEFAULT_QUERY_RESULT_DIR = Path("results/generated_candidates")
+DEFAULT_QUERY_RESULT_DIR = Path("results/query_results")
 
 
 def prepare_default_configs(data_dir, selected_indices=None):
@@ -149,7 +149,7 @@ def query_index(
     query_result.save_to_pickle()
 
 
-def load_query_result(yadl_version, index_name, tab_name, query_column):
+def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
     query_result_path = "{}__{}__{}__{}.pickle".format(
         yadl_version,
         index_name,
@@ -158,4 +158,6 @@ def load_query_result(yadl_version, index_name, tab_name, query_column):
     )
     with open(Path(DEFAULT_QUERY_RESULT_DIR, query_result_path), "rb") as fp:
         query_result = pickle.load(fp)
+
+    query_result.select_top_k(top_k)
     return query_result
