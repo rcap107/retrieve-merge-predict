@@ -1,5 +1,6 @@
 import copy
 import csv
+import datetime
 import datetime as dt
 import json
 import logging
@@ -160,7 +161,9 @@ class ScenarioLogger:
         else:
             res_dict["results"] = None
         res_dict["timestamps"] = {
-            k: v.isoformat() for k, v in res_dict["timestamps"].items()
+            k: v.isoformat()
+            for k, v in res_dict["timestamps"].items()
+            if isinstance(v, datetime.datetime)
         }
         if Path(root_path).exists():
             with open(
