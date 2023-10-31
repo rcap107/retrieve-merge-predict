@@ -50,18 +50,6 @@ def parse_args():
     return args
 
 
-def generate_run_variants(base_config, debug=False):
-    base_config["input_data"]["debug"] = debug
-    sections = list(base_config.keys())
-    config_dict = {}
-    for k in base_config:
-        config_dict.update(base_config[k])
-    config_dict = {k: (v if type(v) == list else [v]) for k, v in config_dict.items()}
-    grid = list(ParameterGrid(config_dict))
-
-    return grid
-
-
 if __name__ == "__main__":
     args = parse_args()
     os.makedirs("results/logs", exist_ok=True)
@@ -78,8 +66,7 @@ if __name__ == "__main__":
         print(f"### Run {idx+1}/{len(run_variants)}")
         print("#" * 80)
         pprint.pprint(dd)
-        ns = SimpleNamespace(**dd)
-        single_run(ns, exp_name)
+        single_run(dd, exp_name)
     if args.archive:
         archive_experiment(exp_name)
     end_run = dt.now()
