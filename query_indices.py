@@ -25,9 +25,11 @@ mdata_index = MetadataIndex(
     data_lake_variant=data_lake_version, index_path=metadata_index_path
 )
 # %%
+print("Loading index...")
 index = load_index(data_lake_version, jd_method)
 
 # %%
+print("Querying...")
 for query_case in query_cases:
     query_tab_path = Path(query_case["table_path"])
     query_column = query_case["query_column"]
