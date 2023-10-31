@@ -1,21 +1,11 @@
 """Evaluation methods"""
-import itertools
 import logging
 import os
 from pathlib import Path
 
 import numpy as np
 import polars as pl
-import polars.selectors as cs
-from catboost import CatBoostError, CatBoostRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import (
-    GroupKFold,
-    GroupShuffleSplit,
-    ShuffleSplit,
-    cross_validate,
-    train_test_split,
-)
+from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
 from tqdm import tqdm
 
 import src.utils.joining as ju
@@ -25,7 +15,6 @@ from src.methods.join_estimators import (
     FullJoin,
     HighestContainmentJoin,
     NoJoin,
-    SingleJoin,
     StepwiseGreedyJoin,
 )
 
