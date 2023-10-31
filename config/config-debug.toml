@@ -1,6 +1,5 @@
 ["run_parameters"]
-
-task="regression"
+task="classification"
 debug=false
 n_splits=[2]
 test_size=0.2
@@ -24,16 +23,22 @@ top_k=30
 # table_path="data/source_tables/us-presidential-results-yadl.parquet"
 # query_column="county_name"
 # METAM
+# [["query_cases"]]
+# data_lake="open_data_us"
+# join_discovery_method="minhash"
+# table_path="data/source_tables/housing-open_data.parquet"
+# query_column="CITY"
+# [["query_cases"]]
+# data_lake="open_data_us"
+# join_discovery_method="minhash"
+# table_path="data/source_tables/housing-open_data.parquet"
+# query_column="ZIP"
 [["query_cases"]]
 data_lake="open_data_us"
 join_discovery_method="minhash"
-table_path="data/source_tables/housing-open_data.parquet"
-query_column="CITY"
-[["query_cases"]]
-data_lake="open_data_us"
-join_discovery_method="minhash"
-table_path="data/source_tables/housing-open_data.parquet"
-query_column="ZIP"
+table_path="data/source_tables/schools-open_data.parquet"
+query_column="col_to_embed"
+
 
 
 ["join_parameters"]
