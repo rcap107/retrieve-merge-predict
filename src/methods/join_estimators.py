@@ -9,11 +9,10 @@ import polars as pl
 import polars.selectors as cs
 from catboost import CatBoostClassifier, CatBoostRegressor
 from sklearn.base import BaseEstimator
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, SGDClassifier
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import GroupKFold, cross_validate, train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.utils.validation import NotFittedError, check_is_fitted
 from tqdm import tqdm, trange
 
 import src.utils.indexing as iu
@@ -54,8 +53,10 @@ def build_containment_ranking(X, candidate_joins):
     return pl.from_dicts(containment_list).sort(by="containment", descending=True)
 
 
-class BaseJoinMethod(BaseEstimator):
-    """Base JoinEstimator class. This class is extended by the other estimators."""
+class BaseJoinEstimator(BaseEstimator):
+    """BaseJoinEstimator class. This class is extended by the other estimators.
+    Note that, despite it being called `BaseJoinEstimator`, this class is used as base for the NoJoin estimator as well.
+    """
 
     def __init__(
         self,
@@ -92,7 +93,10 @@ class BaseJoinMethod(BaseEstimator):
 
         self.name = "base_estimator"
         self.scenario_logger = scenario_logger
-        self.model_parameters = model_parameters
+        self.model_parameters = model_parameters.get(
+            model_parameters["chosen_model"], {}
+        )
+
         self.target_column = target_column
         self.task = task
         self.joined_columns = None
@@ -151,17 +155,26 @@ class BaseJoinMethod(BaseEstimator):
         if self.task == "regression":
             self.model = CatBoostRegressor(cat_features=cat_features, **parameters)
         elif self.task == "classification":
-            raise NotImplementedError
             self.model = CatBoostClassifier(cat_features=cat_features, **parameters)
         else:
             raise ValueError
 
     def build_linear(self):
+        """Build either a LinearRegression estimator for regression tasks, or a
+        SGDClassifier model for classification. Additionally, an OneHotEncoder
+        encoder is used to encode categorical values.
+
+
+
+        Raises:
+            ValueError: Raise ValueError if the value in `self.task` is not a
+            valid task (`regression` or `classification`).
+        """
         if self.task == "regression":
             self.model = LinearRegression()
             self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
         elif self.task == "classification":
-            raise NotImplementedError
+            self.model = SGDClassifier()
         else:
             raise ValueError
 
@@ -192,7 +205,19 @@ class BaseJoinMethod(BaseEstimator):
     def transform(self, X):
         raise NotImplementedError
 
-    def get_cat_features(self, X):
+    def get_cat_features(self, X: pl.DataFrame | pd.DataFrame) -> list:
+        """Given an input table X, return the list of features that are considered
+        to be categorical by the appropriate type selection function.
+
+        Args:
+            X (pl.DataFrame | pd.DataFrame): The input table to be evaluated.
+
+        Raises:
+            TypeError: Raise TypeError if X is not pl.DataFrame or pd.DataFrame.
+
+        Returns:
+            list: The list of categorical features.
+        """
         if type(X) == pl.DataFrame:
             cat_features = X.select(cs.string()).columns
         elif type(X) == pd.DataFrame:
@@ -206,15 +231,13 @@ class BaseJoinMethod(BaseEstimator):
         self, X_train, y_train, X_valid=None, y_valid=None, skip_validation=False
     ):
         if self.chosen_model == "linear":
-            assert isinstance(self.model, LinearRegression)
+            assert isinstance(self.model, LinearRegression, SGDClassifier)
             X_train = self.prepare_table(X_train)
             self.cat_encoder.fit(X_train)
             X_enc = self.cat_encoder.transform(X_train)
             self.model.fit(X=X_enc, y=y_train)
         elif self.chosen_model == "catboost":
-            assert (isinstance(self.model, CatBoostRegressor)) or (
-                isinstance(self.model, CatBoostClassifier)
-            )
+            assert isinstance(self.model, (CatBoostRegressor, CatBoostClassifier))
             X_train = self.prepare_table(X_train)
 
             if self.with_validation and not skip_validation:
@@ -258,19 +281,25 @@ class BaseJoinMethod(BaseEstimator):
             table = pl.from_pandas(table)
 
         table = table.fill_null(value="null").fill_nan(value=np.nan)
-        table = ju.cast_features(table)
+        # table = ju.cast_features(table)
         return table.to_pandas()
 
 
-class BaseJoinWithCandidatesMethod(BaseJoinMethod):
+class BaseJoinWithCandidatesMethod(BaseJoinEstimator):
+    """Base class that extends `BaseJoinMethod` to account for cases where multiple candidate joins are provided.
+
+    Args:
+        BaseJoinMethod (_type_): _description_
+    """
+
     def __init__(
         self,
-        scenario_logger=None,
+        scenario_logger: ScenarioLogger = None,
         candidate_joins=None,
-        target_column=None,
-        model_parameters=None,
-        join_parameters=None,
-        task="regression",
+        target_column: str = None,
+        model_parameters: dict = None,
+        join_parameters: dict = None,
+        task: str = "regression",
     ) -> None:
         super().__init__(scenario_logger, target_column, model_parameters, task)
         self.candidate_joins = candidate_joins
@@ -304,7 +333,7 @@ class BaseJoinWithCandidatesMethod(BaseJoinMethod):
             return merged_train
 
 
-class NoJoin(BaseJoinMethod):
+class NoJoin(BaseJoinEstimator):
     def __init__(
         self,
         scenario_logger=None,
@@ -352,7 +381,7 @@ class NoJoin(BaseJoinMethod):
         }
 
 
-class SingleJoin(BaseJoinMethod):
+class SingleJoin(BaseJoinEstimator):
     def __init__(
         self,
         scenario_logger=None,
@@ -532,14 +561,28 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 class BestSingleJoin(BaseJoinWithCandidatesMethod):
     def __init__(
         self,
-        scenario_logger=None,
-        candidate_joins=None,
-        target_column=None,
-        model_parameters=None,
-        join_parameters=None,
-        task="regression",
-        valid_size=0.2,
+        scenario_logger: ScenarioLogger = None,
+        candidate_joins: dict = None,
+        target_column: str = None,
+        model_parameters: dict = None,
+        join_parameters: dict = None,
+        task: str = "regression",
+        valid_size: float = 0.2,
     ) -> None:
+        """The `BestSingleJoin` estimator takes at init time a set of candidates that will be trained at `fit` time to
+        find the best single candidate among them.
+
+        The selection of the "best candidate" is done at fit time.
+
+        Args:
+            scenario_logger (ScenarioLogger, optional): ScenarioLogger object that contains the parameters relative to this run
+            candidate_joins (dict, optional): Dictionary that includes all generated candidate joins
+            target_column (str, optional): Target column.
+            model_parameters (dict, optional): Additional parameters to be passed to the evaluation model (catboost or linear).
+            join_parameters (dict, optional): Additional parameters to be considered when executing the join.
+            task (str, optional): The task to be executed. Either "classification" or "regression". Defaults to "regression".
+            valid_size (float, optional): The size of the validation set to be held out for evaluation of the best join. Defaults to 0.2.
+        """
         super().__init__(
             scenario_logger,
             candidate_joins,
@@ -666,13 +709,15 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
 
 class FullJoin(BaseJoinWithCandidatesMethod):
-    # TODO: add a note mentioning that the joins in `candidate_joins` have been
-    # vetted in some previous step and that this estimator will join them all
+    """The `FullJoin` estimator executes the full left join (with aggregation) between the
+    input table and all provided candidates, then trains a model on the resulting table.
+    """
+
     def __init__(
         self,
-        scenario_logger=None,
-        candidate_joins=None,
-        target_column=None,
+        scenario_logger: ScenarioLogger = None,
+        candidate_joins: dict = None,
+        target_column: str = None,
         model_parameters=None,
         join_parameters=None,
         task="regression",
@@ -794,6 +839,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.epsilon = epsilon
 
         self.wrap_up_joiner = None
+        self.wrap_up_joiner_params = model_parameters
 
     def fit(self, X, y):
         X_train, X_valid, y_train, y_valid = train_test_split(
@@ -850,13 +896,12 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         if len(self.selected_candidates) > 0:
             self.wrap_up_joiner = FullJoin(
-                self.scenario_logger,
-                self.selected_candidates,
-                self.target_column,
-                self.chosen_model,
-                self.model_parameters,
-                self.join_parameters,
-                self.task,
+                scenario_logger=self.scenario_logger,
+                candidate_joins=self.selected_candidates,
+                target_column=self.target_column,
+                model_parameters=self.wrap_up_joiner_params,
+                join_parameters=self.join_parameters,
+                task=self.task,
             )
             self.wrap_up_joiner.fit(
                 X_train=X_train,
@@ -867,10 +912,10 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         else:
             self.wrap_up_joiner = NoJoin(
-                self.scenario_logger,
-                self.target_column,
-                self.chosen_model,
-                self.model_parameters,
+                scenario_logger=self.scenario_logger,
+                target_column=self.target_column,
+                model_parameters=self.wrap_up_joiner_params,
+                task=self.task,
             )
             if self.chosen_model == "catboost":
                 self.wrap_up_joiner.fit(
@@ -1001,5 +1046,5 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         }
 
 
-class OptimumGreedyJoin(BaseJoinMethod):
+class OptimumGreedyJoin(BaseJoinEstimator):
     pass
