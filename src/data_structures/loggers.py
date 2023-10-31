@@ -10,7 +10,7 @@ from time import process_time
 import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
 
 import src.utils.logging as log
 from src.utils.logging import HEADER_RUN_LOGFILE
@@ -57,7 +57,7 @@ class ScenarioLogger:
         self.start_timestamp = None
         self.end_timestamp = None
         self.chosen_model = self.model_parameters["chosen_model"]
-        self.jd_method = self.run_parameters["join_discovery_method"]
+        self.jd_method = self.query_info["join_discovery_method"]
         self.base_table_name = base_table_name
         self.git_hash = git_hash
         if self.chosen_model == "catboost":
@@ -65,7 +65,7 @@ class ScenarioLogger:
         else:
             self.iterations = 0
         self.aggregation = self.join_parameters["aggregation"]
-        self.target_dl = self.run_parameters["data_lake"]
+        self.target_dl = self.query_info["data_lake"]
         self.n_splits = self.run_parameters["n_splits"]
         self.top_k = self.run_parameters["top_k"]
         self.results = None
@@ -178,7 +178,7 @@ class ScenarioLogger:
             "exp_name",
             "scenario_id",
             "chosen_model",
-            "base_table",
+            "base_table_name",
             "git_hash",
             "iterations",
             "target_dl",
@@ -188,8 +188,16 @@ class ScenarioLogger:
         annotation = json.dumps(dict_print, indent=2)
         fig = plt.figure()
         axs = fig.subplots(nrows=2)
+        if self.task == "regression":
+            x_value = "r2"
+        else:
+            x_value = "f1"
         sns.boxplot(
-            data=self.results.to_pandas(), y="estimator", x="r2", ax=axs[0], orient="h"
+            data=self.results.to_pandas(),
+            y="estimator",
+            x=x_value,
+            ax=axs[0],
+            orient="h",
         )
         axs[1].text(0, 0, annotation)
         axs[1].axis("off")
@@ -345,11 +353,12 @@ class RunLogger:
         if self.task == "regression":
             self.results["r2"] = r2_score(y_true, y_pred)
             self.results["rmse"] = mean_squared_error(y_true, y_pred, squared=False)
-            return self.results
         elif self.task == "classification":
-            raise NotImplementedError
+            self.results["f1"] = f1_score(y_true, y_pred)
+            self.results["auc"] = roc_auc_score(y_true, y_pred)
         else:
             raise ValueError()
+        return self.results
 
     def set_additional_info(self, info_dict: dict):
         self.additional_info.update(info_dict)
@@ -369,6 +378,8 @@ class RunLogger:
             self.durations.get("time_run", ""),
             self.results.get("r2", ""),
             self.results.get("rmse", ""),
+            self.results.get("f1", ""),
+            self.results.get("auc", ""),
             self.additional_info.get("joined_columns", ""),
             self.additional_info.get("budget_type", ""),
             self.additional_info.get("budget_amount", ""),
@@ -405,16 +416,3 @@ class RunLogger:
                     writer.writerow(self.to_dict())
         else:
             print(json.dumps(self.to_dict(), indent=2))
-
-
-class RawLogger(RunLogger):
-    def __init__(
-        self,
-        scenario_logger: ScenarioLogger,
-        fold_id: int,
-        additional_parameters: dict,
-        json_path="results/json",
-    ):
-        super().__init__(scenario_logger, additional_parameters, json_path)
-        self.fold_id = fold_id
-        self.parameters["fold_id"] = fold_id
