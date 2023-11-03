@@ -183,7 +183,7 @@ def base_barplot(
     else:
         x = x_variable
         y = y_variable
-    sns.catplot(
+    ax = sns.catplot(
         data=df,
         x=x,
         y=y,
@@ -194,6 +194,8 @@ def base_barplot(
         col_wrap=col_wrap,
         col_order=col_order,
     )
+
+    return ax
 
 
 def base_relplot(
@@ -210,7 +212,7 @@ def base_relplot(
     x = x_variable
     y = y_variable
 
-    sns.relplot(
+    ax = sns.relplot(
         data=df,
         x=x,
         y=y,
@@ -222,3 +224,4 @@ def base_relplot(
         col_wrap=col_wrap,
         col_order=col_order,
     )
+    return ax

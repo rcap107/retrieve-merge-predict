@@ -7,6 +7,8 @@ from pathlib import Path
 
 import polars as pl
 
+import src.utils.plotting as plotting
+
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
@@ -145,3 +147,32 @@ def archive_experiment(exp_name):
 
     with tarfile.open(Path(archive_path, archive_name), mode="x") as tar:
         tar.add(results_path, arcname=exp_name)
+
+
+def wrap_up_plot(exp_name, task="regression"):
+    """Prepare and save the plots relevant to the task under consideration.
+    If the task is `regression`, plot `r2score`, if the task is `classification`,
+    plot `f1score`.
+
+    Args:
+        exp_name (str): Name of the current experiment.
+        task (str, optional): Task under consideration, either `regression` or
+        `classification`. Defaults to "regression".
+    """
+    df_raw = read_logs(exp_name=exp_name)
+
+    if task == "regression":
+        current_score = "r2score"
+    else:
+        current_score = "f1score"
+
+    path_target_run = Path("results/logs/", exp_name)
+
+    for case in [current_score, "time_run"]:
+        path_plot = Path(path_target_run, "plots", f"overall_{case}.png")
+        ax = plotting.base_barplot(df_raw.to_pandas(), y_variable=case)
+        ax.savefig(path_plot)
+
+    path_plot = Path(path_target_run, "plots", f"scatter_time_{current_score}.png")
+    ax = plotting.base_relplot(df_raw.to_pandas(), y_variable=current_score)
+    ax.savefig(path_plot)
