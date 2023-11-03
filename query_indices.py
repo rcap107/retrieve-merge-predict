@@ -8,7 +8,7 @@ from src.data_structures.metadata import MetadataIndex, RawDataset
 from src.utils.indexing import load_index, query_index
 
 # %%
-config = toml.load("config/join_discovery/minhash_open_data_us.ini")
+config = toml.load("config/join_discovery/minhash_open_data_clf.toml")
 
 jd_method = config["join_discovery_method"]
 data_lake_version = config["data_lake"]
