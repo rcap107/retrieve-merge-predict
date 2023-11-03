@@ -10,7 +10,12 @@ import toml
 from sklearn.model_selection import ParameterGrid
 
 from src.pipeline import prepare_config_dict, single_run
-from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
+from src.utils.logging import (
+    archive_experiment,
+    get_exp_name,
+    setup_run_logging,
+    wrap_up_plot,
+)
 
 logger_sh = logging.getLogger("pipeline")
 # console handler for info
@@ -70,6 +75,8 @@ if __name__ == "__main__":
     if args.archive:
         archive_experiment(exp_name)
     end_run = dt.now()
+    if not args.debug:
+        wrap_up_plot(exp_name, base_config["run_parameters"]["task"])
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
     # finish_run()
