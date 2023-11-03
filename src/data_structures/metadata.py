@@ -325,7 +325,7 @@ class QueryResult:
             mdata_cand = mdata_index.query_by_hash(hash_)
             cjoin = CandidateJoin(
                 indexing_method=index.index_name,
-                source_table_metadata=self.source_mdata,
+                source_table_metadata=self.source_mdata.metadata,
                 candidate_table_metadata=mdata_cand,
                 how="left",
                 left_on=self.query_column,
