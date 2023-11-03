@@ -15,6 +15,7 @@ HEADER_RUN_LOGFILE = [
     "status",
     "target_dl",
     "base_table",
+    "query_column",
     "estimator",
     "aggregation",
     "chosen_model",

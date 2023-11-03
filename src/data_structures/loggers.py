@@ -256,6 +256,7 @@ class RunLogger:
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
             "fold_id": "",
+            "query_column": scenario_logger.query_info["query_column"],
         }
         if additional_parameters is not None:
             parameters.update(additional_parameters)
@@ -369,6 +370,7 @@ class RunLogger:
             self.status,
             self.parameters["target_dl"],
             self.parameters["base_table"],
+            self.parameters["query_column"],
             self.parameters["estimator"],
             self.parameters["aggregation"],
             self.parameters["chosen_model"],
