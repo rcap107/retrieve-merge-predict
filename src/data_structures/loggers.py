@@ -12,6 +12,14 @@ import polars as pl
 import seaborn as sns
 from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
 
+# TODO remove dependency
+try:
+    import telegram
+
+    telegram_on = True
+except ImportError:
+    telegram_on = False
+
 import src.utils.logging as log
 from src.utils.logging import HEADER_RUN_LOGFILE
 
@@ -73,6 +81,13 @@ class ScenarioLogger:
         self.status = None
         self.exception_name = None
         self.debug = debug
+        if False:
+            with open("telegram_credentials.txt", "r") as fp:
+                line = fp.readline()
+                self.telegram_token = line.split(":", maxsplit=1)[1]
+                line = fp.readline()
+                self.telegram_chat_id = int(line.split(":", maxsplit=1)[1])
+            self.bot = telegram.Bot(token=self.telegram_token)
 
     def prepare_logger(self, run_name=None):
         self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
@@ -129,9 +144,17 @@ class ScenarioLogger:
         print(f"Run name: {self.exp_name}")
         print(f"Scenario ID: {self.scenario_id}")
         print(f"Base table: {self.base_table_name}")
-        print(f"Iterations: {self.iterations}")
-        print(f"Aggregation: {self.aggregation}")
         print(f"DL Variant: {self.target_dl}")
+
+    async def send_message(self):
+        s = ""
+        s += f"Run name: {self.exp_name}"
+        s += f"Scenario ID: {self.scenario_id}"
+        s += f"Base table: {self.base_table_name}"
+        s += f"DL Variant: {self.target_dl}"
+
+        async with self.bot:
+            await self.bot.send_message(text=s, chat_id=self.telegram_chat_id)
 
     def write_to_log(self, out_path):
         if Path(out_path).parent.exists():
@@ -154,6 +177,8 @@ class ScenarioLogger:
         if self.debug:
             print("ScenarioLogger is in debug mode, no logs will be written.")
             return None
+        if self.bot is not None:
+            del self.bot
         res_dict = copy.deepcopy(vars(self))
         if self.results is not None:
             results = self.results.clone()
