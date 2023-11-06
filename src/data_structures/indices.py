@@ -487,7 +487,9 @@ class CountVectorizerIndex:
             else:
                 raise FileNotFoundError
         else:
-            if any([base_table is None, query_column is None, data_lake_path is None]):
+            if any(
+                [base_table_path is None, query_column is None, data_lake_path is None]
+            ):
                 raise ValueError
             if not Path(data_lake_path).exists() or not (
                 Path(base_table_path).exists()
