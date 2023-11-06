@@ -177,8 +177,6 @@ class ScenarioLogger:
         if self.debug:
             print("ScenarioLogger is in debug mode, no logs will be written.")
             return None
-        if self.bot is not None:
-            del self.bot
         res_dict = copy.deepcopy(vars(self))
         if self.results is not None:
             results = self.results.clone()
