@@ -1,5 +1,6 @@
 import json
 import logging
+import pickle
 from pathlib import Path
 from sys import getsizeof
 
@@ -10,6 +11,8 @@ import polars.selectors as cs
 from datasketch import LeanMinHash, MinHash, MinHashLSHEnsemble
 from joblib import Parallel, delayed, dump, load
 from lazo_index_service.errors import LazoError
+from scipy.sparse import load_npz, save_npz
+from sklearn.feature_extraction.text import CountVectorizer
 from tqdm import tqdm
 
 jd_logger = logging.getLogger("metadata_logger")
@@ -457,3 +460,121 @@ class LazoIndex:
         }
         with open(output_path, "wb") as fp:
             dump(out_dict, fp)
+
+
+class CountVectorizerIndex:
+    def __init__(
+        self,
+        data_lake_path=None,
+        base_table_path=None,
+        query_column=None,
+        binary=False,
+        file_path=None,
+        n_jobs=1,
+    ) -> None:
+        if file_path is not None:
+            if Path(file_path).exists():
+                with open(file_path, "wb") as fp:
+                    mdata = pickle.load(fp)
+                    self.data_lake_path = mdata["base_path"]
+                    self.base_table = mdata["base_table"]
+                    self.query_column = mdata["query_column"]
+                    self.binary = mdata["binary"]
+                    self.keys = mdata["keys"]
+                    self.n_jobs = 0
+                self.count_vectorizer = None
+                self.count_matrix = self.load_count_matrix(mdata["path_count_matrix"])
+            else:
+                raise FileNotFoundError
+        else:
+            if any([base_table is None, query_column is None, data_lake_path is None]):
+                raise ValueError
+            if not Path(data_lake_path).exists() or not (
+                Path(base_table_path).exists()
+            ):
+                raise FileNotFoundError
+
+            self.data_lake_path = data_lake_path
+            self.base_table_path = base_table_path
+            self.base_table = pl.read_parquet(base_table_path)
+            self.query_column = query_column
+            self.binary = binary
+            self.count_vectorizer = CountVectorizer(
+                token_pattern=r"(?u)(<[\S]+>)[ ]{4}", binary=binary
+            )
+            self.n_jobs = n_jobs
+            self.count_matrix, self.keys = self.build_count_matrix()
+
+    def _prepare_single_table(self, table_path):
+        table = pl.read_parquet(table_path)
+        table_name = table_path.stem
+        res = []
+        sep = " " * 4
+        for col in table.select(cs.string()).columns:
+            values = sep.join([_ for _ in table[col].to_list() if _ is not None])
+            values += " " * 4
+            key = f"{table_name}__{col}"
+            res.append((key, values))
+        return res
+
+    def _get_values(self, list_values):
+        s = "    ".join(list_values) + "    "
+        return [s]
+
+    def build_count_matrix(self):
+        values = self._get_values(self.base_table[self.query_column].to_list())
+        self.count_vectorizer.fit(values)
+
+        partial_result = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            delayed(self._prepare_single_table)(pth)
+            for pth in self.data_lake_path.glob("*.parquet")
+        )
+        result = [
+            col_tup for table_result in partial_result for col_tup in table_result
+        ]
+        keys = np.array([_[0] for _ in result])
+        return (
+            self.count_vectorizer.transform([col_tup[1] for col_tup in result]),
+            keys,
+        )
+
+    def load_count_matrix(self, path_matrix):
+        if Path(path_matrix).exists():
+            mat = load_npz(path_matrix)
+            return mat
+
+        raise FileNotFoundError
+
+    def save_count_matrix(self, path_matrix):
+        save_npz(path_matrix, self.count_matrix)
+
+    def query_index(self, query_column=None, top_k=200):
+        # NOTE: `query_column` is ignored, but it is kept as argument for compatibility
+        # with other code
+        sum_res = np.array(self.count_matrix.sum(axis=1)).ravel()
+        s_index = np.flip(sum_res.argsort())
+        split_keys = [_.split("__") for _ in np.flip(self.keys[s_index])]
+        voc_size = self.count_matrix.shape[1]
+        # TODO: add more a more clever way of defining the ranking
+        ranking = [
+            a + [b / voc_size] for a, b in zip(split_keys, sum_res[s_index]) if b > 0
+        ]
+        if top_k == -1:
+            return ranking
+        else:
+            return ranking[:top_k]
+
+    def save_index(self, output_path):
+        path_count_matrix = Path()
+        dd = {
+            "base_path": self.data_lake_path,
+            "base_table_path": self.base_table_path,
+            "query_column": self.query_column,
+            "binary": self.binary,
+            "keys": self.keys,
+            "path_count_matrix": path_count_matrix,
+        }
+        with open(output_path, "wb") as fp:
+            dump(dd, fp)
+
+        self.save_count_matrix(path_count_matrix)
