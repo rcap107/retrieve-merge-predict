@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import src.pipeline as pipeline
 from src.data_structures.metadata import MetadataIndex, RawDataset
-from src.utils.indexing import prepare_default_configs
+from src.utils.indexing import prepare_default_configs, prepare_indices, save_indices
 
 log_format = "%(asctime)s - %(message)s"
 
@@ -127,9 +127,9 @@ def prepare_indices(
 
     index_configurations = prepare_default_configs(metadata_dir, selected_indices)
     print("Preparing indices.")
-    indices = pipeline.prepare_indices(index_configurations)
+    indices = prepare_indices(index_configurations)
     print("Saving indices.")
-    pipeline.save_indices(indices, index_dir)
+    save_indices(indices, index_dir)
     logger.info("Indices: end %s", case)
 
 

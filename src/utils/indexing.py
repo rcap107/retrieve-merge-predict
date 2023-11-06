@@ -120,6 +120,48 @@ def generate_candidates(
     return candidates
 
 
+def prepare_indices(index_configurations: dict):
+    """Given a dict of index configurations, initialize the required indices.
+
+    Args:
+        index_configurations (dict): Dictionary that contains the required configurations.
+
+    Raises:
+        NotImplementedError: Raise NotImplementedError when providing an index that is not recognized.
+
+    Returns:
+        dict: Dictionary that contains the initialized indices.
+    """
+    index_dict = {}
+    for index, config in index_configurations.items():
+        if index == "lazo":
+            index_dict[index] = LazoIndex(**config)
+        elif index == "minhash":
+            index_dict[index] = MinHashIndex(**config)
+        else:
+            raise NotImplementedError
+
+    return index_dict
+
+
+def save_indices(index_dict: dict, index_dir: str | Path):
+    """Save all the indices found in `index_dict` in separate pickle files, in the
+    directory provided in `index_dir`.
+
+    Args:
+        index_dict (dict): Dictionary containing the indices.
+        index_dir (str): Path where the dictionaries will be saved.
+    """
+    if Path(index_dir).exists():
+        for index_name, index in index_dict.items():
+            print(f"Saving index {index_name}")
+            filename = f"{index_name}_index.pickle"
+            fpath = Path(index_dir, filename)
+            index.save_index(fpath)
+    else:
+        raise ValueError(f"Invalid `index_dir` {index_dir}")
+
+
 def load_index(data_lake_version, index_name):
     index_path = Path(
         DEFAULT_INDEX_DIR, data_lake_version, f"{index_name}_index.pickle"
