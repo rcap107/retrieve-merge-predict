@@ -8,7 +8,7 @@ import sklearn.metrics as metrics
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from src.data_structures.indices import MinHashIndex
+from src.data_structures.join_discovery_methods import MinHashIndex
 
 
 def execute_dummy_join(
