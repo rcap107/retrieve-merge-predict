@@ -5,7 +5,7 @@ from pathlib import Path
 import polars as pl
 from joblib import dump, load
 
-from src.data_structures.indices import LazoIndex, MinHashIndex
+from src.data_structures.join_discovery_methods import LazoIndex, MinHashIndex
 from src.data_structures.metadata import (
     CandidateJoin,
     MetadataIndex,
@@ -46,6 +46,9 @@ def prepare_default_configs(data_dir, selected_indices=None):
                 "num_perm": 128,
                 "n_jobs": -1,
             },
+            "count_vectorizer": {
+                "data_dir": data_dir,
+            },
         }
         if selected_indices is not None:
             return {
@@ -69,6 +72,11 @@ def get_candidates(query_table, query_column, indices):
         indices (_type_): _description_
     """
     pass
+
+
+def save_single_table(dataset_path, dataset_source, metadata_dest):
+    ds = RawDataset(dataset_path, dataset_source, metadata_dest)
+    ds.save_metadata_to_json()
 
 
 def write_candidates_on_file(candidates, output_file_path, separator=","):
@@ -120,7 +128,7 @@ def generate_candidates(
     return candidates
 
 
-def prepare_indices(index_configurations: dict):
+def prepare_join_discovery_methods(index_configurations: dict):
     """Given a dict of index configurations, initialize the required indices.
 
     Args:
@@ -133,9 +141,16 @@ def prepare_indices(index_configurations: dict):
         dict: Dictionary that contains the initialized indices.
     """
     index_dict = {}
+
     for index, config in index_configurations.items():
         if index == "lazo":
-            index_dict[index] = LazoIndex(**config)
+            for i_conf in config:
+                this_index = LazoIndex(**config)
+                case = i_conf["data_lake_variant"]
+                index_dir = Path(f"data/metadata/_indices/{case}")
+                fname = this_index.get_output_name()
+                fpath = Path(index_dir, fname)
+                this_index.save_index(index_dir)
         elif index == "minhash":
             index_dict[index] = MinHashIndex(**config)
         else:
