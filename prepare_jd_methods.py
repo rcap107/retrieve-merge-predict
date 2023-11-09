@@ -19,7 +19,7 @@ from src.utils.indexing import (
 
 log_format = "%(asctime)s - %(message)s"
 
-logger = logging.getLogger("metadata_logger")
+logger = logging.getLogger("join_discovery_logger")
 logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter(fmt=log_format)
@@ -41,23 +41,10 @@ def parse_config(config_file_path):
 
 
 if __name__ == "__main__":
-    config_file_path = "config/join_discovery/prep_debug.toml"
+    config_file_path = "config/join_discovery/prepare-debug.toml"
     config = parse_config(config_file_path)
-
-    args = SimpleNamespace(**config)
-    case = args.data_lake_variant
-
-    index_dir = Path(f"data/metadata/_indices/{case}")
-
-    # logger.info("START - Index creation")
-    print("Preparing indices.")
-    indices = prepare_join_discovery_methods(args)
-    print("Saving indices.")
-
-    save_indices(indices, index_dir)
-    # logger.info("Indices: end %s", case)
-    # logger.info("END - Preparing indices")
-    end_time = dt.datetime.now()
+    prepare_join_discovery_methods(config)
+    # end_time = dt.datetime.now()
     # logger.info(
     #     f"SUMMARY - Time required (s): {(end_time - start_time).total_seconds():.2f}"
     # )
