@@ -1,17 +1,25 @@
+import logging
 import os
 import pickle
 from pathlib import Path
+from pprint import pprint
 
 import polars as pl
 from joblib import dump, load
 
-from src.data_structures.join_discovery_methods import LazoIndex, MinHashIndex
+from src.data_structures.join_discovery_methods import (
+    CountVectorizerIndex,
+    LazoIndex,
+    MinHashIndex,
+)
 from src.data_structures.metadata import (
     CandidateJoin,
     MetadataIndex,
     QueryResult,
     RawDataset,
 )
+
+logger = logging.getLogger("join_discovery_logger")
 
 DEFAULT_INDEX_DIR = Path("data/metadata/_indices")
 DEFAULT_QUERY_RESULT_DIR = Path("results/query_results")
@@ -137,26 +145,34 @@ def prepare_join_discovery_methods(index_configurations: dict):
     Raises:
         NotImplementedError: Raise NotImplementedError when providing an index that is not recognized.
 
-    Returns:
-        dict: Dictionary that contains the initialized indices.
     """
-    index_dict = {}
 
     for index, config in index_configurations.items():
-        if index == "lazo":
-            for i_conf in config:
-                this_index = LazoIndex(**config)
-                case = i_conf["data_lake_variant"]
-                index_dir = Path(f"data/metadata/_indices/{case}")
-                fname = this_index.get_output_name()
-                fpath = Path(index_dir, fname)
-                this_index.save_index(index_dir)
-        elif index == "minhash":
-            index_dict[index] = MinHashIndex(**config)
-        else:
-            raise NotImplementedError
+        for i_conf in config:
+            data_dir = Path(i_conf["data_dir"])
+            pprint(i_conf, indent=2)
+            case = data_dir.stem
+            index_dir = Path(f"data/metadata/_indices/{case}")
+            os.makedirs(index_dir, exist_ok=True)
+            if "base_table_path" in i_conf:
+                logger.info(
+                    "Index creation start: %s - %s - %s"
+                    % (case, index, i_conf["base_table_path"])
+                )
+            else:
+                logger.info("Index creation start: %s - %s " % (case, index))
+            if index == "lazo":
+                this_index = LazoIndex(**i_conf)
+            elif index == "minhash":
+                this_index = MinHashIndex(**i_conf)
+            elif index == "count_vectorizer":
 
-    return index_dict
+                this_index = CountVectorizerIndex(**i_conf)
+            else:
+                raise NotImplementedError
+            logger.info("Index creation end: %s - %s " % (case, index))
+
+            this_index.save_index(index_dir)
 
 
 def save_indices(index_dict: dict, index_dir: str | Path):
