@@ -260,7 +260,7 @@ class MinHashIndex:
         with open(output_path, "wb") as fp:
             dump(self.ensembles, fp)
 
-    def save_index(self, output_path):
+    def save_index(self, output_dir):
         out_dict = {
             "index_name": self.index_name,
             "hash_index": self.hash_index,
@@ -270,7 +270,7 @@ class MinHashIndex:
             "ensembles": self.ensembles,
         }
 
-        with open(output_path, "wb") as fp:
+        with open(Path(output_dir, "minhash_index.pickle"), "wb") as fp:
             dump(out_dict, fp)
 
     def load_index(self, index_file=None, index_dict=None):
@@ -295,9 +295,6 @@ class MinHashIndex:
             self.initialized = True
         else:
             raise ValueError("Either `index_file` or `index_dict` must be provided.")
-
-    def get_output_name(self):
-        return "minhash_index.pickle"
 
 
 class LazoIndex:
@@ -454,24 +451,21 @@ class LazoIndex:
         else:
             raise FileNotFoundError(f"File {index_file} not found.")
 
-    def save_index(self, output_path):
+    def save_index(self, output_dir):
         out_dict = {
             "index_name": self.index_name,
             "host": self.host,
             "port": self.port,
             "partition_size": self.partition_size,
         }
-        with open(output_path, "wb") as fp:
+        with open(Path(output_dir, "lazo_index.pickle"), "wb") as fp:
             dump(out_dict, fp)
-
-    def get_output_name(self):
-        return "lazo_index.pickle"
 
 
 class CountVectorizerIndex:
     def __init__(
         self,
-        data_lake_path=None,
+        data_dir=None,
         base_table_path=None,
         query_column=None,
         binary=False,
@@ -481,61 +475,64 @@ class CountVectorizerIndex:
         if file_path is not None:
             if Path(file_path).exists():
                 with open(file_path, "rb") as fp:
-                    mdata = pickle.load(fp)
-                    self.data_lake_path = mdata["base_path"]
+                    mdata = load(fp)
+                    self.data_dir = mdata["data_dir"]
                     self.base_table_path = mdata["base_table_path"]
                     self.query_column = mdata["query_column"]
                     self.binary = mdata["binary"]
                     self.keys = mdata["keys"]
                     self.n_jobs = 0
+                    self.count_matrix = mdata["count_matrix"]
                 self.count_vectorizer = None
-                self.count_matrix = self._load_count_matrix(mdata["path_count_matrix"])
             else:
                 raise FileNotFoundError
         else:
-            if any(
-                [base_table_path is None, query_column is None, data_lake_path is None]
-            ):
+            if any([base_table_path is None, query_column is None, data_dir is None]):
                 raise ValueError
-            if not Path(data_lake_path).exists() or not (
-                Path(base_table_path).exists()
-            ):
+            if not Path(data_dir).exists() or not (Path(base_table_path).exists()):
                 raise FileNotFoundError
 
-            self.data_lake_path = Path(data_lake_path)
+            self.data_dir = Path(data_dir)
             self.base_table_path = Path(base_table_path)
             self.base_table = pl.read_parquet(base_table_path)
             self.query_column = query_column
+            if query_column not in self.base_table.columns:
+                raise pl.ColumnNotFoundError
             self.binary = binary
             self.count_vectorizer = CountVectorizer(
-                token_pattern=r"(?u)(<[\S]+>)[ ]{4}", binary=binary
+                token_pattern=r"(?u)([^|]*)[|]{4}", binary=binary
             )
             self.n_jobs = n_jobs
             self.count_matrix, self.keys = self._build_count_matrix()
 
-    def _prepare_single_table(self, table_path):
-        table = pl.read_parquet(table_path)
-        table_name = table_path.stem
+    def _prepare_single_table(self, path):
+        with open(path, "r") as fp:
+            mdata_dict = json.load(fp)
+        table_path = mdata_dict["full_path"]
+        # Selecting only string columns
+        table = pl.read_parquet(table_path).select(cs.string())
+        ds_hash = mdata_dict["hash"]
         res = []
-        sep = " " * 4
+        sep = "|" * 4
         for col in table.select(cs.string()).columns:
             values = sep.join([_ for _ in table[col].to_list() if _ is not None])
-            values += " " * 4
-            key = f"{table_name}__{col}"
+            values += sep
+            key = f"{ds_hash}__{col}"
             res.append((key, values))
         return res
 
     def _get_values(self, list_values):
-        s = "    ".join(list_values) + "    "
+        sep = "|" * 4
+        s = sep.join(list_values) + sep
         return [s]
 
     def _build_count_matrix(self):
         values = self._get_values(self.base_table[self.query_column].to_list())
         self.count_vectorizer.fit(values)
-
+        total = sum([1 for _ in self.data_dir.glob("*.json")])
         partial_result = Parallel(n_jobs=self.n_jobs, verbose=0)(
             delayed(self._prepare_single_table)(pth)
-            for pth in self.data_lake_path.glob("*.parquet")
+            for pth in tqdm(self.data_dir.glob("*.json"), total=total)
         )
         result = [
             col_tup for table_result in partial_result for col_tup in table_result
@@ -562,13 +559,16 @@ class CountVectorizerIndex:
     def query_index(self, query_column=None, top_k=200):
         # NOTE: `query_column` is ignored, but it is kept as argument for compatibility
         # with other code
-        sum_res = np.array(self.count_matrix.sum(axis=1)).ravel()
-        s_index = np.flip(sum_res.argsort())
+        non_zero_count = self.count_matrix.getnnz(axis=1)
+        s_index = np.flip(non_zero_count.argsort())
         split_keys = [_.split("__") for _ in self.keys[s_index]]
         voc_size = self.count_matrix.shape[1]
-        # TODO: add more a more clever way of defining the ranking
+
+        # This returns the contain
         ranking = [
-            a + [b / voc_size] for a, b in zip(split_keys, sum_res[s_index]) if b > 0
+            a + [b / voc_size]
+            for a, b in zip(split_keys, non_zero_count[s_index])
+            if b > 0
         ]
         if top_k == -1:
             return ranking
@@ -576,9 +576,12 @@ class CountVectorizerIndex:
             return ranking[:top_k]
 
     def save_index(self, output_dir):
-        path_mdata = Path(output_dir, "cv_index.pickle")
+        path_mdata = Path(
+            output_dir,
+            f"cv_index_{self.base_table_path.stem}_{self.query_column}.pickle",
+        )
         dd = {
-            "base_path": self.data_lake_path,
+            "data_dir": self.data_dir,
             "base_table_path": self.base_table_path,
             "query_column": self.query_column,
             "binary": self.binary,
@@ -586,4 +589,4 @@ class CountVectorizerIndex:
             "count_matrix": self.count_matrix,
         }
         with open(path_mdata, "wb") as fp:
-            pickle.dump(dd, fp)
+            dump(dd, fp, compress=True)
