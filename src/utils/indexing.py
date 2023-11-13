@@ -152,6 +152,8 @@ def prepare_join_discovery_methods(index_configurations: dict):
             data_dir = Path(i_conf["data_dir"])
             pprint(i_conf, indent=2)
             case = data_dir.stem
+            if "thresholds" in i_conf:
+                case += f"_{i_conf['thresholds']}"
             index_dir = Path(f"data/metadata/_indices/{case}")
             os.makedirs(index_dir, exist_ok=True)
             if "base_table_path" in i_conf:
@@ -220,6 +222,7 @@ def query_index(
 
     query_result = QueryResult(index, query_tab_metadata, query_column, mdata_index)
     query_result.save_to_pickle()
+    return query_result
 
 
 def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):

@@ -270,7 +270,14 @@ class MinHashIndex:
             "ensembles": self.ensembles,
         }
 
-        with open(Path(output_dir, "minhash_index.pickle"), "wb") as fp:
+        # TODO: clean this up
+        with open(
+            Path(
+                output_dir,
+                f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}.pickle",
+            ),
+            "wb",
+        ) as fp:
             dump(out_dict, fp)
 
     def load_index(self, index_file=None, index_dict=None):
@@ -472,6 +479,7 @@ class CountVectorizerIndex:
         file_path=None,
         n_jobs=1,
     ) -> None:
+        self.sep = "|" * 4
         if file_path is not None:
             if Path(file_path).exists():
                 with open(file_path, "rb") as fp:
@@ -513,17 +521,15 @@ class CountVectorizerIndex:
         table = pl.read_parquet(table_path).select(cs.string())
         ds_hash = mdata_dict["hash"]
         res = []
-        sep = "|" * 4
         for col in table.select(cs.string()).columns:
-            values = sep.join([_ for _ in table[col].to_list() if _ is not None])
-            values += sep
+            values = self.sep.join([_ for _ in table[col].to_list() if _ is not None])
+            values += self.sep
             key = f"{ds_hash}__{col}"
             res.append((key, values))
         return res
 
     def _get_values(self, list_values):
-        sep = "|" * 4
-        s = sep.join(list_values) + sep
+        s = self.sep.join(list_values) + self.sep
         return [s]
 
     def _build_count_matrix(self):
