@@ -8,8 +8,6 @@ import sklearn.metrics as metrics
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from src.data_structures.join_discovery_methods import MinHashIndex
-
 
 def execute_dummy_join(
     left_table: pl.DataFrame,
@@ -349,7 +347,7 @@ def measure_differences(df_results):
 def compare_overlap_with_index(
     df_base,
     mdata_path,
-    index_to_evaluate: MinHashIndex,
+    index_to_evaluate,
     threshold=0.1,
     query_column="col_to_embed",
 ):
