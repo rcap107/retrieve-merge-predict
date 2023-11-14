@@ -15,6 +15,8 @@ from scipy.sparse import load_npz, save_npz
 from sklearn.feature_extraction.text import CountVectorizer
 from tqdm import tqdm
 
+import src.methods.profiling as jp
+
 jd_logger = logging.getLogger("metadata_logger")
 jd_logger.setLevel(logging.DEBUG)
 
@@ -472,7 +474,7 @@ class LazoIndex:
 class CountVectorizerIndex:
     def __init__(
         self,
-        data_dir=None,
+        metadata_dir=None,
         base_table_path=None,
         query_column=None,
         binary=False,
@@ -495,12 +497,14 @@ class CountVectorizerIndex:
             else:
                 raise FileNotFoundError
         else:
-            if any([base_table_path is None, query_column is None, data_dir is None]):
+            if any(
+                [base_table_path is None, query_column is None, metadata_dir is None]
+            ):
                 raise ValueError
-            if not Path(data_dir).exists() or not (Path(base_table_path).exists()):
+            if not Path(metadata_dir).exists() or not (Path(base_table_path).exists()):
                 raise FileNotFoundError
 
-            self.data_dir = Path(data_dir)
+            self.data_dir = Path(metadata_dir)
             self.base_table_path = Path(base_table_path)
             self.base_table = pl.read_parquet(base_table_path)
             self.query_column = query_column
@@ -593,6 +597,136 @@ class CountVectorizerIndex:
             "binary": self.binary,
             "keys": self.keys,
             "count_matrix": self.count_matrix,
+        }
+        with open(path_mdata, "wb") as fp:
+            dump(dd, fp, compress=True)
+
+
+class ExactMatchingIndex:
+    def __init__(
+        self,
+        metadata_dir=None,
+        base_table_path=None,
+        query_column=None,
+        file_path=None,
+        n_jobs=1,
+    ) -> None:
+        if file_path is not None:
+            if Path(file_path).exists():
+                with open(file_path, "rb") as fp:
+                    mdata = load(fp)
+                    self.metadata_dir = mdata["metadata_dir"]
+                    self.base_table_path = mdata["base_table_path"]
+                    self.query_column = mdata["query_column"]
+                    self.counts = mdata["counts"]
+            else:
+                raise FileNotFoundError
+        else:
+            if any(
+                [base_table_path is None, query_column is None, metadata_dir is None]
+            ):
+                raise ValueError
+            if not Path(metadata_dir).exists() or not (Path(base_table_path).exists()):
+                raise FileNotFoundError
+
+            self.metadata_dir = Path(metadata_dir)
+            self.base_table_path = Path(base_table_path)
+            self.base_table = pl.read_parquet(base_table_path)
+            self.query_column = query_column
+            if query_column not in self.base_table.columns:
+                raise pl.ColumnNotFoundError
+            self.n_jobs = n_jobs
+            self.unique_base_table = set(
+                self.base_table[query_column].unique().to_list()
+            )
+            self.counts = self._build_count_matrix(self.metadata_dir)
+
+    @staticmethod
+    def find_unique_keys(df, key_cols):
+        """Find the set of unique keys given a combination of columns.
+
+        This function is used to find what is the potential cardinality of a join key.
+
+        Args:
+            df (Union[pd.DataFrame, pl.DataFrame]): Dataframe to estimate key cardinality on.
+            key_cols (list): List of key columns.
+
+        Returns:
+            _type_: List of unique keys.
+        """
+        try:
+            unique_keys = df[key_cols].unique()
+        except pl.DuplicateError:
+            # Raise exception if a column name is duplicated
+            unique_keys = None
+
+        return unique_keys
+
+    def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
+        unique_cand = self.find_unique_keys(candidate_table, right_on)
+
+        s1 = self.unique_base_table
+        s2 = set(unique_cand[right_on].to_series().to_list())
+        return len(s1.intersection(s2)) / len(s1)
+
+    def _prepare_single_table(self, fpath):
+        overlap_dict = {}
+        with open(fpath, "r") as fp:
+            mdata = json.load(fp)
+            cnd_path = mdata["full_path"]
+            cnd_hash = mdata["hash"]
+
+        df_cnd = pl.read_parquet(cnd_path)
+        for col in df_cnd.select(cs.string()).columns:
+            pair = (cnd_hash, col)
+            cont = self._measure_containment(df_cnd, right_on=[col])
+            overlap_dict[pair] = cont
+        return overlap_dict
+
+    def _build_count_matrix(self, mdata_path):
+
+        # Building the pairwise distance with joblib
+        r = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            delayed(self._prepare_single_table)(
+                fpath,
+            )
+            for fpath in tqdm(
+                mdata_path.glob("*.json"),
+                position=0,
+                leave=False,
+                total=sum(1 for _ in mdata_path.glob("*.json")),
+            )
+        )
+
+        overlap_dict = {key: val for result in r for key, val in result.items()}
+        df_overlap = pl.from_dict(
+            {
+                "key": list(overlap_dict.keys()),
+                "containment": list(overlap_dict.values()),
+            }
+        )
+        df_overlap = (
+            df_overlap.with_columns(
+                pl.col("key").list.to_struct().struct.rename_fields(["hash", "col"])
+            )
+            .unnest("key")
+            .sort("containment", descending=True)
+        )
+        return df_overlap
+
+    def query_index(self, top_k=200, query_column=None):
+        return self.counts.top_k(top_k, by="containment").rows()
+
+    def save_index(self, output_dir):
+        path_mdata = Path(
+            output_dir,
+            f"cv_index_{self.base_table_path.stem}_{self.query_column}.pickle",
+        )
+        dd = {
+            "data_dir": self.metadata_dir,
+            "base_table_path": self.base_table_path,
+            "query_column": self.query_column,
+            "counts": self.counts,
         }
         with open(path_mdata, "wb") as fp:
             dump(dd, fp, compress=True)
