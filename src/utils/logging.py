@@ -7,40 +7,39 @@ from pathlib import Path
 
 import polars as pl
 
+import src.utils.plotting as plotting
+
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
-HEADER_LOGFILE = [
+HEADER_RUN_LOGFILE = [
     "scenario_id",
-    "run_id",
     "status",
     "target_dl",
-    "git_hash",
-    "index_name",
     "base_table",
-    "candidate_table",
-    "iterations",
-    "join_strategy",
+    "query_column",
+    "estimator",
     "aggregation",
+    "chosen_model",
     "fold_id",
-    "time_train",
-    "time_eval",
-    "time_join",
-    "time_eval_join",
-    "best_candidate_hash",
-    "n_cols",
+    "time_fit",
+    "time_predict",
+    "time_run",
     "r2score",
-    "avg_r2",
-    "std_r2",
-    "tree_count",
-    "best_iteration",
+    "rmse",
+    "f1score",
+    "auc",
+    "n_cols",
+    "budget_type",
+    "budget_amount",
+    "epsilon",
 ]
 
 
-def get_exp_name():
+def get_exp_name(debug=False):
     alphabet = string.ascii_lowercase + string.digits
     random_slug = "".join(random.choices(alphabet, k=8))
-    scenario_id = read_and_update_scenario_id()
+    scenario_id = read_and_update_scenario_id(debug=debug)
 
     exp_name = f"{scenario_id:04d}-{random_slug}"
     return exp_name
@@ -54,30 +53,26 @@ def read_log_tar(exp_name):
     pass
 
 
-def read_logs(exp_name):
-    path_target_run = Path("results/logs/", exp_name)
-    path_raw_logs = Path(path_target_run, "raw_logs")
+def read_logs(exp_name=None, exp_path=None):
+    if exp_name is not None:
+        path_target_run = Path("results/logs/", exp_name)
+    else:
+        path_target_run = Path(exp_path)
     path_agg_logs = Path(path_target_run, "run_logs")
-
-    logs = []
-    for f in path_raw_logs.glob("*.log"):
-        logs.append(pl.read_csv(f))
-    df_raw = pl.concat(logs)
 
     logs = []
     for f in path_agg_logs.glob("*.log"):
         logs.append(pl.read_csv(f))
     df_agg = pl.concat(logs)
 
-    return df_raw, df_agg
+    return df_agg
 
 
 def setup_run_logging(setup_config=None):
     exp_name = get_exp_name()
     os.makedirs(f"results/logs/{exp_name}")
-    # with open(f"results/logs/{exp_name}/scenario_id", "w") as fp:
-    # fp.write("0")
     os.makedirs(f"results/logs/{exp_name}/json")
+    os.makedirs(f"results/logs/{exp_name}/plots")
     os.makedirs(f"results/logs/{exp_name}/run_logs")
     os.makedirs(f"results/logs/{exp_name}/raw_logs")
 
@@ -88,7 +83,9 @@ def setup_run_logging(setup_config=None):
     return exp_name
 
 
-def read_and_update_scenario_id(exp_name=None):
+def read_and_update_scenario_id(exp_name=None, debug=False):
+    if debug:
+        return 0
     if exp_name is None:
         scenario_id_path = SCENARIO_ID_PATH
     else:
@@ -150,3 +147,32 @@ def archive_experiment(exp_name):
 
     with tarfile.open(Path(archive_path, archive_name), mode="x") as tar:
         tar.add(results_path, arcname=exp_name)
+
+
+def wrap_up_plot(exp_name, task="regression"):
+    """Prepare and save the plots relevant to the task under consideration.
+    If the task is `regression`, plot `r2score`, if the task is `classification`,
+    plot `f1score`.
+
+    Args:
+        exp_name (str): Name of the current experiment.
+        task (str, optional): Task under consideration, either `regression` or
+        `classification`. Defaults to "regression".
+    """
+    df_raw = read_logs(exp_name=exp_name)
+
+    if task == "regression":
+        current_score = "r2score"
+    else:
+        current_score = "f1score"
+
+    path_target_run = Path("results/logs/", exp_name)
+
+    for case in [current_score, "time_run"]:
+        path_plot = Path(path_target_run, "plots", f"overall_{case}.png")
+        ax = plotting.base_barplot(df_raw.to_pandas(), y_variable=case)
+        ax.savefig(path_plot)
+
+    path_plot = Path(path_target_run, "plots", f"scatter_time_{current_score}.png")
+    ax = plotting.base_relplot(df_raw.to_pandas(), y_variable=current_score)
+    ax.savefig(path_plot)

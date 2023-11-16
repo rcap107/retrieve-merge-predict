@@ -166,114 +166,62 @@ def prepare_boxplot(df, variable_of_interest, ylabel, yscale="lin"):
     plt.legend(legend_arguments[:7], labels_legend, loc="upper left")
 
 
-def prepare_plots(df_raw):
-    df_ = (
-        df_raw.with_columns(
-            (pl.col("join_strategy") + "_" + pl.col("aggregation")).alias("case")
-        )
-        .sort("case")
-        .groupby(
-            pl.col(
-                [
-                    "scenario_id",
-                    "base_table",
-                    "candidate_table",
-                    "case",
-                    "join_strategy",
-                    "aggregation",
-                    "iterations",
-                ]
-            )
-        )
-        .agg(pl.mean("r2score"))
-    )
-
-    # g = sns.relplot(
-    #     data=df_.sort("base_table").to_pandas(),
-    #     col="base_table",
-    #     hue="case",
-    #     y="r2score",
-    #     x="iterations",
-    #     kind="line",
-    #     errorbar="sd",
-    #     style="join_strategy",
-    #     markers=True,
-    #     # palette=colors,
-    # )
-    # g.refline(y=0)
-
-    sns.set_theme(style="whitegrid")
-
-    g = sns.catplot(
-        data=df_.sort("base_table").to_pandas(),
-        col="base_table",
-        hue="join_strategy",
-        y="r2score",
-        x="iterations",
-        kind="strip",
-        edgecolor="black",
-        linewidth=0.1,
-        hue_order=["nojoin", "single_join", "full_join", "sampled_join"],
-        # palette=colors,
-    )
-    g.refline(y=0)
-
-    g = sns.catplot(
-        data=df_raw.sort("base_table").to_pandas(),
-        col="base_table",
-        hue="join_strategy",
-        y="r2score",
-        x="iterations",
-        kind="point",
-        hue_order=["nojoin", "single_join", "full_join", "sampled_join"],
-        errorbar="sd",
-    )
-    g.refline(y=0)
-
-    g = sns.catplot(
-        data=df_raw.sort("base_table").to_pandas(),
-        col="base_table",
-        hue="case",
-        y="r2score",
-        x="iterations",
+def base_barplot(
+    df: pd.DataFrame,
+    x_variable="estimator",
+    y_variable="r2score",
+    hue_variable="chosen_model",
+    col_variable="base_table",
+    horizontal=True,
+    sharex=False,
+    col_wrap=3,
+    col_order=None,
+):
+    if horizontal:
+        x = y_variable
+        y = x_variable
+    else:
+        x = x_variable
+        y = y_variable
+    ax = sns.catplot(
+        data=df,
+        x=x,
+        y=y,
+        hue=hue_variable,
         kind="box",
-        errorbar="sd",
-        # palette=colors,
+        col=col_variable,
+        sharex=sharex,
+        col_wrap=col_wrap,
+        col_order=col_order,
     )
-    g.refline(y=0)
+
+    return ax
 
 
-# plt.ylim([0.4, 0.9])
+def base_relplot(
+    df: pd.DataFrame,
+    x_variable="time_run",
+    y_variable="r2score",
+    hue_variable="chosen_model",
+    style_variable="estimator",
+    col_variable="base_table",
+    sharex=False,
+    col_wrap=3,
+    col_order=None,
+):
+    x = x_variable
+    y = y_variable
 
-
-def prepare_pivoted_table(df):
-    df_ = df.select(
-        pl.col(
-            [
-                "scenario_id",
-                "base_table",
-                "candidate_table",
-                "iterations",
-                "join_strategy",
-                "aggregation",
-                "r2score",
-                "time_train",
-                "time_join",
-                "n_cols",
-            ]
-        )
+    ax = sns.relplot(
+        data=df,
+        x=x,
+        y=y,
+        hue=hue_variable,
+        col=col_variable,
+        style=style_variable,
+        kind="scatter",
+        facet_kws={"sharex": sharex, "sharey": True, "subplot_kws": {"xscale": "log"}},
+        col_wrap=col_wrap,
+        col_order=col_order,
     )
-    pivoted = (
-        df_.melt(
-            id_vars=["base_table", "iterations", "join_strategy", "aggregation"],
-            value_vars=["r2score"],
-        )
-        .to_pandas()
-        .pivot_table(
-            values="value",
-            index=["base_table", "iterations"],
-            columns=["join_strategy", "aggregation"],
-            aggfunc="mean",
-        )
-    )
-    return pivoted
+    return ax

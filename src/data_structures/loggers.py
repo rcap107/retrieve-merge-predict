@@ -1,15 +1,27 @@
 import copy
 import csv
+import datetime
 import datetime as dt
 import json
 import logging
 from pathlib import Path
 from time import process_time
 
+import matplotlib.pyplot as plt
 import polars as pl
+import seaborn as sns
+from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
+
+# TODO remove dependency
+try:
+    import telegram
+
+    telegram_on = True
+except ImportError:
+    telegram_on = False
 
 import src.utils.logging as log
-from src.utils.logging import HEADER_LOGFILE
+from src.utils.logging import HEADER_RUN_LOGFILE
 
 logging.basicConfig(
     format="%(asctime)s %(message)s",
@@ -22,16 +34,11 @@ logging.basicConfig(
 class ScenarioLogger:
     def __init__(
         self,
-        base_table,
+        base_table_name,
         git_hash,
-        iterations,
-        aggregation,
-        target_dl,
-        n_splits,
-        top_k,
-        feature_selection,
-        model_selection,
+        run_config,
         exp_name=None,
+        debug=False,
     ) -> None:
         self.timestamps = {
             "start_process": dt.datetime.now(),
@@ -44,24 +51,43 @@ class ScenarioLogger:
             "end_evaluation": 0,
         }
         self.exp_name = exp_name
-        self.scenario_id = log.read_and_update_scenario_id(exp_name)
+        self.scenario_id = log.read_and_update_scenario_id(exp_name, debug=debug)
         self.prepare_logger(exp_name)
+
+        self.estim_parameters = run_config["estimators"]
+        self.model_parameters = run_config["evaluation_models"]
+        self.join_parameters = run_config["join_parameters"]
+        self.run_parameters = run_config["run_parameters"]
+        self.query_info = run_config["query_cases"]
+
+        self.task = self.run_parameters["task"]
         self.run_id = 0
         self.start_timestamp = None
         self.end_timestamp = None
-        self.base_table = base_table
+        self.chosen_model = self.model_parameters["chosen_model"]
+        self.jd_method = self.query_info["join_discovery_method"]
+        self.base_table_name = base_table_name
         self.git_hash = git_hash
-        self.iterations = iterations
-        self.aggregation = aggregation
-        self.target_dl = target_dl
-        self.n_splits = n_splits
-        self.model_selection = model_selection
-        self.feature_selection = feature_selection
-        self.top_k = top_k
+        if self.chosen_model == "catboost":
+            self.iterations = self.model_parameters["catboost"]["iterations"]
+        else:
+            self.iterations = 0
+        self.aggregation = self.join_parameters["aggregation"]
+        self.target_dl = self.query_info["data_lake"]
+        self.n_splits = self.run_parameters["n_splits"]
+        self.top_k = self.run_parameters["top_k"]
         self.results = None
         self.process_time = 0
         self.status = None
         self.exception_name = None
+        self.debug = debug
+        if False:
+            with open("telegram_credentials.txt", "r") as fp:
+                line = fp.readline()
+                self.telegram_token = line.split(":", maxsplit=1)[1]
+                line = fp.readline()
+                self.telegram_chat_id = int(line.split(":", maxsplit=1)[1])
+            self.bot = telegram.Bot(token=self.telegram_token)
 
     def prepare_logger(self, run_name=None):
         self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
@@ -75,13 +101,12 @@ class ScenarioLogger:
 
     def get_parameters(self):
         return {
-            "base_table": self.base_table,
+            "base_table": self.base_table_name,
+            "jd_method": self.jd_method,
             "iterations": self.iterations,
             "aggregation": self.aggregation,
             "target_dl": self.target_dl,
             "n_splits": self.n_splits,
-            "model_selection": self.model_selection,
-            "feature_selection": self.feature_selection,
             "top_k": self.top_k,
         }
 
@@ -99,14 +124,13 @@ class ScenarioLogger:
                 [
                     self.scenario_id,
                     self.git_hash,
-                    self.base_table,
+                    self.base_table_name,
+                    self.jd_method,
                     self.iterations,
                     self.aggregation,
                     self.target_dl,
                     self.n_splits,
                     self.top_k,
-                    self.feature_selection,
-                    self.model_selection,
                 ],
             )
         )
@@ -119,10 +143,18 @@ class ScenarioLogger:
     def pretty_print(self):
         print(f"Run name: {self.exp_name}")
         print(f"Scenario ID: {self.scenario_id}")
-        print(f"Base table: {self.base_table}")
-        print(f"Iterations: {self.iterations}")
-        print(f"Aggregation: {self.aggregation}")
+        print(f"Base table: {self.base_table_name}")
         print(f"DL Variant: {self.target_dl}")
+
+    async def send_message(self):
+        s = ""
+        s += f"Run name: {self.exp_name}"
+        s += f"Scenario ID: {self.scenario_id}"
+        s += f"Base table: {self.base_table_name}"
+        s += f"DL Variant: {self.target_dl}"
+
+        async with self.bot:
+            await self.bot.send_message(text=s, chat_id=self.telegram_chat_id)
 
     def write_to_log(self, out_path):
         if Path(out_path).parent.exists():
@@ -142,6 +174,9 @@ class ScenarioLogger:
             self.exception_name = ""
 
     def write_to_json(self, root_path="results/logs/"):
+        if self.debug:
+            print("ScenarioLogger is in debug mode, no logs will be written.")
+            return None
         res_dict = copy.deepcopy(vars(self))
         if self.results is not None:
             results = self.results.clone()
@@ -149,7 +184,9 @@ class ScenarioLogger:
         else:
             res_dict["results"] = None
         res_dict["timestamps"] = {
-            k: v.isoformat() for k, v in res_dict["timestamps"].items()
+            k: v.isoformat()
+            for k, v in res_dict["timestamps"].items()
+            if isinstance(v, datetime.datetime)
         }
         if Path(root_path).exists():
             with open(
@@ -159,8 +196,44 @@ class ScenarioLogger:
         else:
             raise IOError(f"Invalid path {root_path}")
 
+    def write_summary_plot(self, root_path):
+        keys = [
+            "exp_name",
+            "scenario_id",
+            "chosen_model",
+            "base_table_name",
+            "git_hash",
+            "iterations",
+            "target_dl",
+            "aggregation",
+        ]
+        dict_print = {k: v for k, v in vars(self).items() if k in keys}
+        annotation = json.dumps(dict_print, indent=2)
+        fig = plt.figure()
+        axs = fig.subplots(nrows=2)
+        if self.task == "regression":
+            x_value = "r2"
+        else:
+            x_value = "f1"
+        sns.boxplot(
+            data=self.results.to_pandas(),
+            y="estimator",
+            x=x_value,
+            ax=axs[0],
+            orient="h",
+        )
+        axs[1].text(0, 0, annotation)
+        axs[1].axis("off")
+        plt.tight_layout()
+        fig_path = Path(root_path, self.exp_name, "plots", f"{self.scenario_id}.png")
+        fig.savefig(fig_path)
+
     def finish_run(self, root_path="results/logs/"):
-        self.write_to_json(root_path)
+        if not self.debug:
+            self.write_summary_plot(root_path)
+            self.write_to_json(root_path)
+        else:
+            print("ScenarioLogger is in debugging mode. No files will be created.")
 
 
 class RunLogger:
@@ -168,47 +241,53 @@ class RunLogger:
         self,
         scenario_logger: ScenarioLogger,
         additional_parameters: dict,
-        json_path="results/json",
     ):
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
         self.path_run_logs = scenario_logger.path_run_logs
         self.path_raw_logs = scenario_logger.path_raw_logs
         self.run_id = scenario_logger.get_next_run_id()
+        self.task = scenario_logger.task
+        self.debug = scenario_logger.debug
         self.status = None
         self.timestamps = {}
         self.durations = {
             "time_run": "",
-            "time_eval": "",
-            "time_join": "",
-            "time_eval_join": "",
+            "time_fit": "",
+            "time_predict": "",
         }
 
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
-        self.results = {"r2": "", "rmse": ""}
-        self.json_path = json_path
+        self.results = {}
+        self.additional_info = {
+            "best_candidate_hash": None,
+            "left_on": None,
+            "right_on": None,
+            "joined_columns": None,
+        }
 
         self.mark_time("run")
 
     def get_parameters(self, scenario_logger: ScenarioLogger, additional_parameters):
         parameters = {
-            "base_table": scenario_logger.base_table,
+            "base_table": scenario_logger.base_table_name,
             "candidate_table": "",
             "left_on": "",
             "right_on": "",
             "git_hash": scenario_logger.git_hash,
-            "index_name": "base_table",
             "iterations": scenario_logger.iterations,
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
-            "model_selection": scenario_logger.model_selection,
-            "feature_selection": scenario_logger.feature_selection,
             "fold_id": "",
+            "query_column": scenario_logger.query_info["query_column"],
         }
         if additional_parameters is not None:
             parameters.update(additional_parameters)
 
         return parameters
+
+    def update_parameters(self, additional_parameters):
+        self.parameters.update(additional_parameters)
 
     def update_timestamps(self, additional_timestamps=None):
         if additional_timestamps is not None:
@@ -291,34 +370,48 @@ class RunLogger:
         else:
             raise KeyError(f"Label {label} not found in durations.")
 
+    def measure_results(self, y_true, y_pred):
+        if y_true.shape[0] != y_pred.shape[0]:
+            raise ValueError("The provided vectors have inconsistent shapes.")
+
+        if self.task == "regression":
+            self.results["r2"] = r2_score(y_true, y_pred)
+            self.results["rmse"] = mean_squared_error(y_true, y_pred, squared=False)
+        elif self.task == "classification":
+            self.results["f1"] = f1_score(y_true, y_pred)
+            self.results["auc"] = roc_auc_score(y_true, y_pred)
+        else:
+            raise ValueError()
+        return self.results
+
+    def set_additional_info(self, info_dict: dict):
+        self.additional_info.update(info_dict)
+
     def to_dict(self):
         values = [
             self.scenario_id,
-            self.run_id,
             self.status,
             self.parameters["target_dl"],
-            self.parameters["git_hash"],
-            self.parameters["index_name"],
             self.parameters["base_table"],
-            self.parameters["candidate_table"],
-            self.parameters["iterations"],
-            self.parameters["join_strategy"],
+            self.parameters["query_column"],
+            self.parameters["estimator"],
             self.parameters["aggregation"],
+            self.parameters["chosen_model"],
             self.parameters.get("fold_id", ""),
-            self.durations.get("time_train", ""),
-            self.durations.get("time_eval", ""),
-            self.durations.get("time_join", ""),
-            self.durations.get("time_eval_join", ""),
-            self.results.get("best_candidate_hash", ""),
-            self.results.get("n_cols", ""),
-            self.results.get("r2score", ""),
-            self.results.get("avg_r2", ""),
-            self.results.get("std_r2", ""),
-            self.results.get("tree_count", ""),
-            self.results.get("best_iteration", ""),
+            self.durations.get("time_fit", ""),
+            self.durations.get("time_predict", ""),
+            self.durations.get("time_run", ""),
+            self.results.get("r2", ""),
+            self.results.get("rmse", ""),
+            self.results.get("f1", ""),
+            self.results.get("auc", ""),
+            self.additional_info.get("joined_columns", ""),
+            self.additional_info.get("budget_type", ""),
+            self.additional_info.get("budget_amount", ""),
+            self.additional_info.get("epsilon", ""),
         ]
 
-        return dict(zip(HEADER_LOGFILE, values))
+        return dict(zip(HEADER_RUN_LOGFILE, values))
 
     def to_str(self):
         res_str = ",".join(
@@ -336,25 +429,15 @@ class RunLogger:
         self.to_logfile(self.path_run_logs)
 
     def to_logfile(self, path_logfile):
-        if Path(path_logfile).exists():
-            with open(path_logfile, "a") as fp:
-                writer = csv.DictWriter(fp, fieldnames=HEADER_LOGFILE)
-                writer.writerow(self.to_dict())
+        if not self.debug:
+            if Path(path_logfile).exists():
+                with open(path_logfile, "a") as fp:
+                    writer = csv.DictWriter(fp, fieldnames=HEADER_RUN_LOGFILE)
+                    writer.writerow(self.to_dict())
+            else:
+                with open(path_logfile, "w") as fp:
+                    writer = csv.DictWriter(fp, fieldnames=HEADER_RUN_LOGFILE)
+                    writer.writeheader()
+                    writer.writerow(self.to_dict())
         else:
-            with open(path_logfile, "w") as fp:
-                writer = csv.DictWriter(fp, fieldnames=HEADER_LOGFILE)
-                writer.writeheader()
-                writer.writerow(self.to_dict())
-
-
-class RawLogger(RunLogger):
-    def __init__(
-        self,
-        scenario_logger: ScenarioLogger,
-        fold_id: int,
-        additional_parameters: dict,
-        json_path="results/json",
-    ):
-        super().__init__(scenario_logger, additional_parameters, json_path)
-        self.fold_id = fold_id
-        self.parameters["fold_id"] = fold_id
+            print(json.dumps(self.to_dict(), indent=2))

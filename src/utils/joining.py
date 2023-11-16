@@ -46,7 +46,7 @@ def cast_features(table: pl.DataFrame):
         try:
             table = table.with_columns(pl.col(col).cast(pl.Float64))
         except pl.ComputeError:
-            continue
+            table = table.with_columns(pl.col(col).cast(pl.Utf8))
     return table
 
 
@@ -151,7 +151,7 @@ def execute_join_with_aggregation(
     right_on=None,
     how="left",
     aggregation=None,
-    suffix=None,
+    suffix="_right",
 ):
     if on is not None:
         if left_on is None and right_on is None:
@@ -199,11 +199,12 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
     """
     merged = source_table.clone()
     hashes = []
+    # for hash_, mdata in index_cand.items():
     for hash_, mdata in tqdm(
         index_cand.items(),
         total=len(index_cand),
         leave=False,
-        desc="Executing full join",
+        desc="Full Join",
     ):
         cnd_md = mdata.candidate_metadata
         hashes.append(cnd_md["hash"])
@@ -312,7 +313,9 @@ def execute_join(
         # else:
         #     joined_table = aggregate_first(joined_table, left_table.columns)
 
-    return joined_table
+        return joined_table
+    else:
+        raise ValueError(f"Both `left_on` and `right_on` are None.")
 
 
 def aggregate_table(

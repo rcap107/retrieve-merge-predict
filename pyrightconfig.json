@@ -1,0 +1,15 @@
+{
+  "include": [
+    "src"
+  ],
+
+  "exclude": [
+    "data/",
+    "results/"
+  ],
+
+
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+
+}

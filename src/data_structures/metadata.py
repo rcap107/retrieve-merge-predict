@@ -1,11 +1,17 @@
 import hashlib
 import json
+import os
 import pickle
 from operator import itemgetter
 from pathlib import Path
 from typing import Union
 
 import polars as pl
+
+from src.data_structures.join_discovery_methods import LazoIndex, MinHashIndex
+
+QUERY_RESULTS_PATH = Path("results/query_results")
+os.makedirs(QUERY_RESULTS_PATH, exist_ok=True)
 
 
 class MetadataIndex:
@@ -15,7 +21,9 @@ class MetadataIndex:
     metadata of the dataset is the value.
     """
 
-    def __init__(self, metadata_dir=None, index_path=None) -> None:
+    def __init__(
+        self, data_lake_variant=None, metadata_dir=None, index_path=None
+    ) -> None:
         """Initialize the class by providing either the metadata directory, or
         the path to a pre-initialized index to load.
 
@@ -27,14 +35,14 @@ class MetadataIndex:
             IOError: Raise IOError if the provided metadata dir does not exist, or isn't a directory.
             ValueError: Raise ValueError if both `metadata_dir` and `index_path` are None.
         """
-
+        self.data_lake_variant = data_lake_variant
         if index_path is not None:
             index_path = Path(index_path)
             self.index = self._load_index(index_path)
         elif metadata_dir is not None:
             metadata_dir = Path(metadata_dir)
             if (not metadata_dir.exists()) or (not metadata_dir.is_dir()):
-                raise IOError(f"Metadata path invalid.")
+                raise IOError("Metadata path invalid.")
             self.index = self.create_index(metadata_dir)
         else:
             raise ValueError("Either `metadata_dir` or `index_path` must be provided.")
@@ -170,6 +178,14 @@ class CandidateJoin:
         else:
             raise ValueError
 
+    def get_chosen_hash(self, case):
+        if case == "source":
+            return self.source_metadata["hash"]
+        elif case == "candidate":
+            return self.candidate_metadata["hash"]
+        else:
+            raise ValueError
+
     def generate_candidate_id(self):
         """Generate a unique id for this candidate relationship. The same pair of tables can have multiple candidate
         relationships, so this function takes the index, source table, candidate table, left/right columns and combines them
@@ -221,7 +237,7 @@ class CandidateJoin:
 
 class RawDataset:
     def __init__(self, full_df_path, source_dl, metadata_dir) -> None:
-        self.path = Path(full_df_path).resolve()
+        self.path = Path(full_df_path)
 
         if not self.path.exists():
             raise IOError(f"File {self.path} not found.")
@@ -240,6 +256,9 @@ class RawDataset:
             "license": "",
             "path_metadata": str(self.path_metadata.resolve()),
         }
+
+    def __getitem__(self, item):
+        return self.metadata[item]
 
     def read_dataset_file(self):
         if self.path.suffix == ".csv":
@@ -275,3 +294,71 @@ class RawDataset:
 
     def save_to_parquet(self):
         pass
+
+
+class QueryResult:
+    def __init__(
+        self,
+        index: MinHashIndex | LazoIndex,
+        source_mdata: RawDataset,
+        query_column: str,
+        mdata_index: MetadataIndex,
+    ) -> None:
+
+        self.index_name = index.index_name
+        self.data_lake_version = mdata_index.data_lake_variant
+        self.source_mdata = source_mdata
+        self.query_column = query_column
+        self.candidates = {}
+
+        df = pl.read_parquet(self.source_mdata.path)
+
+        if self.query_column not in df.columns:
+            raise pl.ColumnNotFoundError()
+        query = df[self.query_column].drop_nulls()
+
+        query_result = index.query_index(query)
+
+        tmp_cand = {}
+        for res in query_result:
+            hash_, column, similarity = res
+            mdata_cand = mdata_index.query_by_hash(hash_)
+            cjoin = CandidateJoin(
+                indexing_method=index.index_name,
+                source_table_metadata=self.source_mdata.metadata,
+                candidate_table_metadata=mdata_cand,
+                how="left",
+                left_on=self.query_column,
+                right_on=column,
+                similarity_score=similarity,
+            )
+            tmp_cand[cjoin.candidate_id] = cjoin
+
+        ranked_results = dict(
+            sorted(
+                [(k, v.similarity_score) for k, v in tmp_cand.items()],
+                key=lambda x: x[1],
+                reverse=True,
+            )
+        )
+
+        self.candidates = {k: tmp_cand[k] for k in ranked_results}
+
+    def select_top_k(self, top_k):
+        if top_k > 0:
+            self.candidates = {
+                k: v
+                for idx, (k, v) in enumerate(self.candidates.items())
+                if idx < top_k
+            }
+
+    def save_to_pickle(self):
+        output_name = "{}__{}__{}__{}.pickle".format(
+            self.data_lake_version,
+            self.index_name,
+            self.source_mdata.df_name,
+            self.query_column,
+        )
+
+        with open(Path(QUERY_RESULTS_PATH, output_name), "wb") as fp:
+            pickle.dump(self, fp)

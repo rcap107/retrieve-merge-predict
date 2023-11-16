@@ -1,0 +1,83 @@
+# [["lazo"]]
+# data_lake_variant="wordnet_big"
+# host="localhost"
+# port=15449
+
+# [["minhash"]]
+# data_lake_variant="wordnet_big"
+# thresholds=20
+# oneshot=true
+# num_perm=128
+# n_jobs=-1
+
+# [["count_vectorizer"]]
+# data_dir="data/metadata/wordnet_big"
+# base_table_path="data/source_tables/company-employees-yadl.parquet"
+# query_column="col_to_embed"
+# n_jobs=-1
+
+# [["count_vectorizer"]]
+# data_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/company-employees-yadl.parquet"
+# query_column="name"
+# n_jobs=-1
+
+# [["count_vectorizer"]]
+# data_dir="data/metadata/wordnet_big"
+# base_table_path="data/source_tables/movies-yadl.parquet"
+# query_column="col_to_embed"
+# n_jobs=-1
+
+# [["count_vectorizer"]]
+# data_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/movies-yadl.parquet"
+# query_column="title"
+# n_jobs=-1
+
+# [["count_vectorizer"]]
+# data_dir="data/metadata/wordnet_big"
+# base_table_path="data/source_tables/us-accidents-yadl.parquet"
+# query_column="col_to_embed"
+# n_jobs=-1
+
+# [["count_vectorizer"]]
+# data_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/us-accidents-yadl.parquet"
+# query_column="County"
+# n_jobs=-1
+
+# [["count_vectorizer"]]
+# data_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/us-accidents-yadl.parquet"
+# query_column="Zipcode"
+# n_jobs=-1
+
+[["count_vectorizer"]]
+data_dir="data/metadata/wordnet_big"
+base_table_path="data/source_tables/us-presidential-results-yadl.parquet"
+query_column="col_to_embed"
+n_jobs=-1
+
+[["count_vectorizer"]]
+data_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/us-presidential-results-yadl.parquet"
+query_column="county_name"
+n_jobs=-1
+
+[["count_vectorizer"]]
+data_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/schools-open_data.parquet"
+query_column="col_to_embed"
+n_jobs=-1
+
+[["count_vectorizer"]]
+data_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/housing-open_data.parquet"
+query_column="CITY"
+n_jobs=-1
+
+[["count_vectorizer"]]
+data_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/housing-open_data.parquet"
+query_column="ZIP"
+n_jobs=-1
