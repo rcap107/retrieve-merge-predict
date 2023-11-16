@@ -71,7 +71,7 @@ class MinHashIndex:
 
     def __init__(
         self,
-        data_dir=None,
+        metadata_dir=None,
         thresholds=[20],
         num_perm=128,
         num_part=32,
@@ -86,10 +86,10 @@ class MinHashIndex:
         If `oneshot` is set to True, the index will be initialized within this function.
         If `oneshot` is set to False, the index creation will not be wrapped up until the user manually
         invokes `create_ensembles`: this allows to update the indices with tables that were not added
-        while scanning `data_dir`.
+        while scanning `metadata_dir`.
 
         Args:
-            data_dir (str, optional): Path to the dir that contains the metadata of the target tables.
+            metadata_dir (str, optional): Path to the dir that contains the metadata of the target tables.
             thresholds (list, optional): List of thresholds to be used by the ensemble. Defaults to [20].
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
@@ -110,12 +110,12 @@ class MinHashIndex:
             self.load_index(index_file)
             self.initialized = True
 
-        elif data_dir is not None:
-            self.data_dir = Path(data_dir)
-            if not self.data_dir.exists():
+        elif metadata_dir is not None:
+            self.metadata_dir = Path(metadata_dir)
+            if not self.metadata_dir.exists():
                 raise IOError("Invalid data directory")
 
-            self.add_tables_from_path(self.data_dir)
+            self.add_tables_from_path(self.metadata_dir)
 
             if oneshot:
                 # If oneshot, wrap up the generation of the index here. If not, create_ensemble will have to be called later
@@ -481,6 +481,7 @@ class CountVectorizerIndex:
         file_path=None,
         n_jobs=1,
     ) -> None:
+        self.index_name = "count_vectorizer"
         self.sep = "|" * 4
         if file_path is not None:
             if Path(file_path).exists():
@@ -591,6 +592,7 @@ class CountVectorizerIndex:
             f"cv_index_{self.base_table_path.stem}_{self.query_column}.pickle",
         )
         dd = {
+            "index_name": self.index_name,
             "data_dir": self.data_dir,
             "base_table_path": self.base_table_path,
             "query_column": self.query_column,
@@ -611,6 +613,7 @@ class ExactMatchingIndex:
         file_path=None,
         n_jobs=1,
     ) -> None:
+        self.index_name = "exact_matching"
         if file_path is not None:
             if Path(file_path).exists():
                 with open(file_path, "rb") as fp:
@@ -711,10 +714,14 @@ class ExactMatchingIndex:
             )
             .unnest("key")
             .sort("containment", descending=True)
-        )
+        ).filter(pl.col("containment") > 0)
         return df_overlap
 
-    def query_index(self, top_k=200, query_column=None):
+    def query_index(
+        self,
+        query_column=None,
+        top_k=200,
+    ):
         return self.counts.top_k(top_k, by="containment").rows()
 
     def save_index(self, output_dir):
@@ -723,7 +730,8 @@ class ExactMatchingIndex:
             f"cv_index_{self.base_table_path.stem}_{self.query_column}.pickle",
         )
         dd = {
-            "data_dir": self.metadata_dir,
+            "index_name": self.index_name,
+            "metadata_dir": self.metadata_dir,
             "base_table_path": self.base_table_path,
             "query_column": self.query_column,
             "counts": self.counts,
