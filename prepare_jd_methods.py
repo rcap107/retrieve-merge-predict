@@ -41,7 +41,7 @@ def parse_config(config_file_path):
 
 
 if __name__ == "__main__":
-    config_file_path = "config/join_discovery/prepare-multi-minhash.toml"
+    config_file_path = "config/join_discovery/prepare-exact_matching.toml"
     config = parse_config(config_file_path)
     prepare_join_discovery_methods(config)
     # end_time = dt.datetime.now()
