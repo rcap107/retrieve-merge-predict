@@ -1,14 +1,14 @@
 # %%
 from pathlib import Path
 
-import polars as pl
 import toml
 
-from src.data_structures.metadata import MetadataIndex, RawDataset
-from src.utils.indexing import load_index, query_index
+from src.data_structures.join_discovery_methods import ExactMatchingIndex
+from src.data_structures.metadata import MetadataIndex
+from src.utils.indexing import DEFAULT_INDEX_DIR, load_index, query_index
 
 # %%
-config = toml.load("config/join_discovery/minhash_open_data_clf.toml")
+config = toml.load("config/join_discovery/query_exact_matching_binary.toml")
 
 jd_method = config["join_discovery_method"]
 data_lake_version = config["data_lake"]
@@ -25,15 +25,27 @@ mdata_index = MetadataIndex(
     data_lake_variant=data_lake_version, index_path=metadata_index_path
 )
 # %%
-print("Loading index...")
-index = load_index(data_lake_version, jd_method)
+if jd_method != "exact_matching":
+    print("Loading index...")
+    index = load_index(config)
+    print("Querying...")
+    for query_case in query_cases:
+        query_tab_path = Path(query_case["table_path"])
+        query_column = query_case["query_column"]
+        query_index(index, query_tab_path, query_column, mdata_index)
+else:
+    for query_case in query_cases:
+        tname = Path(query_case["table_path"]).stem
+        query_tab_path = Path(query_case["table_path"])
+        query_column = query_case["query_column"]
+        index_path = Path(
+            DEFAULT_INDEX_DIR,
+            data_lake_version,
+            f"cv_index_{tname}_{query_column}.pickle",
+        )
 
-# %%
-print("Querying...")
-for query_case in query_cases:
-    query_tab_path = Path(query_case["table_path"])
-    query_column = query_case["query_column"]
-    query_index(index, query_tab_path, query_column, mdata_index)
+        index = ExactMatchingIndex(file_path=index_path)
+        query_index(index, query_tab_path, query_column, mdata_index)
 
 
 # %%
