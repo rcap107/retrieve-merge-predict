@@ -10,12 +10,7 @@ from tqdm import tqdm
 
 import src.pipeline as pipeline
 from src.data_structures.metadata import MetadataIndex, RawDataset
-from src.utils.indexing import (
-    prepare_default_configs,
-    prepare_indices,
-    save_indices,
-    save_single_table,
-)
+from src.utils.indexing import save_single_table
 
 
 def prepare_metadata_from_case(case, data_folder, save_to_full=False):
@@ -45,14 +40,13 @@ def prepare_metadata_from_case(case, data_folder, save_to_full=False):
 if __name__ == "__main__":
     # args = parse_args()
     a = {
-        "case": "wordnet_big",
-        "data_folder": "data/wordnet_big",
+        "case": "binary_update",
+        "data_folder": "data/yadl/binary_update",
         "save_to_full": False,
     }
 
     args = SimpleNamespace(**a)
-    if args.build_metadata:
-        start_time = dt.datetime.now()
-        # logger.info("START - Metadata creation - %s" % args.case)
-        prepare_metadata_from_case(args.case, args.data_folder, args.save_to_full)
-        # logger.info("END - Metadata creation - %s" % args.case)
+    start_time = dt.datetime.now()
+    # logger.info("START - Metadata creation - %s" % args.case)
+    prepare_metadata_from_case(args.case, args.data_folder, args.save_to_full)
+    # logger.info("END - Metadata creation - %s" % args.case)
