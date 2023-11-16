@@ -9,6 +9,7 @@ from joblib import dump, load
 
 from src.data_structures.join_discovery_methods import (
     CountVectorizerIndex,
+    ExactMatchingIndex,
     LazoIndex,
     MinHashIndex,
 )
@@ -149,9 +150,9 @@ def prepare_join_discovery_methods(index_configurations: dict):
 
     for index, config in index_configurations.items():
         for i_conf in config:
-            data_dir = Path(i_conf["data_dir"])
+            metadata_dir = Path(i_conf["metadata_dir"])
             pprint(i_conf, indent=2)
-            case = data_dir.stem
+            case = metadata_dir.stem
             if "thresholds" in i_conf:
                 case += f"_{i_conf['thresholds']}"
             index_dir = Path(f"data/metadata/_indices/{case}")
@@ -168,8 +169,9 @@ def prepare_join_discovery_methods(index_configurations: dict):
             elif index == "minhash":
                 this_index = MinHashIndex(**i_conf)
             elif index == "count_vectorizer":
-
                 this_index = CountVectorizerIndex(**i_conf)
+            elif index == "exact_matching":
+                this_index = ExactMatchingIndex(**i_conf)
             else:
                 raise NotImplementedError
             logger.info("Index creation end: %s - %s " % (case, index))
@@ -195,20 +197,22 @@ def save_indices(index_dict: dict, index_dir: str | Path):
         raise ValueError(f"Invalid `index_dir` {index_dir}")
 
 
-def load_index(data_lake_version, index_name):
-    index_path = Path(
-        DEFAULT_INDEX_DIR, data_lake_version, f"{index_name}_index.pickle"
-    )
-    if index_name == "minhash":
+def load_index(config):
+    jd_method = config["join_discovery_method"]
+    data_lake_version = config["data_lake"]
+
+    index_path = Path(DEFAULT_INDEX_DIR, data_lake_version, f"{jd_method}_index.pickle")
+
+    if jd_method == "minhash":
         with open(index_path, "rb") as fp:
             input_dict = load(fp)
         index = MinHashIndex()
         index.load_index(index_dict=input_dict)
-    elif index_name == "lazo":
+    elif jd_method == "lazo":
         index = LazoIndex()
         index.load_index(index_path)
     else:
-        raise ValueError(f"Unknown index {index_name}.")
+        raise ValueError(f"Unknown index {jd_method}.")
     return index
 
 
