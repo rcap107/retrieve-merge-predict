@@ -1,7 +1,7 @@
 ["run_parameters"]
 task="regression"
 debug=false
-n_splits=[5]
+n_splits=15
 test_size=0.2
 split_kind="group_shuffle"
 top_k=50
@@ -34,10 +34,14 @@ query_column="county_name"
 
 # METAM
 [["query_cases"]]
+join_discovery_method="minhash"
+data_lake="open_data_us"
 table_path="data/source_tables/housing-open_data.parquet"
 query_column="CITY"
 
 [["query_cases"]]
+join_discovery_method="minhash"
+data_lake="open_data_us"
 table_path="data/source_tables/housing-open_data.parquet"
 query_column="ZIP"
 
@@ -49,7 +53,7 @@ aggregation=["first"]
 
 ["evaluation_models"]
 chosen_model=["linear","catboost"]
-catboost.iterations=1000
+catboost.iterations=500
 catboost.od_type="Iter"
 catboost.od_wait=10
 catboost.l2_leaf_reg=0.01
@@ -64,4 +68,3 @@ stepwise_greedy_join.budget_type="iterations"
 stepwise_greedy_join.budget_amount=[20]
 stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
-stepwise_greedy_join.metric="r2"

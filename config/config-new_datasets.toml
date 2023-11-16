@@ -1,17 +1,16 @@
 ["run_parameters"]
 task="regression"
-debug=true
-n_splits=[2]
+debug=false
+n_splits=[5]
 test_size=0.2
 split_kind="group_shuffle"
 top_k=30
 
-
-# [["query_cases"]]
-# data_lake="wordnet_big"
-# join_discovery_method="minhash"
-# table_path="data/source_tables/new_datasets/us_elections-yadl.parquet"
-# query_column="col_to_embed"
+[["query_cases"]]
+data_lake="wordnet_big"
+join_discovery_method="minhash"
+table_path="data/source_tables/new_datasets/us_elections-yadl.parquet"
+query_column="col_to_embed"
 
 [["query_cases"]]
 data_lake="wordnet_big"
@@ -25,8 +24,8 @@ join_strategy="left"
 aggregation=["first"]
 
 ["evaluation_models"]
-chosen_model=["catboost"]
-catboost.iterations=10
+chosen_model=["catboost", "linear"]
+catboost.iterations=500
 catboost.od_type="Iter"
 catboost.od_wait=10
 catboost.l2_leaf_reg=0.01
