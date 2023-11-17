@@ -304,7 +304,6 @@ class QueryResult:
         query_column: str,
         mdata_index: MetadataIndex,
     ) -> None:
-
         self.index_name = index.index_name
         self.data_lake_version = mdata_index.data_lake_variant
         self.source_mdata = source_mdata
@@ -343,6 +342,7 @@ class QueryResult:
         )
 
         self.candidates = {k: tmp_cand[k] for k in ranked_results}
+        self.n_candidates = len(self.candidates)
 
     def select_top_k(self, top_k):
         if top_k > 0:
