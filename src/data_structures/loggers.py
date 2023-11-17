@@ -75,7 +75,7 @@ class ScenarioLogger:
         self.aggregation = self.join_parameters["aggregation"]
         self.target_dl = self.query_info["data_lake"]
         self.n_splits = self.run_parameters["n_splits"]
-        self.top_k = self.run_parameters["top_k"]
+        self.top_k = self.query_info["top_k"]
         self.results = None
         self.process_time = 0
         self.status = None
@@ -278,6 +278,7 @@ class RunLogger:
             "iterations": scenario_logger.iterations,
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
+            "jd_method": scenario_logger.jd_method,
             "fold_id": "",
             "query_column": scenario_logger.query_info["query_column"],
         }
@@ -392,6 +393,7 @@ class RunLogger:
             self.scenario_id,
             self.status,
             self.parameters["target_dl"],
+            self.parameters["jd_method"],
             self.parameters["base_table"],
             self.parameters["query_column"],
             self.parameters["estimator"],

@@ -16,6 +16,7 @@ HEADER_RUN_LOGFILE = [
     "scenario_id",
     "status",
     "target_dl",
+    "jd_method",
     "base_table",
     "query_column",
     "estimator",
@@ -149,7 +150,7 @@ def archive_experiment(exp_name):
         tar.add(results_path, arcname=exp_name)
 
 
-def wrap_up_plot(exp_name, task="regression"):
+def wrap_up_plot(exp_name, task="regression", variable_of_interest=None):
     """Prepare and save the plots relevant to the task under consideration.
     If the task is `regression`, plot `r2score`, if the task is `classification`,
     plot `f1score`.
@@ -168,11 +169,26 @@ def wrap_up_plot(exp_name, task="regression"):
 
     path_target_run = Path("results/logs/", exp_name)
 
-    for case in [current_score, "time_run"]:
-        path_plot = Path(path_target_run, "plots", f"overall_{case}.png")
-        ax = plotting.base_barplot(df_raw.to_pandas(), y_variable=case)
-        ax.savefig(path_plot)
+    if variable_of_interest is not None:
+        for gname, group in df_raw.group_by(variable_of_interest):
 
-    path_plot = Path(path_target_run, "plots", f"scatter_time_{current_score}.png")
-    ax = plotting.base_relplot(df_raw.to_pandas(), y_variable=current_score)
-    ax.savefig(path_plot)
+            for case in [current_score, "time_run"]:
+                path_plot = Path(path_target_run, "plots", f"{gname}_{case}.png")
+                ax = plotting.base_barplot(group.to_pandas(), y_variable=case)
+                ax.savefig(path_plot)
+
+            path_plot = Path(
+                path_target_run, "plots", f"{gname}_scatter_time_{current_score}.png"
+            )
+            ax = plotting.base_relplot(group.to_pandas(), y_variable=current_score)
+            ax.savefig(path_plot)
+
+    else:
+        for case in [current_score, "time_run"]:
+            path_plot = Path(path_target_run, "plots", f"overall_{case}.png")
+            ax = plotting.base_barplot(df_raw.to_pandas(), y_variable=case)
+            ax.savefig(path_plot)
+
+        path_plot = Path(path_target_run, "plots", f"scatter_time_{current_score}.png")
+        ax = plotting.base_relplot(df_raw.to_pandas(), y_variable=current_score)
+        ax.savefig(path_plot)
