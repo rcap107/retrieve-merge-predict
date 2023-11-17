@@ -1,4 +1,4 @@
-join_discovery_method="minhash"
+join_discovery_method=["minhash", "exact_matching"]
 data_lake="binary_update"
 
 [["query_cases"]]

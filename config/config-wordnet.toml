@@ -1,7 +1,7 @@
 ["run_parameters"]
 task="regression"
 debug=false
-n_splits=[5]
+n_splits=[10]
 test_size=0.2
 split_kind="group_shuffle"
 variable_of_interest="jd_method"
@@ -30,7 +30,7 @@ stepwise_greedy_join.ranking_metric="containment"
 
 # US Elections
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="minhash"
 table_path="data/source_tables/us-elections-yadl.parquet"
 query_column="col_to_embed"
@@ -38,7 +38,7 @@ top_k=30
 
 
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="exact_matching"
 table_path="data/source_tables/us-elections-yadl.parquet"
 query_column="col_to_embed"
@@ -46,14 +46,14 @@ top_k=30
 
 # Housing prices
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="minhash"
 table_path="data/source_tables/housing-prices-yadl.parquet"
 query_column="col_to_embed"
 top_k=30
 
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="exact_matching"
 table_path="data/source_tables/housing-prices-yadl.parquet"
 query_column="col_to_embed"
@@ -61,14 +61,14 @@ top_k=30
 
 # Company employees
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="minhash"
 table_path="data/source_tables/company-employees-yadl.parquet"
 query_column="col_to_embed"
 top_k=30
 
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="exact_matching"
 table_path="data/source_tables/company-employees-yadl.parquet"
 query_column="col_to_embed"
@@ -76,14 +76,14 @@ top_k=30
 
 # Movies
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="minhash"
 table_path="data/source_tables/movies-yadl.parquet"
 query_column="col_to_embed"
 top_k=30
 
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="exact_matching"
 table_path="data/source_tables/movies-yadl.parquet"
 query_column="col_to_embed"
@@ -91,14 +91,14 @@ top_k=30
 
 # US accidents
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="minhash"
 table_path="data/source_tables/us-accidents-yadl.parquet"
 query_column="col_to_embed"
 top_k=30
 
 [["query_cases"]]
-data_lake="binary_update"
+data_lake="wordnet_big"
 join_discovery_method="exact_matching"
 table_path="data/source_tables/us-accidents-yadl.parquet"
 query_column="col_to_embed"
