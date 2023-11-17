@@ -42,13 +42,13 @@ def prepare_dirtree():
     os.makedirs("data/metadata/queries", exist_ok=True)
 
 
-def convert_to_list(thing):
-    if isinstance(thing, dict):
-        return {k: convert_to_list(v) for k, v in thing.items()}
-    elif isinstance(thing, list):
-        return thing
+def convert_to_list(item):
+    if isinstance(item, dict):
+        return {k: convert_to_list(v) for k, v in item.items()}
+    elif isinstance(item, list):
+        return item
     else:
-        return [thing]
+        return [item]
 
 
 def get_comb(config_dict):
@@ -135,7 +135,7 @@ def single_run(run_config, run_name=None):
         query_info["join_discovery_method"],
         tab_name,
         query_info["query_column"],
-        top_k=run_parameters["top_k"],
+        top_k=query_info["top_k"],
     )
 
     scl = ScenarioLogger(
