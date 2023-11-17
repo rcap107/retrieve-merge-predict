@@ -27,48 +27,76 @@ Then, install the remaining dependencies with pip:
 pip install -r requirements.txt
 ```
 
-# Running the pipeline
-## Creating the indices
-Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake.
+# Preparing the environment
+Once the required python environment has been prepared it is necessary to prepare the files required
+for the execution of the pipeline.
 
-Extract the variants to folder `data/yadl/`, then run the script `prepare_metadata.py`.
+For efficiency reasons and to avoid running unnecessary operations when testing different components, the pipeline has
+been split in different modules that have to be run in sequence.
+
+## Preparing the metadata
+Given a data lake version to evaluate, the first step is preparing a metadata file for each table in the data lake. This
+metadata is used in all steps of the pipeline.
+
+The script `prepare_metadata.py`is used to generate the files for a given data lake case.
+
+Use the command:
 ```
-python prepare_metadata.py -s CASE PATH
+python prepare_metadata.py DATA_FOLDER
 ```
-`CASE` is the tag to be given to the index (e.g., `binary` or `wordnet`).
+where `DATA_FOLDER` is the root path of the data lake.
 
-`PATH` is the path to the root folder containing all the tables (saved in parquet) to be added to the metadata index and
-to the indices.
+The script will recursively scan all folders found in `DATA_FOLDER` and generate a json file for each parquet file
+encountered.
 
-`-s` is needed to save the indices after preparing the metadata.
+## Preparing the Join Discovery methods
+This step is an offline operation during which the join discovery methods are prepared by building the data structures they rely on to function. The preparation of these data structures can require a substantial amount of
+time and disk space and is not required for the querying step, as such it can be executed only once for each data lake.
+
+Different JD methods require different data structures and different starting configurations, which should be stored in `config/join_discovery`.
+
+Here are some sample configurations for the supported join discovery methods:
 
 ```
-# wordnet case
-python prepare_metadata.py -s wordnet data/wordnet_big/
-# binary case
-python prepare_metadata.py -s binary data/binary/
+[["lazo"]]
+data_lake_variant="wordnet_big"
+host="localhost"
+port=15449
+
+[["minhash"]]
+data_lake_variant="wordnet_big"
+thresholds=20
+oneshot=true
+num_perm=128
+n_jobs=-1
 ```
-Running the indexing step on the given tables takes about ~15 minutes on our cluster.
 
-## Running the experiments
-The sample script `example_config.sh` runs a single, shortened run: the results will not necessarily be accurate, but it
-simplifies debugging.
+The JD methods `CountVectorizerIndex` and `ExactMatchingIndex` work only for single query columns. As such,
+each case `queryt_table-query_column` must be defined independently:
 
-To run the experiments reported in the paper, run the `./run_experiments.sh` script. Note that running all the experiments
-can take a very long time.
+```
+[["count_vectorizer"]]
+data_dir="data/metadata/wordnet_big"
+base_table_path="data/source_tables/us-presidential-results-yadl.parquet"
+query_column="col_to_embed"
+n_jobs=-1
 
-## Studying the results
-Results are stored in the `results/logs` folder.
+[["count_vectorizer"]]
+data_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/us-presidential-results-yadl.parquet"
+query_column="county_name"
+n_jobs=-1
+```
 
-`main_log.log` keeps track of each "high level execution" (as invoked
-from the command line), mainly logging run-level parameters and timers.
+The configuration parser will prepare the data structures (specifically, the counts) for each case provided in the configuration file.
 
-`runs_log.log` keeps track of each singular fold (i.e. train/test split over the base table), and the main steps in the
-training: results using only the base table, best result when joining a single candidate, join over all candidates and
-join over the top `k` candidates.
+Configuration files whose name start with `prepare` in `config/join_discovery` are example configuration files for the index preparation step.
 
-Each outer fold will run the sequence "base table", "candidates", "full join", "sampled full join" on the same train/test
-split.
+## Querying the JD methods
+Because of how some methods are implemented, the querying operation can incur in significant costs because of the need to load the index structures in memory.
 
-Results were prepared using Google Sheets:
-https://docs.google.com/spreadsheets/d/1a8YcpMxhr5MXkOLGepAZyDWcikySoL0zvqgWv1-Uv4c/edit?usp=sharing
+For this work we are not directly interested in the querying performance (i.e., the time required to query the index), so for convenience all queries are executed offline and persisted on disk so that they can be loaded at runtime during the execution of the pipeline.
+
+
+
+Configuration files whose name start with `query` in `config/join_discovery` are example configuration files for the index query step.
