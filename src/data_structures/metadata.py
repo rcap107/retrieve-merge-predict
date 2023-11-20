@@ -2,13 +2,17 @@ import hashlib
 import json
 import os
 import pickle
+import sqlite3
 from operator import itemgetter
 from pathlib import Path
 from typing import Union
 
 import polars as pl
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from src.data_structures.join_discovery_methods import LazoIndex, MinHashIndex
+from src.data_structures.metadata import RawDataset
 
 QUERY_RESULTS_PATH = Path("results/query_results")
 os.makedirs(QUERY_RESULTS_PATH, exist_ok=True)
@@ -22,108 +26,56 @@ class MetadataIndex:
     """
 
     def __init__(
-        self, data_lake_variant=None, metadata_dir=None, index_path=None
+        self, db_path="data/metadata/metadata.db", data_lake_path=None, n_jobs=-1
     ) -> None:
-        """Initialize the class by providing either the metadata directory, or
-        the path to a pre-initialized index to load.
+        self.db_path = db_path
+        self.data_lake_path = Path(data_lake_path)
+        self.data_lake_variant = self.data_lake_path.stem
+        self.n_jobs = n_jobs
 
-        Args:
-            metadata_dir (str, optional): Path to the metadata directory. Defaults to None.
-            index_path (str, optional): Path to the pre-built index. Defaults to None.
+    def build_index(self):
+        # logger.info("Case %s", case)
+        data_folder = Path(data_folder)
+        case = data_folder.stem
 
-        Raises:
-            IOError: Raise IOError if the provided metadata dir does not exist, or isn't a directory.
-            ValueError: Raise ValueError if both `metadata_dir` and `index_path` are None.
-        """
-        self.data_lake_variant = data_lake_variant
-        if index_path is not None:
-            index_path = Path(index_path)
-            self.index = self._load_index(index_path)
-        elif metadata_dir is not None:
-            metadata_dir = Path(metadata_dir)
-            if (not metadata_dir.exists()) or (not metadata_dir.is_dir()):
-                raise IOError("Metadata path invalid.")
-            self.index = self.create_index(metadata_dir)
-        else:
-            raise ValueError("Either `metadata_dir` or `index_path` must be provided.")
+        total_files = sum(1 for f in data_folder.glob("**/*.parquet"))
+
+        r = Parallel(n_jobs=1, verbose=0)(
+            delayed(self.insert_single_table)(dataset_path, self.data_lake_variant)
+            for dataset_path in tqdm(
+                data_folder.glob("**/*.parquet"), total=total_files
+            )
+        )
+
+        return r
+
+    def insert_single_table(self, dataset_path, dataset_source):
+        ds = RawDataset(dataset_path, dataset_source)
+        return ds.get_as_tuple()
 
     def query_by_hash(self, hashes: Union[list, str]):
-        """Given either a hash or a list of hashes, return the metadata of all
-        corresponding hashes.
+        with sqlite3.connect(self.db_path) as con:
+            cur = con.cursor()
+            q_query_by_hash = f"SELECT * FROM binary_update WHERE hash IN ({','.join(['?'] * len(q_list))})"
+            res = cur.execute(q_query_by_hash, hashes)
+            fetch = res.fetchall()
+            con.commit()
+        return fetch
 
-        Args:
-            hashes (Union[list, str]): Hash or list of hashes to extract from the index.
-
-        Raises:
-            TypeError: Raise TypeError if `hashes` is not a list or a string.
-
-        Returns:
-            _type_: The metadata corresponding to the queried hashes.
-        """
-        # return itemgetter(hashes)(self.index)
-        if isinstance(hashes, list):
-            return itemgetter(*hashes)(self.index)
-        elif isinstance(hashes, str):
-            return itemgetter(hashes)(self.index)
-        else:
-            raise TypeError("Inappropriate type passed to argument `hashes`")
-
-    def create_index(self, metadata_dir):
-        """Fill the index dictionary by loading all json files found in the provided directory. The stem of the file name will be used as dictionary key.
-
-        Args:
-            metadata_dir (Path): Path to the metadata directory.
-
-        Raises:
-            IOError: Raise IOError if the metadata directory is invalid.
-
-        Returns:
-            dict: Dictionary containing the metadata, indexed by file hash.
-        """
-        index = {}
-        if metadata_dir.exists() and metadata_dir.is_dir:
-            all_files = metadata_dir.glob("**/*.json")
-            for fpath in all_files:
-                md_hash = fpath.stem
-                with open(fpath, "r") as fp:
-                    index[md_hash] = json.load(fp)
-            return index
-        else:
-            raise IOError(f"Incorrect path {metadata_dir}")
-
-    def _load_index(self, index_path: Path):
-        """Load a pre-built index from the given `index_path`.
-
-        Args:
-            index_path (Path): Path to the pre-built index.
-
-        Raises:
-            IOError: Raise IOError if the index_path is invalid.
-
-        Returns:
-            dict: Dictionary containing the metadata.
-        """
-        if Path(index_path).exists():
-            with open(index_path, "rb") as fp:
-                index = pickle.load(fp)
-            return index
-        else:
-            raise IOError(f"Index file {index_path} does not exist.")
+    def create_index(self, drop_if_exists=True):
+        with sqlite3.connect(self.db_path) as con:
+            cur = con.cursor()
+            if drop_if_exists:
+                cur.execute(f"DROP TABLE IF EXISTS {self.data_lake_variant};")
+            q_create_table = f"CREATE TABLE {self.data_lake_variant}(hash TEXT PRIMARY KEY, table_name TEXT, table_full_path TEXT)"
+            cur.execute(q_create_table)
+            con.commit()
 
     def save_index(self, output_path):
-        """Save the index dictionary in the given `output_path` for persistence.
-
-        Args:
-            output_path (Path): Output path to use when saving the file.
-        """
-        with open(output_path, "wb") as fp:
-            pickle.dump(self.index, fp)
+        pass
 
     def fetch_metadata_by_hash(self, tgt_hash):
-        try:
-            return self.index[tgt_hash]
-        except KeyError:
-            raise KeyError(f"Hash {tgt_hash} not found in the index.")
+        pass
 
 
 class CandidateJoin:
@@ -236,7 +188,7 @@ class CandidateJoin:
 
 
 class RawDataset:
-    def __init__(self, full_df_path, source_dl, metadata_dir) -> None:
+    def __init__(self, full_df_path, source_dl) -> None:
         self.path = Path(full_df_path)
 
         if not self.path.exists():
@@ -246,7 +198,6 @@ class RawDataset:
         self.hash = self.prepare_path_digest()
         self.df_name = self.path.stem
         self.source_dl = source_dl
-        self.path_metadata = Path(metadata_dir, self.hash + ".json")
 
         self.metadata = {
             "full_path": str(self.path),
@@ -254,7 +205,6 @@ class RawDataset:
             "df_name": self.df_name,
             "source_dl": source_dl,
             "license": "",
-            "path_metadata": str(self.path_metadata.resolve()),
         }
 
     def __getitem__(self, item):
@@ -275,13 +225,11 @@ class RawDataset:
         hash_.update(str(self.path).encode())
         return hash_.hexdigest()
 
-    def save_metadata_to_json(self, metadata_dir=None):
-        if metadata_dir is None:
-            pth_md = self.path_metadata
-        else:
-            pth_md = Path(metadata_dir, self.hash + ".json")
-        with open(pth_md, "w") as fp:
-            json.dump(self.metadata, fp, indent=2)
+    def get_as_tuple(self):
+        return (self.hash, self.df_name, str(self.path))
+
+    # def save_metadata_to_db(self, cursor: sqlite3.Cursor):
+    # query = f"{self.df_name}, "
 
     def prepare_metadata(self):
         pass

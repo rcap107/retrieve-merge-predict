@@ -1,5 +1,6 @@
 import argparse
 import os
+import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -45,10 +46,10 @@ def prepare_metadata_from_case(data_folder):
 
 if __name__ == "__main__":
     args = parse_args()
-    # a = {
-    #     "case": "binary_update",
-    #     "data_folder": "data/yadl/binary_update",
-    # }
+    a = {
+        "case": "binary_update",
+        "data_folder": "data/yadl/binary_update",
+    }
 
-    # args = SimpleNamespace(**a)
+    args = SimpleNamespace(**a)
     prepare_metadata_from_case(args.data_folder)
