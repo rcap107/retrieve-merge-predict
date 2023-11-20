@@ -75,19 +75,19 @@ query_column="col_to_embed"
 top_k=30
 
 # Movies
-[["query_cases"]]
-data_lake="wordnet_big"
-join_discovery_method="minhash"
-table_path="data/source_tables/movies-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# [["query_cases"]]
+# data_lake="wordnet_big"
+# join_discovery_method="minhash"
+# table_path="data/source_tables/movies-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
-[["query_cases"]]
-data_lake="wordnet_big"
-join_discovery_method="exact_matching"
-table_path="data/source_tables/movies-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# [["query_cases"]]
+# data_lake="wordnet_big"
+# join_discovery_method="exact_matching"
+# table_path="data/source_tables/movies-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
 # US accidents
 [["query_cases"]]
