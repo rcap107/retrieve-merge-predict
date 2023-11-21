@@ -840,6 +840,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.candidate_ranking = None
         self.max_candidates = max_candidates
         self.with_validation = True
+        self.already_joined_tables = []
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
         self.base_epsilon = epsilon
@@ -880,22 +881,23 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
             cnd_hash = cnd_md["hash"]
+            if cnd_hash not in self.already_joined_tables:
+                temp_X_train, temp_X_valid = self._execute_joins(
+                    self.current_X_train,
+                    self.current_X_valid,
+                    cnd_table,
+                    left_on,
+                    right_on,
+                    suffix=cjoin.candidate_id[:10],
+                )
 
-            temp_X_train, temp_X_valid = self._execute_joins(
-                self.current_X_train,
-                self.current_X_valid,
-                cnd_table,
-                left_on,
-                right_on,
-                suffix=cjoin.candidate_id[:10],
-            )
+                self.build_model(temp_X_train)
+                self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
 
-            self.build_model(temp_X_train)
-            self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
-
-            y_pred = self.predict_model(temp_X_valid)
-            metric = self._evaluate_candidate(y_valid, y_pred)
-
+                y_pred = self.predict_model(temp_X_valid)
+                metric = self._evaluate_candidate(y_valid, y_pred)
+            else:
+                metric = -np.inf
             self._update_ranking(cjoin, metric, temp_X_train, temp_X_valid)
 
         if len(self.selected_candidates) > 0:
