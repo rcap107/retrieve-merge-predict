@@ -29,50 +29,50 @@ stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
 
 # US Elections
-[["query_cases"]]
-data_lake="binary_update"
-join_discovery_method="minhash"
-table_path="data/source_tables/us-elections-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="minhash"
+# table_path="data/source_tables/us-elections-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
 
-[["query_cases"]]
-data_lake="binary_update"
-join_discovery_method="exact_matching"
-table_path="data/source_tables/us-elections-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="exact_matching"
+# table_path="data/source_tables/us-elections-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
-# Housing prices
-[["query_cases"]]
-data_lake="binary_update"
-join_discovery_method="minhash"
-table_path="data/source_tables/housing-prices-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# # Housing prices
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="minhash"
+# table_path="data/source_tables/housing-prices-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
-[["query_cases"]]
-data_lake="binary_update"
-join_discovery_method="exact_matching"
-table_path="data/source_tables/housing-prices-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="exact_matching"
+# table_path="data/source_tables/housing-prices-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
-# Company employees
-[["query_cases"]]
-data_lake="binary_update"
-join_discovery_method="minhash"
-table_path="data/source_tables/company-employees-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# # Company employees
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="minhash"
+# table_path="data/source_tables/company-employees-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
-[["query_cases"]]
-data_lake="binary_update"
-join_discovery_method="exact_matching"
-table_path="data/source_tables/company-employees-yadl.parquet"
-query_column="col_to_embed"
-top_k=30
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="exact_matching"
+# table_path="data/source_tables/company-employees-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
 
 # Movies
 [["query_cases"]]
@@ -89,17 +89,33 @@ table_path="data/source_tables/movies-yadl.parquet"
 query_column="col_to_embed"
 top_k=30
 
-# US accidents
+# Movies
 [["query_cases"]]
 data_lake="binary_update"
 join_discovery_method="minhash"
-table_path="data/source_tables/us-accidents-yadl.parquet"
+table_path="data/source_tables/movies-vote-yadl.parquet"
 query_column="col_to_embed"
 top_k=30
 
 [["query_cases"]]
 data_lake="binary_update"
 join_discovery_method="exact_matching"
-table_path="data/source_tables/us-accidents-yadl.parquet"
+table_path="data/source_tables/movies-vote-yadl.parquet"
 query_column="col_to_embed"
 top_k=30
+
+
+# # US accidents
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="minhash"
+# table_path="data/source_tables/us-accidents-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
+
+# [["query_cases"]]
+# data_lake="binary_update"
+# join_discovery_method="exact_matching"
+# table_path="data/source_tables/us-accidents-yadl.parquet"
+# query_column="col_to_embed"
+# top_k=30
