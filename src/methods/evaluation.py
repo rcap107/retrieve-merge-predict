@@ -125,6 +125,7 @@ def evaluate_joins(
         raise ValueError("No estimators were prepared. ")
 
     res_list = []
+    add_info_dict = {}
 
     for idx, (train_split, test_split) in tqdm(
         enumerate(splits),
@@ -168,6 +169,8 @@ def evaluate_joins(
             run_logger.set_run_status("SUCCESS")
             run_logger.to_run_log_file()
             res_list.append(curr_res)
+            add_info_dict[f"{idx}_{estim.name}"] = run_logger.additional_info
 
+    scenario_logger.additional_info = add_info_dict
     scenario_logger.results = pl.from_dicts(res_list)
     print(scenario_logger.results)

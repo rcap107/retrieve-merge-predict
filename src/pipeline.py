@@ -149,22 +149,27 @@ def single_run(run_config, run_name=None):
 
     scl.add_timestamp("start_evaluation")
     logger.info("Starting evaluation.")
+    try:
+        em.evaluate_joins(
+            scl,
+            df_source,
+            join_candidates=query_result.candidates,
+            # TODO: generalize this
+            target_column="target",
+            group_column=query_info["query_column"],
+            estim_parameters=estim_parameters,
+            join_parameters=join_parameters,
+            model_parameters=model_parameters,
+            run_parameters=run_parameters,
+        )
+        scl.set_status("SUCCESS")
+    except Exception as exception:
+        # raise exception
+        exception_name = exception.__class__.__name__
+        scl.set_status("FAILURE", exception_name)
 
-    em.evaluate_joins(
-        scl,
-        df_source,
-        join_candidates=query_result.candidates,
-        # TODO: generalize this
-        target_column="target",
-        group_column=query_info["query_column"],
-        estim_parameters=estim_parameters,
-        join_parameters=join_parameters,
-        model_parameters=model_parameters,
-        run_parameters=run_parameters,
-    )
     logger.info("End evaluation.")
     scl.add_timestamp("end_evaluation")
-    scl.set_status("SUCCESS")
     scl.add_timestamp("end_process")
     scl.add_process_time()
 
