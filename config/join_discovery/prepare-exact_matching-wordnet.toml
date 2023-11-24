@@ -1,0 +1,16 @@
+data_lake_variant = "wordnet_big"
+metadata_db_path = "data/metadata/metadata.db"
+query_cases=[
+    ["data/source_tables/batch/us-elections-yadl-depleted.parquet","col_to_embed"],
+    ["data/source_tables/batch/housing-prices-yadl-depleted.parquet","col_to_embed"],
+    ["data/source_tables/batch/company-employees-yadl-depleted.parquet","col_to_embed"],
+    ["data/source_tables/batch/movies-yadl-depleted.parquet","col_to_embed"],
+    ["data/source_tables/batch/movies-vote-yadl-depleted.parquet","col_to_embed"],
+    ["data/source_tables/batch/us-accidents-yadl-depleted.parquet","col_to_embed"],
+    ["data/source_tables/batch/us-elections-yadl.parquet","col_to_embed"],
+    ["data/source_tables/batch/housing-prices-yadl.parquet","col_to_embed"],
+    ["data/source_tables/batch/company-employees-yadl.parquet","col_to_embed"],
+    ["data/source_tables/batch/movies-yadl.parquet","col_to_embed"],
+    ["data/source_tables/batch/movies-vote-yadl.parquet","col_to_embed"],
+    ["data/source_tables/batch/us-accidents-yadl.parquet","col_to_embed"],
+]
