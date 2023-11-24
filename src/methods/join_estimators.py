@@ -49,8 +49,19 @@ def build_containment_ranking(X, candidate_joins):
         containment = measure_containment(
             pl.from_pandas(X), cnd_table, left_on, right_on
         )
-        containment_list.append({"candidate": hash_, "containment": containment})
-    return pl.from_dicts(containment_list).sort(by="containment", descending=True)
+        containment_list.append(
+            {
+                "candidate": hash_,
+                "table_hash": mdata.candidate_table,
+                "containment": containment,
+            }
+        )
+    ranking_df = pl.from_dicts(containment_list).sort(by="containment", descending=True)
+
+    # If a table is present multiple times, drop the candidates with lower containment
+    # ranking_df = ranking_df.unique("table_hash", keep="first", maintain_order=True)
+
+    return ranking_df
 
 
 class BaseJoinEstimator(BaseEstimator):
@@ -99,7 +110,7 @@ class BaseJoinEstimator(BaseEstimator):
 
         self.target_column = target_column
         self.task = task
-        self.joined_columns = None
+        self.n_joined_columns = None
         self.with_validation = True
 
         self.model = None
@@ -364,12 +375,12 @@ class NoJoin(BaseJoinEstimator):
                 )
             self.build_model(X_train)
 
-            self.joined_columns = len(X_train.columns)
+            self.n_joined_columns = len(X_train.columns)
             self.fit_model(X_train, y_train, X_valid, y_valid)
 
         else:
             self.build_model(X)
-            self.joined_columns = len(X.columns)
+            self.n_joined_columns = len(X.columns)
             self.fit_model(X, y)
 
     def predict(self, X):
@@ -383,7 +394,7 @@ class NoJoin(BaseJoinEstimator):
             "best_candidate_hash": "nojoin",
             "left_on": "",
             "right_on": "",
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
 
@@ -431,7 +442,7 @@ class SingleJoin(BaseJoinEstimator):
             suffix="_right",
         )
         merged_train = self.prepare_table(merged_train)
-        self.joined_columns = len(merged_train.columns)
+        self.n_joined_columns = len(merged_train.columns)
         self.cat_features = self.get_cat_features(merged_train)
 
         if self.with_validation:
@@ -474,7 +485,7 @@ class SingleJoin(BaseJoinEstimator):
             "best_candidate_hash": self.best_candidate_hash,
             "left_on": self.left_on,
             "right_on": self.right_on,
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
 
@@ -525,7 +536,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
                 left_on=self.left_on,
                 right_on=self.right_on,
             )
-            self.joined_columns = len(merged_train.columns)
+            self.n_joined_columns = len(merged_train.columns)
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
         else:
@@ -535,7 +546,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
                 left_on=self.left_on,
                 right_on=self.right_on,
             )
-            self.joined_columns = len(merged_train.columns)
+            self.n_joined_columns = len(merged_train.columns)
             self.build_model(merged_train)
             self.fit_model(merged_train, y)
 
@@ -560,7 +571,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             "best_candidate_hash": self.best_cnd_hash,
             "left_on": self.left_on,
             "right_on": self.right_on,
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
 
@@ -601,6 +612,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         self.candidate_ranking = None
 
         self.best_cnd_hash = None
+        self.best_cjoin = None
         self.best_cnd_metric = -np.inf
         self.best_cnd_table = None
         self.left_on = self.right_on = None
@@ -619,14 +631,14 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
         ranking = []
 
-        for hash_, mdata in tqdm(
+        for hash_, cjoin in tqdm(
             self.candidate_joins.items(),
             total=self.n_candidates,
             leave=False,
             desc="BestSingleJoin",
             position=0,
         ):
-            _, cnd_md, left_on, right_on = mdata.get_join_information()
+            _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
 
             merged_train, merged_valid = self._execute_joins(
@@ -644,6 +656,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             if metric > self.best_cnd_metric:
                 self.best_cnd_metric = metric
                 self.best_cnd_hash = hash_
+                self.best_cjoin = cjoin.candidate_id
 
         # RETRAINING THE MODEL
         best_join_mdata = self.candidate_joins[self.best_cnd_hash]
@@ -657,7 +670,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         best_train, best_valid = self._execute_joins(
             X_train, X_valid, self.best_cnd_table, self.left_on, self.right_on
         )
-        self.joined_columns = len(best_train.columns)
+        self.n_joined_columns = len(best_train.columns)
 
         self.build_model(best_train)
         self.fit_model(best_train, y_train, best_valid, y_valid)
@@ -684,10 +697,10 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
     def get_additional_info(self):
         return {
-            "best_candidate_hash": self.best_cnd_hash,
+            "best_candidate_hash": self.best_cjoin,
             "left_on": self.left_on,
             "right_on": self.right_on,
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
     def _execute_joins(
@@ -769,7 +782,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             )
             self.build_model(merged_train)
             self.fit_model(merged_train, y)
-        self.joined_columns = len(merged_train.columns)
+        self.n_joined_columns = len(merged_train.columns)
 
     def predict(self, X):
         merged_test = pl.from_pandas(X).clone().lazy()
@@ -792,7 +805,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             "best_candidate_hash": "full_join",
             "left_on": "",
             "right_on": "",
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
 
@@ -840,6 +853,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.candidate_ranking = None
         self.max_candidates = max_candidates
         self.with_validation = True
+        self.already_joined_tables = []
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
         self.base_epsilon = epsilon
@@ -877,25 +891,28 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             if cjoin is None:
                 # No more candidates:
                 break
+            cjoin_id = cjoin.candidate_id
             _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
             cnd_hash = cnd_md["hash"]
+            if cjoin_id not in self.already_joined_tables:
+                temp_X_train, temp_X_valid = self._execute_joins(
+                    self.current_X_train,
+                    self.current_X_valid,
+                    cnd_table,
+                    left_on,
+                    right_on,
+                    suffix=cjoin.candidate_id[:10],
+                )
 
-            temp_X_train, temp_X_valid = self._execute_joins(
-                self.current_X_train,
-                self.current_X_valid,
-                cnd_table,
-                left_on,
-                right_on,
-                suffix=cjoin.candidate_id[:10],
-            )
+                self.build_model(temp_X_train)
+                self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
 
-            self.build_model(temp_X_train)
-            self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
-
-            y_pred = self.predict_model(temp_X_valid)
-            metric = self._evaluate_candidate(y_valid, y_pred)
-
+                y_pred = self.predict_model(temp_X_valid)
+                metric = self._evaluate_candidate(y_valid, y_pred)
+            else:
+                metric = -np.inf
+                temp_X_train = temp_X_valid = None
             self._update_ranking(cjoin, metric, temp_X_train, temp_X_valid)
 
         if len(self.selected_candidates) > 0:
@@ -931,7 +948,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             else:
                 self.wrap_up_joiner.fit(X, y)
 
-        self.joined_columns = self.wrap_up_joiner.joined_columns
+        self.n_joined_columns = self.wrap_up_joiner.n_joined_columns
 
     def _build_ranking(self, X):
         if self.ranking_metric == "containment":
@@ -971,6 +988,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             self.current_X_valid = temp_X_valid
             n_cnd = len(self.selected_candidates)
             self.epsilon = self._get_curr_eps(n_cnd)
+            self.already_joined_tables.append(cjoin_hash)
         else:
             # self.candidate_ranking.append(cnd_hash)
             if self.already_evaluated[cjoin_hash] < 2:
@@ -1042,10 +1060,13 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
     def get_additional_info(self):
         # TODO: add the list of all left_on, right_on
         return {
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
             "budget_type": self.budget_type,
             "budget_amount": self.budget_amount,
             "epsilon": self.base_epsilon,
+            "chosen_candidates": [
+                cjoin.candidate_id for cjoin in self.selected_candidates.values()
+            ],
         }
 
 

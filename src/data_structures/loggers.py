@@ -80,6 +80,7 @@ class ScenarioLogger:
         self.process_time = 0
         self.status = None
         self.exception_name = None
+        self.additional_info = None
         self.debug = debug
         if False:
             with open("telegram_credentials.txt", "r") as fp:
@@ -229,9 +230,11 @@ class ScenarioLogger:
         fig.savefig(fig_path)
 
     def finish_run(self, root_path="results/logs/"):
-        if not self.debug:
+        if not self.debug and self.status == "SUCCESS":
             self.write_summary_plot(root_path)
             self.write_to_json(root_path)
+        elif self.status == "FAILURE":
+            print("Run failed.")
         else:
             print("ScenarioLogger is in debugging mode. No files will be created.")
 
