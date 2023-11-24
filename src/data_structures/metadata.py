@@ -12,70 +12,72 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from src.data_structures.join_discovery_methods import LazoIndex, MinHashIndex
-from src.data_structures.metadata import RawDataset
 
 QUERY_RESULTS_PATH = Path("results/query_results")
 os.makedirs(QUERY_RESULTS_PATH, exist_ok=True)
 
 
 class MetadataIndex:
-    """This class defines a Metadata Index, which reads the metadata folder to
-    have a ready index of the tables found in the data lake. The index is implemented
-    as a dictionary where the keys are the hash IDs of the datasets, while the
-    metadata of the dataset is the value.
-    """
-
     def __init__(
         self, db_path="data/metadata/metadata.db", data_lake_path=None, n_jobs=-1
     ) -> None:
         self.db_path = db_path
-        self.data_lake_path = Path(data_lake_path)
-        self.data_lake_variant = self.data_lake_path.stem
         self.n_jobs = n_jobs
-
-    def build_index(self):
-        # logger.info("Case %s", case)
-        data_folder = Path(data_folder)
-        case = data_folder.stem
-
-        total_files = sum(1 for f in data_folder.glob("**/*.parquet"))
-
-        r = Parallel(n_jobs=1, verbose=0)(
-            delayed(self.insert_single_table)(dataset_path, self.data_lake_variant)
-            for dataset_path in tqdm(
-                data_folder.glob("**/*.parquet"), total=total_files
-            )
-        )
-
-        return r
 
     def insert_single_table(self, dataset_path, dataset_source):
         ds = RawDataset(dataset_path, dataset_source)
         return ds.get_as_tuple()
 
-    def query_by_hash(self, hashes: Union[list, str]):
+    def query_by_hash(self, hashes: Union[list, str], data_lake_variant):
+        if isinstance(hashes, str):
+            hashes = [hashes]
+
         with sqlite3.connect(self.db_path) as con:
             cur = con.cursor()
-            q_query_by_hash = f"SELECT * FROM binary_update WHERE hash IN ({','.join(['?'] * len(q_list))})"
-            res = cur.execute(q_query_by_hash, hashes)
+            query = f"SELECT * FROM {data_lake_variant} WHERE hash IN ({','.join(['?'] * len(hashes))})"
+            res = cur.execute(query, hashes)
             fetch = res.fetchall()
-            con.commit()
         return fetch
 
-    def create_index(self, drop_if_exists=True):
+    def query_all(self, data_lake_variant):
+        with sqlite3.connect(self.db_path) as con:
+            cur = con.cursor()
+            query = f"SELECT * FROM {data_lake_variant}"
+            res = cur.execute(query)
+            fetch = res.fetchall()
+        return fetch
+
+    def create_index(self, data_lake_path, drop_if_exists=True):
+        data_lake_path = Path(data_lake_path)
+        if not data_lake_path.exists():
+            raise FileNotFoundError("Data lake path not found")
+        data_lake_variant = data_lake_path.stem
+        # Fill the table
+        total_files = sum(1 for f in data_lake_path.glob("**/*.parquet"))
+        if total_files == 0:
+            raise ValueError("No parquet files found in the provided path")
+
+        # Create the table
         with sqlite3.connect(self.db_path) as con:
             cur = con.cursor()
             if drop_if_exists:
-                cur.execute(f"DROP TABLE IF EXISTS {self.data_lake_variant};")
-            q_create_table = f"CREATE TABLE {self.data_lake_variant}(hash TEXT PRIMARY KEY, table_name TEXT, table_full_path TEXT)"
+                cur.execute(f"DROP TABLE IF EXISTS {data_lake_variant};")
+            q_create_table = f"CREATE TABLE {data_lake_variant}(hash TEXT PRIMARY KEY, table_name TEXT, table_full_path TEXT)"
             cur.execute(q_create_table)
             con.commit()
 
-    def save_index(self, output_path):
-        pass
+        r = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            delayed(self.insert_single_table)(dataset_path, data_lake_variant)
+            for dataset_path in tqdm(
+                data_lake_path.glob("**/*.parquet"), total=total_files
+            )
+        )
+        query = f"INSERT INTO {data_lake_variant} VALUES(?, ?, ?);"
 
-    def fetch_metadata_by_hash(self, tgt_hash):
-        pass
+        with sqlite3.connect(self.db_path) as con:
+            cur = con.cursor()
+            cur.executemany(query, r)
+            con.commit()
 
 
 class CandidateJoin:

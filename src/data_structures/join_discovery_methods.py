@@ -1,6 +1,7 @@
 import json
 import logging
 import pickle
+import sqlite3
 from pathlib import Path
 from sys import getsizeof
 
@@ -37,6 +38,15 @@ sh_logger.addHandler(sh)
 LAZO_MESSAGE_SIZE_LIMIT = 4194304
 
 
+def query_all_from_metadata_db(db_path, data_lake_variant):
+    with sqlite3.connect(db_path) as con:
+        cur = con.cursor()
+        query = f"SELECT * FROM {data_lake_variant}"
+        res = cur.execute(query)
+        fetch = res.fetchall()
+    return fetch
+
+
 class BaseIndex:
     def _index_single_table(self):
         pass
@@ -71,7 +81,8 @@ class MinHashIndex:
 
     def __init__(
         self,
-        metadata_dir=None,
+        metadata_db_path=None,
+        data_lake_variant=None,
         thresholds=[20],
         num_perm=128,
         num_part=32,
@@ -87,10 +98,10 @@ class MinHashIndex:
         If `oneshot` is set to True, the index will be initialized within this function.
         If `oneshot` is set to False, the index creation will not be wrapped up until the user manually
         invokes `create_ensembles`: this allows to update the indices with tables that were not added
-        while scanning `metadata_dir`.
+        while scanning `metadata_db_path`.
 
         Args:
-            metadata_dir (str, optional): Path to the dir that contains the metadata of the target tables.
+            metadata_db_path (str, optional): Path to the sqlite DB that contains the metadata of the target tables.
             thresholds (list, optional): List of thresholds to be used by the ensemble. Defaults to [20].
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
@@ -98,6 +109,8 @@ class MinHashIndex:
             index_file (str, optional): Path to a file containing a pre-computed index.
         """
         self.index_name = "minhash"
+
+        self.data_lake_variant = data_lake_variant
 
         self.hash_index = []
         self.num_perm = num_perm
@@ -112,12 +125,12 @@ class MinHashIndex:
             self.load_index(index_file)
             self.initialized = True
 
-        elif metadata_dir is not None:
-            self.metadata_dir = Path(metadata_dir)
-            if not self.metadata_dir.exists():
-                raise IOError("Invalid data directory")
+        elif metadata_db_path is not None:
+            metadata_db_path = Path(metadata_db_path)
+            if not metadata_db_path.exists():
+                raise IOError("Metadata db not found")
 
-            self.add_tables_from_path(self.metadata_dir)
+            self.add_tables_from_mdata_db(metadata_db_path)
 
             if oneshot:
                 # If oneshot, wrap up the generation of the index here. If not, create_ensemble will have to be called later
@@ -144,23 +157,21 @@ class MinHashIndex:
             minhashes[key] = (lean_m, len(uniques))
         return minhashes
 
-    def add_tables_from_path(self, data_path):
+    def add_tables_from_mdata_db(self, metadata_db_path):
         """Add tables to the index reading metadata from the given `data_path`.
         `data_path` should contain json files that include the metadata of the file.
 
         Args:
             data_path (Path): Path to the directory to scan for metadata.
         """
-        total_files = sum(1 for f in data_path.glob("*.json"))
-        if total_files == 0:
-            raise RuntimeError("No metadata files were found.")
+        fetch = query_all_from_metadata_db(metadata_db_path, self.data_lake_variant)
 
-        paths = list(data_path.glob("*.json"))
+        paths = [item[2] for item in fetch]
         t_list = Parallel(n_jobs=self.n_jobs, verbose=0)(
             delayed(self._index_single_table)(path)
             for _, path in tqdm(
                 enumerate(paths),
-                total=total_files,
+                total=len(paths),
                 desc="Loading metadata in index",
             )
         )
@@ -338,6 +349,9 @@ class LazoIndex:
             port (int, optional): Lazo server port. Defaults to 15449.
             index_file (str, optional): Path to pre-computed index config.
         """
+        # TODO: Implement reading from metadata db instead of old metadata
+        raise NotImplementedError
+
         self.index_name = "lazo"
 
         if index_file is not None:
@@ -489,6 +503,8 @@ class CountVectorizerIndex:
         file_path=None,
         n_jobs=1,
     ) -> None:
+        # TODO: Implement reading from metadata db instead of old metadata
+        raise NotImplementedError
         self.index_name = "count_vectorizer"
         self.sep = "|" * 4
         if file_path is not None:
@@ -615,10 +631,11 @@ class CountVectorizerIndex:
 class ExactMatchingIndex:
     def __init__(
         self,
-        metadata_dir=None,
+        data_lake_variant=None,
         base_table_path=None,
         query_column=None,
         file_path=None,
+        metadata_db_path="data/metadata/metadata.db",
         n_jobs=1,
     ) -> None:
         self.index_name = "exact_matching"
@@ -626,21 +643,19 @@ class ExactMatchingIndex:
             if Path(file_path).exists():
                 with open(file_path, "rb") as fp:
                     mdata = load(fp)
-                    self.metadata_dir = mdata["metadata_dir"]
+                    self.data_lake_variant = mdata["data_lake_variant"]
                     self.base_table_path = mdata["base_table_path"]
                     self.query_column = mdata["query_column"]
                     self.counts = mdata["counts"]
             else:
                 raise FileNotFoundError
         else:
-            if any(
-                [base_table_path is None, query_column is None, metadata_dir is None]
-            ):
+            if any([base_table_path is None, query_column is None, data_lake_variant]):
                 raise ValueError
-            if not Path(metadata_dir).exists() or not (Path(base_table_path).exists()):
+            if not (Path(base_table_path).exists()):
                 raise FileNotFoundError
 
-            self.metadata_dir = Path(metadata_dir)
+            self.data_lake_variant = data_lake_variant
             self.base_table_path = Path(base_table_path)
             self.base_table = pl.read_parquet(base_table_path)
             self.query_column = query_column
@@ -650,7 +665,7 @@ class ExactMatchingIndex:
             self.unique_base_table = set(
                 self.base_table[query_column].unique().to_list()
             )
-            self.counts = self._build_count_matrix(self.metadata_dir)
+            self.counts = self._build_count_matrix(metadata_db_path)
 
     @staticmethod
     def find_unique_keys(df, key_cols):
@@ -694,18 +709,16 @@ class ExactMatchingIndex:
             overlap_dict[pair] = cont
         return overlap_dict
 
-    def _build_count_matrix(self, mdata_path):
+    def _build_count_matrix(self, metadata_db_path):
+        fetch = query_all_from_metadata_db(metadata_db_path, self.data_lake_variant)
+        paths = [item[2] for item in fetch]
+
         # Building the pairwise distance with joblib
         r = Parallel(n_jobs=self.n_jobs, verbose=0)(
             delayed(self._prepare_single_table)(
                 fpath,
             )
-            for fpath in tqdm(
-                mdata_path.glob("*.json"),
-                position=0,
-                leave=False,
-                total=sum(1 for _ in mdata_path.glob("*.json")),
-            )
+            for fpath in tqdm(paths, position=0, leave=False, total=len(paths))
         )
 
         overlap_dict = {key: val for result in r for key, val in result.items()}
@@ -742,7 +755,7 @@ class ExactMatchingIndex:
         )
         dd = {
             "index_name": self.index_name,
-            "metadata_dir": self.metadata_dir,
+            "data_lake_variant": self.data_lake_variant,
             "base_table_path": self.base_table_path,
             "query_column": self.query_column,
             "counts": self.counts,
