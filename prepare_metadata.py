@@ -13,27 +13,29 @@ from src.utils.indexing import save_single_table
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("data_folder", action="store")
+    parser.add_argument("--flat", action="store_true")
 
     args = parser.parse_args()
     return args
 
 
-def prepare_metadata_from_case(data_folder):
+def prepare_metadata_from_case(data_folder, flat=False):
     # logger.info("Case %s", case)
     data_folder = Path(data_folder)
     case = data_folder.stem
+    if flat:
+        case += "_flat"
     if data_folder.exists():
         os.makedirs(f"data/metadata/{case}", exist_ok=True)
         os.makedirs("data/metadata/_mdi", exist_ok=True)
 
-        total_files = sum(1 for f in data_folder.glob("**/*.parquet"))
+        match_pattern = "**/*.parquet" if not flat else "*.parquet"
+        total_files = sum(1 for f in data_folder.glob(match_pattern))
 
         metadata_dest = f"data/metadata/{case}"
         Parallel(n_jobs=-1, verbose=0)(
             delayed(save_single_table)(dataset_path, "yadl", metadata_dest)
-            for dataset_path in tqdm(
-                data_folder.glob("**/*.parquet"), total=total_files
-            )
+            for dataset_path in tqdm(data_folder.glob(match_pattern), total=total_files)
         )
         metadata_index = MetadataIndex(
             data_lake_variant=case, metadata_dir=f"data/metadata/{case}"
@@ -51,4 +53,4 @@ if __name__ == "__main__":
     # }
 
     # args = SimpleNamespace(**a)
-    prepare_metadata_from_case(args.data_folder)
+    prepare_metadata_from_case(args.data_folder, args.flat)
