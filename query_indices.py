@@ -8,7 +8,7 @@ from src.data_structures.metadata import MetadataIndex
 from src.utils.indexing import DEFAULT_INDEX_DIR, load_index, query_index
 
 # %%
-config = toml.load("config/join_discovery/query-depleted.toml")
+config = toml.load("config/join_discovery/query-wordnet_full_flat.toml")
 
 jd_methods = config["join_discovery_method"]
 data_lake_version = config["data_lake"]
