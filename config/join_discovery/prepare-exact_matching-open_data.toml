@@ -1,0 +1,66 @@
+join_discovery_method=["exact_matching","minhash"]
+data_lake="open_data_us"
+
+# Company employees
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/company_employees-open_data.parquet"
+query_column="name"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
+query_column="name"
+
+# Housing prices
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
+query_column="County"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
+query_column="Metro"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
+query_column="County"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/housing_prices-depleted_Metro-open_data.parquet"
+query_column="Metro"
+
+# US elections
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/us_elections-open_data.parquet"
+query_column="county_name"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
+query_column="county_name"
+
+# Movies
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
+query_column="title"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/movies-open_data.parquet"
+query_column="title"
+
+
+# Movies vote
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/movies_vote-open_data.parquet"
+query_column="title"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
+query_column="title"
+
+# US Accidents
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/us_accidents-open_data.parquet"
+query_column="County"
+
+[["query_cases"]]
+base_table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"
+query_column="County"
