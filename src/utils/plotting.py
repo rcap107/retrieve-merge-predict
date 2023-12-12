@@ -10,6 +10,24 @@ import seaborn as sns
 from matplotlib.patches import Polygon
 
 
+# Function to add jitter to data
+def add_jitter(data, factor=0.1):
+    return data + np.random.normal(0, factor, len(data))
+
+
+def add_subplot(fig, position):
+    new_ax = fig.add_subplot(*position, frameon=False)
+
+    new_ax.spines["top"].set_color("none")
+    new_ax.spines["bottom"].set_color("none")
+    new_ax.spines["left"].set_color("none")
+    new_ax.spines["right"].set_color("none")
+    new_ax.tick_params(
+        labelcolor="none", top=False, bottom=False, left=False, right=False
+    )
+    return new_ax
+
+
 def prepare_clean_labels(labels):
     map_dataset = {
         "company-employees-prepared": "CE",
@@ -225,3 +243,143 @@ def base_relplot(
         col_order=col_order,
     )
     return ax
+
+
+def violin_plot_case(
+    ax, df, scatterplot_variable, scatterplot_mapping, jitter_factor=0.07
+):
+    group_keys = ["jd_method", "estimator", "chosen_model", "target_dl", "base_table"]
+    data = df["scaled_diff"].to_numpy()
+    ax_violin = ax
+    ax_violin.axvline(0, alpha=0.4, zorder=0, color="gray")
+
+    parts = ax_violin.violinplot(
+        data,
+        showmedians=False,
+        showmeans=False,
+        vert=False,
+    )
+    for pc in parts["bodies"]:
+        pc.set_edgecolor("black")
+        pc.set_facecolor("none")
+        pc.set_alpha(1)
+        pc.set_linewidth(1)
+        pc.set_zorder(2.5)
+
+    quartile1, medians, quartile3 = np.percentile(data, [25, 50, 75])
+    ax_violin.scatter(
+        medians, [1], marker="o", color="white", s=30, zorder=3, edgecolors="black"
+    )
+    ax_violin.annotate(
+        f"{medians:.2f}",
+        xy=(medians, -0.2),
+        xycoords=(
+            "data",
+            "axes fraction",
+        ),
+        size="x-small",
+        color="blue",
+    )
+    ax_violin.axvline(medians, alpha=0.7, zorder=2, color="blue")
+
+    for label in scatterplot_mapping:
+        # values = df.filter(pl.col(scatterplot_variable) == label)["scaled_diff"].to_numpy()
+        values = (
+            df.filter(pl.col(scatterplot_variable) == label)
+            .group_by(group_keys)
+            .agg(pl.mean("scaled_diff"))["scaled_diff"]
+            .to_numpy()
+        )
+        ax_violin.scatter(
+            values,
+            add_jitter(np.ones_like(values), jitter_factor),
+            color=scatterplot_mapping[label],
+            marker="o",
+            s=30,
+            alpha=0.7,
+            label=label,
+            zorder=0,
+        )
+    h, l = ax_violin.get_legend_handles_labels()
+    return h, l
+
+
+def draw_plot(
+    cases,
+    outer_variable,
+    current_results,
+    scatterplot_variable="estimator",
+    colormap_name="viridis",
+):
+    group_keys = ["jd_method", "estimator", "chosen_model", "target_dl", "base_table"]
+    inner_variables = [_ for _ in cases.keys() if _ != outer_variable]
+    n_cols = len(cases[outer_variable])
+    n_rows = sum(len(cases[var]) for var in inner_variables)
+
+    fig, axes = plt.subplots(
+        nrows=n_rows,
+        ncols=n_cols,
+        figsize=(8, 3),
+        sharex=True,
+        sharey="row",
+        layout="constrained",
+    )
+
+    ax_big = add_subplot(fig, (1, 1, 1))
+
+    unique_target = (
+        current_results.group_by(pl.col(scatterplot_variable))
+        .agg(pl.mean("scaled_diff"))
+        .select(pl.col(scatterplot_variable).unique())
+        .to_numpy()
+        .squeeze()
+    )
+    colors = plt.colormaps[colormap_name](np.linspace(0, 1, len(unique_target)))
+    # colors = plt.cm.viridis(np.linspace(0, 1, len(unique_target)))
+    scatterplot_mapping = dict(
+        zip(
+            unique_target,
+            colors,
+        )
+    )
+
+    for idx_outer_var, c_m in enumerate(cases[outer_variable]):
+        print(c_m)
+        for idx_inner_var, tg in enumerate(inner_variables):
+            new_ax = add_subplot(fig, (2, 1, idx_inner_var + 1))
+            new_ax.set_ylabel(tg)
+            new_ax.yaxis.set_label_position("left")
+            print(tg)
+            for idx_plot, c_inner in enumerate(cases[tg]):
+                print(c_inner)
+                ax = axes[2 * idx_inner_var + idx_plot, idx_outer_var]
+                ax.annotate(c_inner + c_m, xy=(0, 0))
+                filter_dict = {outer_variable: c_m, tg: c_inner}
+                # subset = current_results.filter(**filter_dict).group_by(group_keys).agg(pl.mean("scaled_diff"))
+                subset = current_results.filter(**filter_dict)
+                h, l = violin_plot_case(
+                    ax, subset, scatterplot_variable, scatterplot_mapping
+                )
+                ax.set_yticks([1], [c_inner])
+        axes[0][idx_outer_var].set_title(c_m)
+    # for ax, col in zip(axes[0], cols):
+    #     ax.set_title(col)
+    fig.legend(
+        h,
+        l,
+        loc="outside lower left",
+        mode="expand",
+        ncols=4,
+        markerscale=1,
+        borderaxespad=-0.2,
+        bbox_to_anchor=(0, -0.1, 1, 0.5),
+        scatterpoints=3,
+    )
+    fig.set_constrained_layout_pads(
+        w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
+    )
+    fig.suptitle(outer_variable)
+    fig.supxlabel("Scaled difference w.r.t. no join")
+
+    # fig.tight_layout()
+    # ax_big.legend(h,l)
