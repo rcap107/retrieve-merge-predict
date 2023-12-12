@@ -29,6 +29,11 @@ LABEL_MAPPING = {
         "highest_containment": "HC",
         "nojoin": "NO",
     },
+    "variables": {
+        "estimator": "Estimator",
+        "jd_method": "Retrieval method",
+        "chosen_model": "ML model",
+    },
 }
 
 
@@ -560,6 +565,7 @@ def draw_plot(
     scatterplot_dimension: str = "estimator",
     plotting_variable: str = "scaled_diff",
     colormap_name: str = "viridis",
+    plot_label: str = None,
 ):
     # Inner variables are all the variables that will be plotted, except the outer variable and the scatterplot variable
     if inner_dimensions is None:
@@ -579,27 +585,26 @@ def draw_plot(
     )
 
     n_cols = len(cases[outer_dimension])
-    n_rows = len(inner_dimensions)
-
-    fig, axes = plt.subplots(
-        nrows=n_rows,
-        ncols=n_cols,
-        figsize=(10, 4),
-        sharex=True,
-        sharey="row",
-        layout="constrained",
-        squeeze=False,
-    )
 
     scatterplot_mapping = prepare_scatterplot_labels(
         df, scatterplot_dimension, plotting_variable, colormap_name
     )
 
-    for idx_outer_var, case_outer_ in enumerate(cases[outer_dimension]):
-        print("outer", case_outer_)
-        for idx_inner_var, case_inner_ in enumerate(inner_dimensions):
-            print(case_inner_)
-            ax = axes[idx_inner_var, idx_outer_var]
+    for idx_inner_var, case_inner_ in enumerate(inner_dimensions):
+        print(case_inner_)
+        fig, axes = plt.subplots(
+            nrows=1,
+            ncols=n_cols,
+            figsize=(10, 4),
+            sharex=True,
+            sharey="row",
+            layout="constrained",
+            squeeze=False,
+        )
+
+        for idx_outer_var, case_outer_ in enumerate(cases[outer_dimension]):
+            print("outer", case_outer_)
+            ax = axes[0, idx_outer_var]
             subset = df.filter(pl.col(outer_dimension) == case_outer_)
 
             h, l = violin_plot_case(
@@ -610,20 +615,25 @@ def draw_plot(
                 plotting_variable,
                 scatterplot_mapping=scatterplot_mapping,
             )
-        axes[0][idx_outer_var].set_title(LABEL_MAPPING[outer_dimension][case_outer_])
-    fig.legend(
-        h,
-        l,
-        loc="outside lower left",
-        mode="expand",
-        ncols=len(l),
-        markerscale=5,
-        borderaxespad=-0.2,
-        bbox_to_anchor=(0, -0.1, 1, 0.5),
-        scatterpoints=1,
-    )
-    fig.set_constrained_layout_pads(
-        w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
-    )
-    fig.suptitle(outer_dimension)
-    fig.supxlabel("Scaled difference w.r.t. no join")
+            axes[0][idx_outer_var].set_title(
+                LABEL_MAPPING[outer_dimension][case_outer_]
+            )
+        axes[0][0].set_ylabel(LABEL_MAPPING["variables"][case_inner_])
+
+        fig.legend(
+            h,
+            l,
+            loc="outside lower left",
+            mode="expand",
+            ncols=len(l),
+            markerscale=5,
+            borderaxespad=-0.2,
+            bbox_to_anchor=(0, -0.1, 1, 0.5),
+            scatterpoints=1,
+        )
+        fig.set_constrained_layout_pads(
+            w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
+        )
+        fig.suptitle(outer_dimension)
+        if plot_label is not None:
+            fig.supxlabel(plot_label)
