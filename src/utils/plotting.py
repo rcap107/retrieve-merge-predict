@@ -9,6 +9,28 @@ import polars as pl
 import seaborn as sns
 from matplotlib.patches import Polygon
 
+GROUPING_KEYS = ["jd_method", "estimator", "chosen_model", "target_dl", "base_table"]
+
+LABEL_MAPPING = {
+    "base_table": {
+        "company-employees-yadl-depleted": "Employees - D",
+        "movies-yadl-depleted": "Movies - D",
+        "movies-vote-yadl-depleted": "Movies Vote - D",
+        "housing-prices-yadl-depleted": "Housing Prices - D",
+        "us-accidents-yadl-depleted": "US Accidents - D",
+        "us-elections-yadl-depleted": "US Elections - D",
+    },
+    "jd_method": {"exact_matching": "Exact", "minhash": "MinHash"},
+    "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
+    "estimator": {
+        "full_join": "FJ",
+        "best_single_join": "BSJ",
+        "stepwise_greedy_join": "SWG",
+        "highest_containment": "HC",
+        "nojoin": "NO",
+    },
+}
+
 
 # Function to add jitter to data
 def add_jitter(data, factor=0.1):
@@ -26,6 +48,28 @@ def add_subplot(fig, position):
         labelcolor="none", top=False, bottom=False, left=False, right=False
     )
     return new_ax
+
+
+def prepare_scatterplot_labels(
+    df, scatterplot_dimension, plotting_variable, colormap_name="viridis"
+):
+    # Prepare the labels for the scatter plot and the corresponding colors. Labels are sorted by
+    scatterplot_labels = (
+        df.group_by(pl.col(scatterplot_dimension))
+        .agg(pl.mean(plotting_variable))
+        .sort(plotting_variable)
+        .select(pl.col(scatterplot_dimension).unique())
+        .to_numpy()
+        .squeeze()
+    )
+    colors = plt.colormaps[colormap_name](np.linspace(0, 1, len(scatterplot_labels)))
+    scatterplot_mapping = dict(
+        zip(
+            scatterplot_labels,
+            colors,
+        )
+    )
+    return scatterplot_mapping
 
 
 def prepare_clean_labels(labels):
@@ -245,16 +289,202 @@ def base_relplot(
     return ax
 
 
-def violin_plot_case(
-    ax, df, scatterplot_variable, scatterplot_mapping, jitter_factor=0.07
-):
-    group_keys = ["jd_method", "estimator", "chosen_model", "target_dl", "base_table"]
-    data = df["scaled_diff"].to_numpy()
-    ax_violin = ax
-    ax_violin.axvline(0, alpha=0.4, zorder=0, color="gray")
+def violin_plot(data, values_dict, label_mapping, target_variable, jitter_factor=0.05):
+    # Use the Set3 colormap for 4 distinct colors
+    colors = plt.cm.viridis(np.linspace(0, 1, 4))
+    color_mapping = dict(
+        zip(
+            [
+                "highest_containment",
+                "best_single_join",
+                "full_join",
+                "stepwise_greedy_join",
+            ],
+            colors,
+        )
+    )
+    # colors = plt.cm.viridis(np.arange(4))
 
-    parts = ax_violin.violinplot(
-        data,
+    fig, axes = plt.subplots(
+        nrows=2,
+        ncols=1,
+        sharex=True,
+        # gridspec_kw={"width_ratios": [2.5, 1, 2.5, 1]},
+        figsize=(6, 3),
+        layout="tight",
+    )
+    ax_big = fig.add_subplot(111, frameon=False)
+    ax_big.spines["top"].set_color("none")
+    ax_big.spines["bottom"].set_color("none")
+    ax_big.spines["left"].set_color("none")
+    ax_big.spines["right"].set_color("none")
+    ax_big.tick_params(
+        labelcolor="none", top=False, bottom=False, left=False, right=False
+    )
+
+    for idx, d in enumerate(data):
+        ax_violin = axes[idx]
+        print(values_dict[target_variable][idx])
+        # ax_violin.axhline(0, alpha=0.4, zorder=0, color="gray")
+
+        parts = ax_violin.violinplot(d, showmedians=False, showmeans=False, vert=False)
+        quartile1, medians, quartile3 = np.percentile(d, [25, 50, 75])
+        ax_violin.scatter(
+            medians, [1], marker="o", color="white", s=30, zorder=3, edgecolors="black"
+        )
+        ax_violin.annotate(
+            f"{medians:.2f}",
+            xy=(medians, -0.1),
+            xycoords=(
+                "data",
+                "axes fraction",
+            ),
+            size="x-small",
+            color="blue",
+        )
+        ax_violin.axvline(medians, alpha=0.7, zorder=2, color="blue")
+
+        color_variable = values_dict["est_cat"][idx]
+
+        for label in label_mapping["label"]:
+            masked = d[values_dict["estimator"][idx] == label]
+            ax_violin.scatter(
+                masked,
+                add_jitter(np.ones_like(masked), jitter_factor),
+                color=color_mapping[label],
+                marker="o",
+                s=3,
+                alpha=0.7,
+                label=label,
+            )
+        # ax_violin.scatter(
+        #     d,
+        #     add_jitter(np.ones_like(d), jitter_factor),
+        #     alpha=0.7,
+        #     marker="o",
+        #     s=2,
+        #     c=colors[color_variable],
+        # )
+        ax_violin.set_yticks([1], labels=[values_dict[target_variable][idx]])
+    h, l = ax_violin.get_legend_handles_labels()
+    fig.legend(h, l, loc="outside upper right")
+    fig.suptitle(target_variable)
+    ax_big.set_xlabel("Difference from No Join")
+    plt.tight_layout()
+
+
+def violin_plot_with_hist(
+    data, values_dict, label_mapping, target_variable, jitter_factor=0.05
+):
+    # Use the Set3 colormap for 4 distinct colors
+    colors = plt.cm.Set1(np.arange(4))
+
+    fig, axes = plt.subplots(
+        nrows=1,
+        ncols=4,
+        sharey=True,
+        gridspec_kw={"width_ratios": [2.5, 1, 2.5, 1]},
+        figsize=(8, 5),
+        layout="constrained",
+    )
+    ax_big = fig.add_subplot(111, frameon=False)
+    # gs = GridSpec(1, 4, width_ratios=[3, 1, 3, 1])
+    ax_big.spines["top"].set_color("none")
+    ax_big.spines["bottom"].set_color("none")
+    ax_big.spines["left"].set_color("none")
+    ax_big.spines["right"].set_color("none")
+    ax_big.tick_params(
+        labelcolor="none", top=False, bottom=False, left=False, right=False
+    )
+
+    for idx, d in enumerate(data):
+        ax_violin = axes[idx * 2]
+        ax_hist = axes[idx * 2 + 1]
+
+        parts = ax_violin.violinplot(d, showmedians=False, showmeans=False)
+        ax_violin.set_xticks([1], labels=[values_dict[target_variable][idx]])
+        quartile1, medians, quartile3 = np.percentile(d, [25, 50, 75])
+        ax_violin.scatter(
+            [1], medians, marker="o", color="white", s=30, zorder=3, edgecolors="black"
+        )
+        # ax_violin.hlines(medians, 0, 1)
+        ax_violin.annotate(
+            f"{medians:.2f}",
+            xy=(-0.1, medians),
+            xycoords=("axes fraction", "data"),
+            size="x-small",
+            color="blue",
+        )
+        ax_violin.axhline(medians, alpha=0.7, zorder=2, color="blue")
+
+        color_variable = values_dict["est_cat"][idx]
+
+        ax_violin.scatter(
+            add_jitter(np.ones_like(d), jitter_factor),
+            d,
+            alpha=0.7,
+            marker="o",
+            s=5,
+            c=colors[color_variable],
+        )
+
+        arrs = [
+            np.array(d[values_dict["est_cat"][idx] == e_case])
+            for e_case in label_mapping["idx"]
+        ]
+        h_colors = [colors[e_case] for e_case in label_mapping["idx"]]
+        ax_hist.hist(
+            arrs,
+            bins=50,
+            orientation="horizontal",
+            histtype="stepfilled",
+            color=h_colors,
+            alpha=0.5,
+            label=label_mapping["label"],
+            # density=True,
+            # weights=np.ones_like(subset)/len(subset),
+            stacked=True,
+        )
+        h, l = ax_hist.get_legend_handles_labels()
+
+        ax_violin.axhline(0, alpha=0.4, zorder=0, color="gray")
+    fig.legend(h, l, loc="outside upper right")
+    fig.suptitle(target_variable)
+    ax_big.set_ylabel("Difference from No Join")
+    # plt.tight_layout()
+
+
+def violin_plot_case(
+    ax,
+    df,
+    grouping_dimension,
+    scatterplot_dimension,
+    plotting_variable,
+    jitter_factor=0.07,
+    scatterplot_mapping=None,
+    colormap_name="viridis",
+    scatterplot_marker_size=3,
+    average_folds="none",
+):
+    assert average_folds in ["none", "violin", "scatter", "both"]
+
+    data = (
+        df.select(grouping_dimension, plotting_variable)
+        .group_by(grouping_dimension)
+        .agg(pl.all(), pl.mean(plotting_variable).alias("sort_col"))
+        .sort("sort_col")
+        .drop("sort_col")
+        .to_dict()
+    )
+    if scatterplot_mapping is None:
+        scatterplot_mapping = prepare_scatterplot_labels(
+            df, scatterplot_dimension, plotting_variable, colormap_name=colormap_name
+        )
+
+    ax.axvline(0, alpha=0.4, zorder=0, color="gray")
+
+    parts = ax.violinplot(
+        data[plotting_variable],
         showmedians=False,
         showmeans=False,
         vert=False,
@@ -266,120 +496,134 @@ def violin_plot_case(
         pc.set_linewidth(1)
         pc.set_zorder(2.5)
 
-    quartile1, medians, quartile3 = np.percentile(data, [25, 50, 75])
-    ax_violin.scatter(
-        medians, [1], marker="o", color="white", s=30, zorder=3, edgecolors="black"
-    )
-    ax_violin.annotate(
-        f"{medians:.2f}",
-        xy=(medians, -0.2),
-        xycoords=(
-            "data",
-            "axes fraction",
-        ),
-        size="x-small",
-        color="blue",
-    )
-    ax_violin.axvline(medians, alpha=0.7, zorder=2, color="blue")
-
-    for label in scatterplot_mapping:
-        # values = df.filter(pl.col(scatterplot_variable) == label)["scaled_diff"].to_numpy()
-        values = (
-            df.filter(pl.col(scatterplot_variable) == label)
-            .group_by(group_keys)
-            .agg(pl.mean("scaled_diff"))["scaled_diff"]
-            .to_numpy()
-        )
-        ax_violin.scatter(
-            values,
-            add_jitter(np.ones_like(values), jitter_factor),
-            color=scatterplot_mapping[label],
+    for _i, _d in enumerate(data[plotting_variable]):
+        median = np.median(_d)
+        ax.scatter(
+            median,
+            [_i + 1],
             marker="o",
+            color="white",
             s=30,
-            alpha=0.7,
-            label=label,
-            zorder=0,
+            zorder=3,
+            edgecolors="black",
         )
-    h, l = ax_violin.get_legend_handles_labels()
+        # ax.annotate(
+        #     f"{median:.2f}",
+        #     xy=(median, -0.2),
+        #     xycoords=(
+        #         "data",
+        #         "axes fraction",
+        #     ),
+        #     size="x-small",
+        #     color="blue",
+        # )
+        # ax.axvline(median, alpha=0.7, zorder=2, color="blue")
+
+        for _, label in enumerate(scatterplot_mapping):
+            this_label = LABEL_MAPPING[scatterplot_dimension][label]
+            if _i > 0:
+                this_label = "_" + this_label
+            filter_dict = {
+                scatterplot_dimension: label,
+                grouping_dimension: data[grouping_dimension][_i],
+            }
+            values = (
+                df.filter(**filter_dict)
+                # .group_by(group_keys)
+                # .agg(pl.mean("scaled_diff"))
+                [plotting_variable].to_numpy()
+            )
+            ax.scatter(
+                values,
+                add_jitter(_i + np.ones_like(values), jitter_factor),
+                color=scatterplot_mapping[label],
+                marker="o",
+                s=scatterplot_marker_size,
+                alpha=0.7,
+                label=this_label,
+                zorder=0,
+            )
+    h, l = ax.get_legend_handles_labels()
+    print(l)
+    ax.set_yticks(
+        range(1, len(data[grouping_dimension]) + 1),
+        [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
+    )
     return h, l
 
 
 def draw_plot(
-    cases,
-    outer_variable,
-    current_results,
-    scatterplot_variable="estimator",
-    colormap_name="viridis",
+    cases: dict,
+    outer_dimension: str,
+    df: pl.DataFrame,
+    inner_dimensions: str | list[str] | None,
+    scatterplot_dimension: str = "estimator",
+    plotting_variable: str = "scaled_diff",
+    colormap_name: str = "viridis",
 ):
-    group_keys = ["jd_method", "estimator", "chosen_model", "target_dl", "base_table"]
-    inner_variables = [_ for _ in cases.keys() if _ != outer_variable]
-    n_cols = len(cases[outer_variable])
-    n_rows = sum(len(cases[var]) for var in inner_variables)
+    # Inner variables are all the variables that will be plotted, except the outer variable and the scatterplot variable
+    if inner_dimensions is None:
+        inner_dimensions = [
+            _
+            for _ in cases.keys()
+            if (_ != outer_dimension) & (_ != scatterplot_dimension)
+        ]
+
+    # Check that all columns are found
+    assert all(
+        _ in df.columns
+        for _ in inner_dimensions
+        + [scatterplot_dimension]
+        + [outer_dimension]
+        + [plotting_variable]
+    )
+
+    n_cols = len(cases[outer_dimension])
+    n_rows = len(inner_dimensions)
 
     fig, axes = plt.subplots(
         nrows=n_rows,
         ncols=n_cols,
-        figsize=(8, 3),
+        figsize=(10, 4),
         sharex=True,
         sharey="row",
         layout="constrained",
+        squeeze=False,
     )
 
-    ax_big = add_subplot(fig, (1, 1, 1))
-
-    unique_target = (
-        current_results.group_by(pl.col(scatterplot_variable))
-        .agg(pl.mean("scaled_diff"))
-        .select(pl.col(scatterplot_variable).unique())
-        .to_numpy()
-        .squeeze()
-    )
-    colors = plt.colormaps[colormap_name](np.linspace(0, 1, len(unique_target)))
-    # colors = plt.cm.viridis(np.linspace(0, 1, len(unique_target)))
-    scatterplot_mapping = dict(
-        zip(
-            unique_target,
-            colors,
-        )
+    scatterplot_mapping = prepare_scatterplot_labels(
+        df, scatterplot_dimension, plotting_variable, colormap_name
     )
 
-    for idx_outer_var, c_m in enumerate(cases[outer_variable]):
-        print(c_m)
-        for idx_inner_var, tg in enumerate(inner_variables):
-            new_ax = add_subplot(fig, (2, 1, idx_inner_var + 1))
-            new_ax.set_ylabel(tg)
-            new_ax.yaxis.set_label_position("left")
-            print(tg)
-            for idx_plot, c_inner in enumerate(cases[tg]):
-                print(c_inner)
-                ax = axes[2 * idx_inner_var + idx_plot, idx_outer_var]
-                ax.annotate(c_inner + c_m, xy=(0, 0))
-                filter_dict = {outer_variable: c_m, tg: c_inner}
-                # subset = current_results.filter(**filter_dict).group_by(group_keys).agg(pl.mean("scaled_diff"))
-                subset = current_results.filter(**filter_dict)
-                h, l = violin_plot_case(
-                    ax, subset, scatterplot_variable, scatterplot_mapping
-                )
-                ax.set_yticks([1], [c_inner])
-        axes[0][idx_outer_var].set_title(c_m)
-    # for ax, col in zip(axes[0], cols):
-    #     ax.set_title(col)
+    for idx_outer_var, case_outer_ in enumerate(cases[outer_dimension]):
+        print("outer", case_outer_)
+        for idx_inner_var, case_inner_ in enumerate(inner_dimensions):
+            print(case_inner_)
+            ax = axes[idx_inner_var, idx_outer_var]
+            subset = df.filter(pl.col(outer_dimension) == case_outer_)
+
+            h, l = violin_plot_case(
+                ax,
+                subset,
+                case_inner_,
+                scatterplot_dimension,
+                plotting_variable,
+                scatterplot_mapping=scatterplot_mapping,
+            )
+        axes[0][idx_outer_var].set_title(LABEL_MAPPING[outer_dimension][case_outer_])
     fig.legend(
         h,
         l,
         loc="outside lower left",
         mode="expand",
-        ncols=4,
-        markerscale=1,
+        ncols=len(l),
+        markerscale=5,
         borderaxespad=-0.2,
         bbox_to_anchor=(0, -0.1, 1, 0.5),
-        scatterpoints=3,
+        scatterpoints=1,
     )
     fig.set_constrained_layout_pads(
         w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
     )
-    fig.suptitle(outer_variable)
+    fig.suptitle(outer_dimension)
     fig.supxlabel("Scaled difference w.r.t. no join")
-
-    # fig.tight_layout()
-    # ax_big.legend(h,l)
