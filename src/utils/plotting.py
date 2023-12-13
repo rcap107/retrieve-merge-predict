@@ -25,11 +25,11 @@ LABEL_MAPPING = {
     "jd_method": {"exact_matching": "Exact", "minhash": "MinHash"},
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
-        "full_join": "Full Join",
-        "best_single_join": "Best Single Join",
-        "stepwise_greedy_join": "Stepwise Greedy Join",
-        "highest_containment": "Highest Jaccard Join",
-        "nojoin": "No Join",
+        "full_join": "Full",
+        "best_single_join": "Best Single",
+        "stepwise_greedy_join": "Stepwise Greedy",
+        "highest_containment": "Highest Jaccard",
+        "nojoin": "No",
     },
     "variables": {
         "estimator": "Estimator",
@@ -77,6 +77,29 @@ def prepare_scatterplot_labels(
         )
     )
     return scatterplot_mapping
+
+
+def format_xaxis(ax, case, xmax=1):
+    if case == "percentage":
+        ax.xaxis.set_major_locator(ticker.AutoLocator())
+        ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax))
+    elif case == "log":
+        print("log")
+        ax.set_xscale("log")
+        ax.xaxis.set_major_locator(
+            ticker.LogLocator(base=10, numticks=15, subs=[-1.5, -0.5, 0.1, 0.2])
+        )
+        minor_locator = ticker.LogLocator(subs=np.arange(2, 10))
+        ax.xaxis.set_minor_locator(minor_locator)
+        ax.xaxis.set_minor_formatter(ticker.ScalarFormatter())
+        # formatter = ticker.LogFormatter(minor_thresholds=(0,0))
+        # formatter.set_locs()
+        # ax.xaxis.set_major_formatter(formatter)
+    elif case == "linear":
+        ax.xaxis.set_major_locator(ticker.AutoLocator())
+        ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
+
+    return ax
 
 
 def prepare_clean_labels(labels):
@@ -468,15 +491,15 @@ def violin_plot_case(
     scatterplot_dimension,
     plotting_variable,
     kind="violin",
+    xtick_format="percentage",
     jitter_factor=0.07,
     scatterplot_mapping=None,
     colormap_name="viridis",
     scatterplot_marker_size=3,
     average_folds="none",
     box_width=0.9,
+    xmax=1,
 ):
-    assert average_folds in ["none", "violin", "scatter", "both"]
-
     data = (
         df.select(grouping_dimension, plotting_variable)
         .group_by(grouping_dimension)
@@ -490,7 +513,7 @@ def violin_plot_case(
             df, scatterplot_dimension, plotting_variable, colormap_name=colormap_name
         )
 
-    ax.axvline(0, alpha=0.4, zorder=0, color="gray")
+    ax.axvline(0, alpha=0.4, zorder=0, color="blue", linestyle="--")
     if kind == "violin":
         parts = ax.violinplot(
             data[plotting_variable],
@@ -505,11 +528,12 @@ def violin_plot_case(
             pc.set_linewidth(1)
             pc.set_zorder(2.5)
     elif kind == "box":
-        medianprops = dict(linewidth=2, color="firebrick")
+        medianprops = dict(linewidth=2, color="red")
         boxprops = dict(linewidth=2)
         whiskerprops = dict(linewidth=2)
         capprops = dict(linewidth=2)
-        ax.boxplot(
+        boxprops = dict(facecolor="white")
+        bp = ax.boxplot(
             data[plotting_variable],
             showfliers=False,
             vert=False,
@@ -518,6 +542,8 @@ def violin_plot_case(
             boxprops=boxprops,
             whiskerprops=whiskerprops,
             capprops=capprops,
+            zorder=2,
+            patch_artist=True,
         )
 
     facecolors = ["grey", "white"]
@@ -532,7 +558,7 @@ def violin_plot_case(
             marker="o",
             color="white",
             s=30,
-            zorder=3,
+            zorder=3.5,
             edgecolors="black",
         )
         y_scatter_pos = (
@@ -556,7 +582,7 @@ def violin_plot_case(
                 s=scatterplot_marker_size,
                 alpha=0.7,
                 label=this_label,
-                zorder=0,
+                zorder=2.5,
             )
     h, l = ax.get_legend_handles_labels()
     print(l)
@@ -565,59 +591,67 @@ def violin_plot_case(
         [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
     )
 
+    ax = format_xaxis(ax, xtick_format, xmax)
+
+    # xlim = ax.get_xlim()
+    # ax.axvspan(xlim[0], 0, zorder=0, alpha=0.05, color="red")
+    # ax.set_xlim(xlim)
+
     return h, l
 
 
 def draw_plot(
     cases: dict,
-    outer_dimension: str,
+    split_dimension: str,
     df: pl.DataFrame,
-    inner_dimensions: str | list[str] | None,
+    grouping_dimensions: str | list[str] | None,
     scatterplot_dimension: str = "estimator",
     plotting_variable: str = "scaled_diff",
     kind: str = "violin",
+    xtick_format: str = "percentage",
     colormap_name: str = "viridis",
     plot_label: str = None,
+    figsize=(8, 3),
 ):
     # Inner variables are all the variables that will be plotted, except the outer variable and the scatterplot variable
-    if inner_dimensions is None:
-        inner_dimensions = [
+    if grouping_dimensions is None:
+        grouping_dimensions = [
             _
             for _ in cases.keys()
-            if (_ != outer_dimension) & (_ != scatterplot_dimension)
+            if (_ != split_dimension) & (_ != scatterplot_dimension)
         ]
 
     # Check that all columns are found
     assert all(
         _ in df.columns
-        for _ in inner_dimensions
+        for _ in grouping_dimensions
         + [scatterplot_dimension]
-        + [outer_dimension]
+        + [split_dimension]
         + [plotting_variable]
     )
 
-    n_cols = len(cases[outer_dimension])
+    n_cols = len(cases[split_dimension])
 
     scatterplot_mapping = prepare_scatterplot_labels(
         df, scatterplot_dimension, plotting_variable, colormap_name
     )
 
-    for idx_inner_var, case_inner_ in enumerate(inner_dimensions):
+    for idx_inner_var, case_inner_ in enumerate(grouping_dimensions):
         print(case_inner_)
         fig, axes = plt.subplots(
             nrows=1,
             ncols=n_cols,
-            figsize=(8, 3),
+            figsize=figsize,
             sharex=True,
             sharey="row",
             layout="constrained",
             squeeze=False,
         )
 
-        for idx_outer_var, case_outer_ in enumerate(cases[outer_dimension]):
+        for idx_outer_var, case_outer_ in enumerate(cases[split_dimension]):
             print("outer", case_outer_)
             ax = axes[0, idx_outer_var]
-            subset = df.filter(pl.col(outer_dimension) == case_outer_)
+            subset = df.filter(pl.col(split_dimension) == case_outer_)
 
             h, l = violin_plot_case(
                 ax,
@@ -626,10 +660,11 @@ def draw_plot(
                 scatterplot_dimension,
                 plotting_variable,
                 scatterplot_mapping=scatterplot_mapping,
+                xtick_format=xtick_format,
                 kind=kind,
             )
             axes[0][idx_outer_var].set_title(
-                LABEL_MAPPING[outer_dimension][case_outer_]
+                LABEL_MAPPING[split_dimension][case_outer_]
             )
         # axes[0][0].set_ylabel(LABEL_MAPPING["variables"][case_inner_])
 

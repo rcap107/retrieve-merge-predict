@@ -45,18 +45,29 @@ def get_cases(df: pl.DataFrame, keep_nojoin: bool = False) -> dict:
     return dict(zip(*list(cases.values())))
 
 
+def apply_log_scaling(df, target_column, log_base=10):
+    return df.with_columns(pl.col(target_column).log(log_base))
+
+
 # %%
-def get_difference_from_mean(df, column_to_average, result_column):
+def get_difference_from_mean(
+    df, column_to_average, result_column, scaled=False, geometric=False
+):
     projection = [
         "fold_id",
-        "base_table",
         "target_dl",
         "jd_method",
+        "base_table",
         "estimator",
         "chosen_model",
+        "aggregation",
         "r2score",
+        "time_fit",
+        "time_predict",
+        "time_run",
         result_column,
     ]
+    projection = set(projection)
 
     all_groupby_variables = [
         "fold_id",
@@ -69,20 +80,34 @@ def get_difference_from_mean(df, column_to_average, result_column):
 
     this_groupby = [_ for _ in all_groupby_variables if _ != column_to_average]
 
-    _prep = (
+    _prep = df.select(projection).join(
         df.select(projection)
-        .join(
-            df.select(projection)
-            .group_by(this_groupby)
-            .agg(pl.mean(result_column).alias(f"avg_{result_column}")),
-            on=this_groupby,
+        .group_by(this_groupby)
+        .agg(pl.mean(result_column).alias(f"avg_{result_column}")),
+        on=this_groupby,
+    )
+
+    if geometric:
+        _prep = _prep.with_columns(
+            (pl.col(result_column) / pl.col(f"avg_{result_column}")).alias(
+                f"diff_from_mean_{result_column}"
+            )
         )
-        .with_columns(
+    else:
+        _prep = _prep.with_columns(
             (pl.col(result_column) - pl.col(f"avg_{result_column}")).alias(
                 f"diff_from_mean_{result_column}"
             )
         )
-    )
+
+    if scaled:
+        _prep = _prep.with_columns(
+            _prep.with_columns(
+                pl.col(f"diff_from_mean_{result_column}")
+                / pl.col(f"diff_from_mean_{result_column}").abs().max()
+            )
+        )
+
     return _prep
 
 
@@ -137,6 +162,23 @@ results_depleted = prepare_data_for_plotting(results_depleted)
 
 # %%
 current_results = results_depleted.clone()
+projection = [
+    "fold_id",
+    "target_dl",
+    "jd_method",
+    "base_table",
+    "estimator",
+    "chosen_model",
+    "aggregation",
+    "r2score",
+    "time_fit",
+    "time_predict",
+    "time_run",
+    "difference",
+    "scaled_diff",
+]
+current_results = current_results.select(projection)
+
 # %%
 current_results = current_results.filter(pl.col("estimator") != "nojoin")
 
@@ -152,34 +194,14 @@ cases = get_cases(
 # %%
 plotting.draw_plot(
     cases,
-    outer_dimension="chosen_model",
+    split_dimension="chosen_model",
     df=current_results,
-    inner_dimensions=["estimator"],
+    grouping_dimensions=["estimator"],
     kind="box",
     scatterplot_dimension="base_table",
     colormap_name="viridis",
     plotting_variable="scaled_diff",
 )
-
-#%%
-target_variable = "jd_method"
-result_column = "scaled_diff"
-_prep = get_difference_from_mean(
-    current_results, column_to_average=target_variable, result_column=result_column
-)
-
-plotting.draw_plot(
-    cases,
-    outer_dimension="chosen_model",
-    df=_prep,
-    inner_dimensions=[target_variable],
-    scatterplot_dimension="base_table",
-    colormap_name="viridis",
-    plotting_variable=f"diff_from_mean_{result_column}",
-    plot_label=f"Difference from mean {target_variable}",
-    kind="box",
-)
-
 
 # %%
 target_variable = "estimator"
@@ -190,13 +212,109 @@ _prep = get_difference_from_mean(
 
 plotting.draw_plot(
     cases,
-    outer_dimension="chosen_model",
+    split_dimension="chosen_model",
     df=_prep,
-    inner_dimensions=[target_variable],
+    grouping_dimensions=[target_variable],
+    scatterplot_dimension="base_table",
+    xtick_format="percentage",
+    colormap_name="viridis",
+    plotting_variable=f"diff_from_mean_{result_column}",
+    # plot_label=f"Difference from mean {target_variable}",
+    kind="box",
+    figsize=(8, 3),
+)
+
+
+# %%
+target_variable = "estimator"
+result_column = "r2score"
+_prep = get_difference_from_mean(
+    current_results.filter(pl.col("chosen_model") == "catboost"),
+    column_to_average=target_variable,
+    result_column=result_column,
+    scaled=True,
+)
+cases = get_cases(
+    _prep,
+)
+
+plotting.draw_plot(
+    cases,
+    split_dimension="chosen_model",
+    df=_prep,
+    grouping_dimensions=[target_variable],
     scatterplot_dimension="base_table",
     colormap_name="viridis",
     plotting_variable=f"diff_from_mean_{result_column}",
-    plot_label=f"Difference from mean {target_variable}",
+    # plot_label=f"Difference from mean {target_variable}",
+    kind="box",
+)
+
+# %%
+# %%
+target_variable = "estimator"
+result_column = "time_run"
+# df = current_results.filter(pl.col("chosen_model") == "catboost")
+df = current_results
+# _prep = apply_log_scaling(df, f"time_run")
+
+_prep = get_difference_from_mean(
+    df,
+    column_to_average=target_variable,
+    result_column=result_column,
+    scaled=False,
+    geometric=True,
+)
+# _prep = apply_log_scaling(_prep, f"diff_from_mean_time_run")
+
+cases = get_cases(
+    _prep,
+)
+
+
+plotting.draw_plot(
+    cases,
+    split_dimension="chosen_model",
+    df=_prep,
+    grouping_dimensions=[target_variable],
+    scatterplot_dimension="base_table",
+    plotting_variable=f"diff_from_mean_time_run",
+    colormap_name="viridis",
+    xtick_format="linear",
+    kind="box",
+)
+
+# %%
+# %%
+target_variable = "estimator"
+result_column = "time_run"
+# df = current_results.filter(pl.col("chosen_model") == "catboost")
+df = current_results
+# _prep = apply_log_scaling(df, f"time_run")
+
+_prep = get_difference_from_mean(
+    df,
+    column_to_average=target_variable,
+    result_column=result_column,
+    scaled=False,
+    geometric=True,
+)
+# _prep = apply_log_scaling(_prep, f"diff_from_mean_time_run")
+
+cases = get_cases(
+    _prep,
+)
+
+
+plotting.draw_plot(
+    cases,
+    split_dimension="estimator",
+    df=_prep,
+    grouping_dimensions=[target_variable],
+    scatterplot_dimension="base_table",
+    plotting_variable=f"diff_from_mean_time_run",
+    colormap_name="viridis",
+    xtick_format="linear",
     kind="box",
 )
 
