@@ -9,25 +9,27 @@ import polars as pl
 import seaborn as sns
 from matplotlib.patches import Polygon
 
+plt.style.use("seaborn-v0_8-talk")
+
 GROUPING_KEYS = ["jd_method", "estimator", "chosen_model", "target_dl", "base_table"]
 
 LABEL_MAPPING = {
     "base_table": {
-        "company-employees-yadl-depleted": "Employees - D",
-        "movies-yadl-depleted": "Movies - D",
-        "movies-vote-yadl-depleted": "Movies Vote - D",
-        "housing-prices-yadl-depleted": "Housing Prices - D",
-        "us-accidents-yadl-depleted": "US Accidents - D",
-        "us-elections-yadl-depleted": "US Elections - D",
+        "company-employees-yadl-depleted": "(D) Employees",
+        "movies-yadl-depleted": "(D) Movies",
+        "movies-vote-yadl-depleted": "(D) Movies Vote",
+        "housing-prices-yadl-depleted": "(D) Housing Prices",
+        "us-accidents-yadl-depleted": "(D) US Accidents",
+        "us-elections-yadl-depleted": "(D) US Elections",
     },
     "jd_method": {"exact_matching": "Exact", "minhash": "MinHash"},
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
-        "full_join": "FJ",
-        "best_single_join": "BSJ",
-        "stepwise_greedy_join": "SWG",
-        "highest_containment": "HC",
-        "nojoin": "NO",
+        "full_join": "Full Join",
+        "best_single_join": "Best Single Join",
+        "stepwise_greedy_join": "Stepwise Greedy Join",
+        "highest_containment": "Highest Jaccard Join",
+        "nojoin": "No Join",
     },
     "variables": {
         "estimator": "Estimator",
@@ -465,11 +467,13 @@ def violin_plot_case(
     grouping_dimension,
     scatterplot_dimension,
     plotting_variable,
+    kind="violin",
     jitter_factor=0.07,
     scatterplot_mapping=None,
     colormap_name="viridis",
     scatterplot_marker_size=3,
     average_folds="none",
+    box_width=0.9,
 ):
     assert average_folds in ["none", "violin", "scatter", "both"]
 
@@ -487,21 +491,40 @@ def violin_plot_case(
         )
 
     ax.axvline(0, alpha=0.4, zorder=0, color="gray")
+    if kind == "violin":
+        parts = ax.violinplot(
+            data[plotting_variable],
+            showmedians=False,
+            showmeans=False,
+            vert=False,
+        )
+        for pc in parts["bodies"]:
+            pc.set_edgecolor("black")
+            pc.set_facecolor("none")
+            pc.set_alpha(1)
+            pc.set_linewidth(1)
+            pc.set_zorder(2.5)
+    elif kind == "box":
+        medianprops = dict(linewidth=2, color="firebrick")
+        boxprops = dict(linewidth=2)
+        whiskerprops = dict(linewidth=2)
+        capprops = dict(linewidth=2)
+        ax.boxplot(
+            data[plotting_variable],
+            showfliers=False,
+            vert=False,
+            widths=box_width,
+            medianprops=medianprops,
+            boxprops=boxprops,
+            whiskerprops=whiskerprops,
+            capprops=capprops,
+        )
 
-    parts = ax.violinplot(
-        data[plotting_variable],
-        showmedians=False,
-        showmeans=False,
-        vert=False,
-    )
-    for pc in parts["bodies"]:
-        pc.set_edgecolor("black")
-        pc.set_facecolor("none")
-        pc.set_alpha(1)
-        pc.set_linewidth(1)
-        pc.set_zorder(2.5)
-
+    facecolors = ["grey", "white"]
     for _i, _d in enumerate(data[plotting_variable]):
+        ax.axhspan(
+            _i + 0.5, _i + 1.5, facecolor=facecolors[_i % 2], zorder=0, alpha=0.10
+        )
         median = np.median(_d)
         ax.scatter(
             median,
@@ -512,18 +535,9 @@ def violin_plot_case(
             zorder=3,
             edgecolors="black",
         )
-        # ax.annotate(
-        #     f"{median:.2f}",
-        #     xy=(median, -0.2),
-        #     xycoords=(
-        #         "data",
-        #         "axes fraction",
-        #     ),
-        #     size="x-small",
-        #     color="blue",
-        # )
-        # ax.axvline(median, alpha=0.7, zorder=2, color="blue")
-
+        y_scatter_pos = (
+            np.linspace(-box_width / 2, box_width / 2, len(scatterplot_mapping))
+        ) * 0.8
         for _, label in enumerate(scatterplot_mapping):
             this_label = LABEL_MAPPING[scatterplot_dimension][label]
             if _i > 0:
@@ -532,15 +546,11 @@ def violin_plot_case(
                 scatterplot_dimension: label,
                 grouping_dimension: data[grouping_dimension][_i],
             }
-            values = (
-                df.filter(**filter_dict)
-                # .group_by(group_keys)
-                # .agg(pl.mean("scaled_diff"))
-                [plotting_variable].to_numpy()
-            )
+            values = df.filter(**filter_dict)[plotting_variable].to_numpy()
             ax.scatter(
                 values,
-                add_jitter(_i + np.ones_like(values), jitter_factor),
+                # _i + 1 + add_jitter(np.ones_like(values) * y_scatter_pos[_], 0.03),
+                add_jitter(_i + np.ones_like(values), 0.1),
                 color=scatterplot_mapping[label],
                 marker="o",
                 s=scatterplot_marker_size,
@@ -554,6 +564,7 @@ def violin_plot_case(
         range(1, len(data[grouping_dimension]) + 1),
         [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
     )
+
     return h, l
 
 
@@ -564,6 +575,7 @@ def draw_plot(
     inner_dimensions: str | list[str] | None,
     scatterplot_dimension: str = "estimator",
     plotting_variable: str = "scaled_diff",
+    kind: str = "violin",
     colormap_name: str = "viridis",
     plot_label: str = None,
 ):
@@ -595,7 +607,7 @@ def draw_plot(
         fig, axes = plt.subplots(
             nrows=1,
             ncols=n_cols,
-            figsize=(10, 4),
+            figsize=(8, 3),
             sharex=True,
             sharey="row",
             layout="constrained",
@@ -614,26 +626,30 @@ def draw_plot(
                 scatterplot_dimension,
                 plotting_variable,
                 scatterplot_mapping=scatterplot_mapping,
+                kind=kind,
             )
             axes[0][idx_outer_var].set_title(
                 LABEL_MAPPING[outer_dimension][case_outer_]
             )
-        axes[0][0].set_ylabel(LABEL_MAPPING["variables"][case_inner_])
+        # axes[0][0].set_ylabel(LABEL_MAPPING["variables"][case_inner_])
 
-        fig.legend(
-            h,
-            l,
-            loc="outside lower left",
-            mode="expand",
-            ncols=len(l),
-            markerscale=5,
-            borderaxespad=-0.2,
-            bbox_to_anchor=(0, -0.1, 1, 0.5),
-            scatterpoints=1,
-        )
+        # fig.legend(
+        #     h,
+        #     l,
+        #     loc="outside right",
+        #     # loc="outside lower left",
+        #     # mode="expand",
+        #     # ncols=len(l),
+        #     markerscale=5,
+        #     # borderaxespad=-0.2,
+        #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
+        #     scatterpoints=1,
+        # )
         fig.set_constrained_layout_pads(
             w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
         )
-        fig.suptitle(outer_dimension)
+        # fig.suptitle(outer_dimension)
         if plot_label is not None:
             fig.supxlabel(plot_label)
+
+        fig.savefig("test.pdf")

@@ -1,4 +1,4 @@
-# # %%
+# %%
 # %cd ~/bench
 # #%%
 # %load_ext autoreload
@@ -154,7 +154,8 @@ plotting.draw_plot(
     cases,
     outer_dimension="chosen_model",
     df=current_results,
-    inner_dimensions=["estimator", "jd_method"],
+    inner_dimensions=["estimator"],
+    kind="box",
     scatterplot_dimension="base_table",
     colormap_name="viridis",
     plotting_variable="scaled_diff",
@@ -176,6 +177,7 @@ plotting.draw_plot(
     colormap_name="viridis",
     plotting_variable=f"diff_from_mean_{result_column}",
     plot_label=f"Difference from mean {target_variable}",
+    kind="box",
 )
 
 
@@ -195,6 +197,7 @@ plotting.draw_plot(
     colormap_name="viridis",
     plotting_variable=f"diff_from_mean_{result_column}",
     plot_label=f"Difference from mean {target_variable}",
+    kind="box",
 )
 
 # %%
