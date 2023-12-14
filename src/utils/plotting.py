@@ -79,13 +79,22 @@ def prepare_scatterplot_labels(
     return scatterplot_mapping
 
 
+def _custom_formatter(x, pos):
+    return rf"{x}x"
+
+    if x > 1:
+        return rf"{x}x"
+    else:
+        return rf"$\frac{{}}{{}}"
+
+
 def format_xaxis(ax, case, xmax=1):
     if case == "percentage":
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax))
     elif case == "log":
         print("log")
-        ax.set_xscale("log")
+        ax.set_xscale(mpl.scale.LogScale)
         ax.xaxis.set_major_locator(
             ticker.LogLocator(base=10, numticks=15, subs=[-1.5, -0.5, 0.1, 0.2])
         )
@@ -98,6 +107,16 @@ def format_xaxis(ax, case, xmax=1):
     elif case == "linear":
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
+    elif case == "symlog":
+        print("symlog")
+        ax.set_xscale("symlog", base=2)
+        ax.xaxis.set_major_locator(ticker.SymmetricalLogLocator(base=2, linthresh=0.5))
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
+        minor_locator = ticker.SymmetricalLogLocator(
+            base=2, linthresh=0.5, subs=np.arange(0.5, 3)
+        )
+        ax.xaxis.set_minor_locator(minor_locator)
+        ax.xaxis.set_minor_formatter(ticker.FuncFormatter(_custom_formatter))
 
     return ax
 
@@ -484,7 +503,7 @@ def violin_plot_with_hist(
     # plt.tight_layout()
 
 
-def violin_plot_case(
+def prepare_case_subplot(
     ax,
     df,
     grouping_dimension,
@@ -513,7 +532,12 @@ def violin_plot_case(
             df, scatterplot_dimension, plotting_variable, colormap_name=colormap_name
         )
 
-    ax.axvline(0, alpha=0.4, zorder=0, color="blue", linestyle="--")
+    if xtick_format in ["log", "symlog"]:
+        ref_vline = 1
+    else:
+        ref_vline = 0
+
+    ax.axvline(ref_vline, alpha=0.4, zorder=0, color="blue", linestyle="--")
     if kind == "violin":
         parts = ax.violinplot(
             data[plotting_variable],
@@ -600,19 +624,30 @@ def violin_plot_case(
     return h, l
 
 
-def draw_plot(
+def draw_split_figure(
     cases: dict,
-    split_dimension: str,
     df: pl.DataFrame,
-    grouping_dimensions: str | list[str] | None,
+    split_dimension: str | None = None,
+    grouping_dimensions: str | list[str] | None = None,
     scatterplot_dimension: str = "estimator",
     plotting_variable: str = "scaled_diff",
     kind: str = "violin",
+    axes_formatting: dict = None,
     xtick_format: str = "percentage",
     colormap_name: str = "viridis",
     plot_label: str = None,
     figsize=(8, 3),
 ):
+    if axes_formatting is None:
+        axes_formatting = {
+            "xaxis": {
+                "xtick_format": "percentage",
+                "xmax": 1,
+                "logscale_base": 2,
+            },
+            "yaxis": {},
+        }
+
     # Inner variables are all the variables that will be plotted, except the outer variable and the scatterplot variable
     if grouping_dimensions is None:
         grouping_dimensions = [
@@ -622,16 +657,17 @@ def draw_plot(
         ]
 
     # Check that all columns are found
-    assert all(
-        _ in df.columns
-        for _ in grouping_dimensions
-        + [scatterplot_dimension]
-        + [split_dimension]
-        + [plotting_variable]
-    )
+    assert all(_ in df.columns for _ in grouping_dimensions)
+    if split_dimension is not None:
+        assert split_dimension in df.columns
+    assert scatterplot_dimension in df.columns
+    assert plotting_variable in df.columns
+    assert plotting_variable is not None
 
-    n_cols = len(cases[split_dimension])
-
+    if split_dimension is not None:
+        n_cols = len(cases[split_dimension])
+    else:
+        n_cols = 1
     scatterplot_mapping = prepare_scatterplot_labels(
         df, scatterplot_dimension, plotting_variable, colormap_name
     )
@@ -648,14 +684,30 @@ def draw_plot(
             squeeze=False,
         )
 
-        for idx_outer_var, case_outer_ in enumerate(cases[split_dimension]):
-            print("outer", case_outer_)
-            ax = axes[0, idx_outer_var]
-            subset = df.filter(pl.col(split_dimension) == case_outer_)
+        if split_dimension is not None:
+            for idx_outer_var, case_outer_ in enumerate(cases[split_dimension]):
+                print("outer", case_outer_)
+                ax = axes[0, idx_outer_var]
+                subset = df.filter(pl.col(split_dimension) == case_outer_)
 
-            h, l = violin_plot_case(
+                h, l = prepare_case_subplot(
+                    ax,
+                    subset,
+                    case_inner_,
+                    scatterplot_dimension,
+                    plotting_variable,
+                    scatterplot_mapping=scatterplot_mapping,
+                    xtick_format=xtick_format,
+                    kind=kind,
+                )
+                axes[0][idx_outer_var].set_title(
+                    LABEL_MAPPING[split_dimension][case_outer_]
+                )
+        else:
+            ax = axes[0, 0]
+            h, l = prepare_case_subplot(
                 ax,
-                subset,
+                df,
                 case_inner_,
                 scatterplot_dimension,
                 plotting_variable,
@@ -663,23 +715,22 @@ def draw_plot(
                 xtick_format=xtick_format,
                 kind=kind,
             )
-            axes[0][idx_outer_var].set_title(
-                LABEL_MAPPING[split_dimension][case_outer_]
-            )
-        # axes[0][0].set_ylabel(LABEL_MAPPING["variables"][case_inner_])
+            # axes[0][0].set_title(
+            #     LABEL_MAPPING[split_dimension][case_outer_]
+            # )
 
-        # fig.legend(
-        #     h,
-        #     l,
-        #     loc="outside right",
-        #     # loc="outside lower left",
-        #     # mode="expand",
-        #     # ncols=len(l),
-        #     markerscale=5,
-        #     # borderaxespad=-0.2,
-        #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
-        #     scatterpoints=1,
-        # )
+        fig.legend(
+            h,
+            l,
+            # loc="outside right",
+            loc="outside lower left",
+            mode="expand",
+            ncols=len(l),
+            markerscale=5,
+            borderaxespad=-0.2,
+            bbox_to_anchor=(0, -0.1, 1, 0.5),
+            scatterpoints=1,
+        )
         fig.set_constrained_layout_pads(
             w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
         )
