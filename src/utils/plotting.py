@@ -6,8 +6,8 @@ import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import polars as pl
+import polars.selectors as cs
 import seaborn as sns
-from matplotlib.patches import Polygon
 
 plt.style.use("seaborn-v0_8-talk")
 
@@ -21,6 +21,12 @@ LABEL_MAPPING = {
         "housing-prices-yadl-depleted": "(D) Housing Prices",
         "us-accidents-yadl-depleted": "(D) US Accidents",
         "us-elections-yadl-depleted": "(D) US Elections",
+        "company-employees-yadl": "Employees",
+        "movies-yadl": "Movies",
+        "movies-vote-yadl": "Movies Vote",
+        "housing-prices-yadl": "Housing Prices",
+        "us-accidents-yadl": "US Accidents",
+        "us-elections-yadl": "US Elections",
     },
     "jd_method": {"exact_matching": "Exact", "minhash": "MinHash"},
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
@@ -35,13 +41,91 @@ LABEL_MAPPING = {
         "estimator": "Estimator",
         "jd_method": "Retrieval method",
         "chosen_model": "ML model",
+        "base_table": "Base table",
     },
 }
 
 
-# Function to add jitter to data
-def add_jitter(data, factor=0.1):
-    return data + np.random.normal(0, factor, len(data))
+def get_difference_from_mean(
+    df, column_to_average, result_column, scaled=False, geometric=False
+):
+    all_groupby_variables = [
+        "fold_id",
+        "target_dl",
+        "base_table",
+        "jd_method",
+        "estimator",
+        "chosen_model",
+    ]
+
+    this_groupby = [_ for _ in all_groupby_variables if _ != column_to_average]
+
+    n_unique = df.select(pl.col(column_to_average).n_unique()).item()
+    if n_unique > 2:
+        prepared_df = df.join(
+            df.group_by(this_groupby).agg(
+                pl.mean(result_column).alias("reference_column")
+            ),
+            on=this_groupby,
+        )
+
+    else:
+        best_method = (
+            df.group_by(column_to_average)
+            .agg(pl.mean("scaled_diff"))
+            .top_k(1, by="scaled_diff")[column_to_average]
+            .item()
+        )
+        print("best ", best_method)
+
+        prepared_df = (
+            df.filter(pl.col(column_to_average) == best_method)
+            .join(df, on=this_groupby)
+            .filter(pl.col(column_to_average) != pl.col(column_to_average + "_right"))
+            .rename({result_column + "_right": "reference_column"})
+        )
+
+    if geometric:
+        prepared_df = prepared_df.with_columns(
+            (pl.col(result_column) / pl.col("reference_column")).alias(
+                f"diff_{column_to_average}_{result_column}"
+            )
+        )
+    else:
+        prepared_df = prepared_df.with_columns(
+            (pl.col(result_column) - pl.col("reference_column")).alias(
+                f"diff_{column_to_average}_{result_column}"
+            )
+        )
+
+    if scaled:
+        prepared_df = prepared_df.with_columns(
+            prepared_df.with_columns(
+                pl.col(f"diff_{column_to_average}_{result_column}")
+                / pl.col(f"diff_{column_to_average}_{result_column}").abs().max()
+            )
+        )
+
+    return prepared_df.drop(cs.ends_with("_right"))
+
+
+def prepare_data_for_comparison(df, variable_of_interest):
+    df = get_difference_from_mean(
+        df, column_to_average=variable_of_interest, result_column="r2score"
+    )
+    df = get_difference_from_mean(
+        df,
+        column_to_average=variable_of_interest,
+        result_column="time_run",
+        geometric=True,
+    )
+
+    return df
+
+
+def prepare_jitter(shape, offset_value, factor=0.1):
+    data = np.ones(shape) * offset_value
+    return data + np.random.normal(0, factor, data.shape)
 
 
 def add_subplot(fig, position):
@@ -82,11 +166,6 @@ def prepare_scatterplot_labels(
 def _custom_formatter(x, pos):
     return rf"{x:g}x"
 
-    if x > 1:
-        return rf"{x}x"
-    else:
-        return rf"$\frac{{}}{{}}"
-
 
 def format_xaxis(ax, case, xmax=1):
     if case == "percentage":
@@ -98,7 +177,6 @@ def format_xaxis(ax, case, xmax=1):
         ax.xaxis.set_major_locator(
             ticker.LogLocator(
                 base=2,
-                #   subs=[-1.5, -0.5, 0.1, 0.2]
             )
         )
         minor_locator = ticker.LogLocator(base=2)
@@ -115,200 +193,53 @@ def format_xaxis(ax, case, xmax=1):
     elif case == "symlog":
         print("symlog")
         ax.set_xscale("symlog", base=2)
-        # locator = ticker.SymmetricalLogLocator(
-        #     base=2,
-        #     linthresh=0.5,
-        # )
-        # locator.view_limits(2, 3)
-        # ax.xaxis.set_major_locator(locator)
-        # ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
 
         major_locator = ticker.FixedLocator([0, 0.5, 1, 1.5, 2, 3])
         ax.xaxis.set_major_locator(major_locator)
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
-
-        # minor_locator = ticker.SymmetricalLogLocator(
-        #     base=2, linthresh=0.5, subs=np.arange(1, 3, 0.5)
-        # )
-        # ax.xaxis.set_minor_locator(minor_locator)
-        # ax.xaxis.set_minor_formatter(ticker.FuncFormatter(_custom_formatter))
-
     return ax
-
-
-def prepare_clean_labels(labels):
-    map_dataset = {
-        "company-employees-prepared": "CE",
-        "movies-prepared": "CE",
-        "presidential-results-prepared": "CE",
-    }
-
-    map_agg = {"base_table": "BT", "dedup": "DD", "dfs": "DFS", "none": "NO"}
-
-    map_variant = {"binary": "B", "wordnet": "W"}
-    clean_labels = []
-    for label in labels:
-        dataset, agg, variant = label.split("|")
-        # s = f"{map_dataset[dataset]}-{map_agg[agg]}-{map_variant[variant]}"
-        s = f"{map_agg[agg]}-{map_variant[variant]}"
-        # print(label, s)
-        clean_labels.append(s)
-    return clean_labels
-
-
-def prepare_input_data(df: pl.DataFrame, variable_of_interest):
-    data = (
-        df.with_columns(
-            (
-                pl.col("source_table")
-                + "|"
-                + pl.col("aggregation")
-                + "|"
-                + pl.col("target_dl")
-            ).alias("key")
-        )
-        .select(pl.col("key"), pl.col(variable_of_interest).alias("var"))
-        .to_pandas()
-    )
-
-    # Dropping one group of base table runs, it could be either wordnet or binary
-    data = data.drop(data.loc[data["key"].str.endswith("base_table|wordnet")].index)
-    # Converting to categories
-    data["key"] = data["key"].astype("category")
-    data["index"] = data["key"].cat.codes
-    labels = data["key"].unique().categories.to_list()
-
-    formatted_data = []
-    for g, group in data.groupby("key"):
-        formatted_data.append(group["var"].values)
-    return formatted_data, labels
-
-
-def get_case(label, step):
-    """Choose the correct parameters for box filling and hatch depending on the case.
-
-    Args:
-        label (str): Label for the given case, has format "dataset|aggregation|yadl variant"
-        step (str): Either "color" or "hatch"
-
-    Returns:
-        int: An integer value that is used to find the correct index for the task.
-    """
-    dataset, aggregation, variant = label.split("|")
-    if step == "color":
-        mapping = {
-            "base_table": 0,
-            "dedup": 1,
-            "dfs": 2,
-            "none": 3,
-        }
-        return mapping[aggregation]
-    elif step == "hatch":
-        mapping = {"binary": 0, "wordnet": 1, "base_table": 2}
-        if aggregation == "base_table":
-            return mapping[aggregation]
-        else:
-            return mapping[variant]
-    else:
-        raise ValueError(f"Wrong step {step}")
-
-
-def prepare_boxplot(df, variable_of_interest, ylabel, yscale="lin"):
-    formatted_data, labels = prepare_input_data(
-        df, variable_of_interest=variable_of_interest
-    )
-    clean_labels = prepare_clean_labels(labels)
-
-    labels_legend = [
-        "Base table",
-        "Dedup - Binary",
-        "Dedup - Wordnet",
-        "DFS - Binary",
-        "DFS - Wordnet",
-        "None - Binary",
-        "None - Wordnet",
-    ]
-
-    fig, ax1 = plt.subplots(figsize=(10, 6))
-    fig.subplots_adjust(left=0.075, right=0.95, top=0.9, bottom=0.25)
-
-    bp = plt.boxplot(
-        formatted_data, notch=False, sym="+", vert=True, whis=1.5, widths=1
-    )
-    plt.setp(bp["boxes"], color="black")
-    plt.setp(bp["whiskers"], color="black")
-    plt.setp(bp["fliers"], color="red", marker="+")
-
-    colors = mpl.colormaps["tab10"].resampled(4).colors
-    hatches = ["/", "\\", "."]
-    num_boxes = len(formatted_data)
-
-    legend_arguments = []
-
-    medians = np.empty(num_boxes)
-    for i in range(num_boxes):
-        label = labels[i]
-        box = bp["boxes"][i]
-        box_x = []
-        box_y = []
-        for j in range(5):
-            box_x.append(box.get_xdata()[j])
-            box_y.append(box.get_ydata()[j])
-        box_coords = np.column_stack([box_x, box_y])
-        patch = Polygon(box_coords, facecolor=colors[get_case(label, "color")])
-        legend_arguments.append(patch)
-        patch.set_hatch(hatches[get_case(label, "hatch")])
-        ax1.add_patch(patch)
-        # Now draw the median lines back over what we just filled in
-        med = bp["medians"][i]
-        median_x = []
-        median_y = []
-
-    ax1.set_xticklabels(clean_labels, rotation=45)
-    ax1.set_ylabel(ylabel)
-    if yscale == "log":
-        ax1.set_yscale("log")
-
-    # Add a new x axis
-    # from https://stackoverflow.com/questions/37934242/hierarchical-axis-labeling-in-matplotlib-python
-    ax2 = ax1.twiny()
-    ax2.spines["bottom"].set_position(("axes", -0.15))
-    ax2.tick_params("both", length=0, width=0, which="minor")
-    ax2.tick_params("both", direction="in", which="major")
-    ax2.xaxis.set_ticks_position("bottom")
-    ax2.xaxis.set_label_position("bottom")
-
-    # Set new ticks on the new axis
-    ax2.set_xticks([0, 1 / 3, 2 / 3, 1])
-    ax2.xaxis.set_major_formatter(ticker.NullFormatter())
-    ax2.xaxis.set_minor_locator(ticker.FixedLocator([4 / 21, 11 / 21, 18 / 21]))
-    ax2.xaxis.set_minor_formatter(
-        ticker.FixedFormatter(
-            ["Company Employees", "Movies", "US Presidential Elections"]
-        )
-    )
-
-    # legend
-    plt.legend(legend_arguments[:7], labels_legend, loc="upper left")
 
 
 def base_barplot(
     df: pd.DataFrame,
-    x_variable="estimator",
-    y_variable="r2score",
-    hue_variable="chosen_model",
-    col_variable="base_table",
-    horizontal=True,
-    sharex=False,
-    col_wrap=3,
-    col_order=None,
+    categorical_variable: str = "estimator",
+    result_variable: str = "r2score",
+    hue_variable: str = "chosen_model",
+    col_variable: str = "base_table",
+    horizontal: bool = True,
+    sharex: bool = False,
+    col_wrap: int = 3,
+    col_order: list | None = None,
 ):
+    """Simple utility function for preparing a summary barplot at the end of an experiment. The function takes the
+    results dataframe as input and outputs a boxplot that logs the `result_variable` for the given run.
+
+    The `categorical_variable` is used to split results, a boxplot will be drawn for each distinct category found in
+    the column.
+
+    The `result_variable` is a numerical variable that is used to build the boxplot proper.
+
+    Args:
+        df (pd.DataFrame): Dataframe that contains the results of the experiment.
+        x_variable (str, optional): Categorical variable to split results over. Defaults to "estimator".
+        y_variable (str, optional): Numerical variable to plot. Defaults to "r2score".
+        hue_variable (str | None, optional): If provided, color the bars by this variable. Defaults to "chosen_model".
+        col_variable (str, optional): If provided, create a new subplot for each distinct value in this variable. Defaults to "base_table".
+        horizontal (bool, optional): If True, plot horizontal barplots. Defaults to True.
+        sharex (bool, optional): If true, the x-axis will be shared across subplots. Defaults to False.
+        col_wrap (int, optional): Number of subplots to be drawn in each row. Defaults to 3.
+        col_order (list | None, optional): Order of labels in the column. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
+
     if horizontal:
-        x = y_variable
-        y = x_variable
+        x = result_variable
+        y = categorical_variable
     else:
-        x = x_variable
-        y = y_variable
+        x = categorical_variable
+        y = result_variable
     ax = sns.catplot(
         data=df,
         x=x,
@@ -353,180 +284,16 @@ def base_relplot(
     return ax
 
 
-def violin_plot(data, values_dict, label_mapping, target_variable, jitter_factor=0.05):
-    # Use the Set3 colormap for 4 distinct colors
-    colors = plt.cm.viridis(np.linspace(0, 1, 4))
-    color_mapping = dict(
-        zip(
-            [
-                "highest_containment",
-                "best_single_join",
-                "full_join",
-                "stepwise_greedy_join",
-            ],
-            colors,
-        )
-    )
-    # colors = plt.cm.viridis(np.arange(4))
-
-    fig, axes = plt.subplots(
-        nrows=2,
-        ncols=1,
-        sharex=True,
-        # gridspec_kw={"width_ratios": [2.5, 1, 2.5, 1]},
-        figsize=(6, 3),
-        layout="tight",
-    )
-    ax_big = fig.add_subplot(111, frameon=False)
-    ax_big.spines["top"].set_color("none")
-    ax_big.spines["bottom"].set_color("none")
-    ax_big.spines["left"].set_color("none")
-    ax_big.spines["right"].set_color("none")
-    ax_big.tick_params(
-        labelcolor="none", top=False, bottom=False, left=False, right=False
-    )
-
-    for idx, d in enumerate(data):
-        ax_violin = axes[idx]
-        print(values_dict[target_variable][idx])
-        # ax_violin.axhline(0, alpha=0.4, zorder=0, color="gray")
-
-        parts = ax_violin.violinplot(d, showmedians=False, showmeans=False, vert=False)
-        quartile1, medians, quartile3 = np.percentile(d, [25, 50, 75])
-        ax_violin.scatter(
-            medians, [1], marker="o", color="white", s=30, zorder=3, edgecolors="black"
-        )
-        ax_violin.annotate(
-            f"{medians:.2f}",
-            xy=(medians, -0.1),
-            xycoords=(
-                "data",
-                "axes fraction",
-            ),
-            size="x-small",
-            color="blue",
-        )
-        ax_violin.axvline(medians, alpha=0.7, zorder=2, color="blue")
-
-        color_variable = values_dict["est_cat"][idx]
-
-        for label in label_mapping["label"]:
-            masked = d[values_dict["estimator"][idx] == label]
-            ax_violin.scatter(
-                masked,
-                add_jitter(np.ones_like(masked), jitter_factor),
-                color=color_mapping[label],
-                marker="o",
-                s=3,
-                alpha=0.7,
-                label=label,
-            )
-        # ax_violin.scatter(
-        #     d,
-        #     add_jitter(np.ones_like(d), jitter_factor),
-        #     alpha=0.7,
-        #     marker="o",
-        #     s=2,
-        #     c=colors[color_variable],
-        # )
-        ax_violin.set_yticks([1], labels=[values_dict[target_variable][idx]])
-    h, l = ax_violin.get_legend_handles_labels()
-    fig.legend(h, l, loc="outside upper right")
-    fig.suptitle(target_variable)
-    ax_big.set_xlabel("Difference from No Join")
-    plt.tight_layout()
-
-
-def violin_plot_with_hist(
-    data, values_dict, label_mapping, target_variable, jitter_factor=0.05
-):
-    # Use the Set3 colormap for 4 distinct colors
-    colors = plt.cm.Set1(np.arange(4))
-
-    fig, axes = plt.subplots(
-        nrows=1,
-        ncols=4,
-        sharey=True,
-        gridspec_kw={"width_ratios": [2.5, 1, 2.5, 1]},
-        figsize=(8, 5),
-        layout="constrained",
-    )
-    ax_big = fig.add_subplot(111, frameon=False)
-    # gs = GridSpec(1, 4, width_ratios=[3, 1, 3, 1])
-    ax_big.spines["top"].set_color("none")
-    ax_big.spines["bottom"].set_color("none")
-    ax_big.spines["left"].set_color("none")
-    ax_big.spines["right"].set_color("none")
-    ax_big.tick_params(
-        labelcolor="none", top=False, bottom=False, left=False, right=False
-    )
-
-    for idx, d in enumerate(data):
-        ax_violin = axes[idx * 2]
-        ax_hist = axes[idx * 2 + 1]
-
-        parts = ax_violin.violinplot(d, showmedians=False, showmeans=False)
-        ax_violin.set_xticks([1], labels=[values_dict[target_variable][idx]])
-        quartile1, medians, quartile3 = np.percentile(d, [25, 50, 75])
-        ax_violin.scatter(
-            [1], medians, marker="o", color="white", s=30, zorder=3, edgecolors="black"
-        )
-        # ax_violin.hlines(medians, 0, 1)
-        ax_violin.annotate(
-            f"{medians:.2f}",
-            xy=(-0.1, medians),
-            xycoords=("axes fraction", "data"),
-            size="x-small",
-            color="blue",
-        )
-        ax_violin.axhline(medians, alpha=0.7, zorder=2, color="blue")
-
-        color_variable = values_dict["est_cat"][idx]
-
-        ax_violin.scatter(
-            add_jitter(np.ones_like(d), jitter_factor),
-            d,
-            alpha=0.7,
-            marker="o",
-            s=5,
-            c=colors[color_variable],
-        )
-
-        arrs = [
-            np.array(d[values_dict["est_cat"][idx] == e_case])
-            for e_case in label_mapping["idx"]
-        ]
-        h_colors = [colors[e_case] for e_case in label_mapping["idx"]]
-        ax_hist.hist(
-            arrs,
-            bins=50,
-            orientation="horizontal",
-            histtype="stepfilled",
-            color=h_colors,
-            alpha=0.5,
-            label=label_mapping["label"],
-            # density=True,
-            # weights=np.ones_like(subset)/len(subset),
-            stacked=True,
-        )
-        h, l = ax_hist.get_legend_handles_labels()
-
-        ax_violin.axhline(0, alpha=0.4, zorder=0, color="gray")
-    fig.legend(h, l, loc="outside upper right")
-    fig.suptitle(target_variable)
-    ax_big.set_ylabel("Difference from No Join")
-    # plt.tight_layout()
-
-
 def prepare_case_subplot(
     ax,
     df,
     grouping_dimension,
     scatterplot_dimension,
     plotting_variable,
-    kind="violin",
+    kind="box",
     xtick_format="percentage",
-    jitter_factor=0.07,
+    scatter_mode="overlapping",
+    jitter_factor=0.05,
     scatterplot_mapping=None,
     colormap_name="viridis",
     scatterplot_marker_size=3,
@@ -534,6 +301,7 @@ def prepare_case_subplot(
     box_width=0.9,
     xmax=1,
 ):
+    # Prepare the plotting data sorting the cases in ascending order by that variable.
     data = (
         df.select(grouping_dimension, plotting_variable)
         .group_by(grouping_dimension)
@@ -542,15 +310,13 @@ def prepare_case_subplot(
         .drop("sort_col")
         .to_dict()
     )
+
     if scatterplot_mapping is None:
         scatterplot_mapping = prepare_scatterplot_labels(
             df, scatterplot_dimension, plotting_variable, colormap_name=colormap_name
         )
 
-    if xtick_format in ["log", "symlog"]:
-        ref_vline = 1
-    else:
-        ref_vline = 0
+    ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
 
     ax.axvline(ref_vline, alpha=0.4, zorder=0, color="blue", linestyle="--")
     if kind == "violin":
@@ -564,14 +330,13 @@ def prepare_case_subplot(
             pc.set_edgecolor("black")
             pc.set_facecolor("none")
             pc.set_alpha(1)
-            pc.set_linewidth(1)
-            pc.set_zorder(2.5)
+            pc.set_linewidth(2)
+            pc.set_zorder(2)
     elif kind == "box":
         medianprops = dict(linewidth=2, color="red")
-        boxprops = dict(linewidth=2)
         whiskerprops = dict(linewidth=2)
         capprops = dict(linewidth=2)
-        boxprops = dict(facecolor="white")
+        boxprops = dict(facecolor="white", linewidth=2)
         bp = ax.boxplot(
             data[plotting_variable],
             showfliers=False,
@@ -587,9 +352,12 @@ def prepare_case_subplot(
 
     facecolors = ["grey", "white"]
     for _i, _d in enumerate(data[plotting_variable]):
+        # Add an horizontal span to split the different cases by color
         ax.axhspan(
             _i + 0.5, _i + 1.5, facecolor=facecolors[_i % 2], zorder=0, alpha=0.10
         )
+
+        # Add a white dot to highlight the median
         median = np.median(_d)
         ax.scatter(
             median,
@@ -600,9 +368,18 @@ def prepare_case_subplot(
             zorder=3.5,
             edgecolors="black",
         )
-        y_scatter_pos = (
-            np.linspace(-box_width / 2, box_width / 2, len(scatterplot_mapping))
-        ) * 0.8
+        print(scatter_mode)
+        if scatter_mode == "split":
+            offset = (
+                np.linspace(
+                    -box_width / 2 + jitter_factor,
+                    box_width / 2 - jitter_factor,
+                    len(scatterplot_mapping),
+                )
+            ) * 0.8
+        elif scatter_mode == "overlapping":
+            offset = np.zeros(len(scatterplot_mapping))
+
         for _, label in enumerate(scatterplot_mapping):
             this_label = LABEL_MAPPING[scatterplot_dimension][label]
             if _i > 0:
@@ -612,10 +389,14 @@ def prepare_case_subplot(
                 grouping_dimension: data[grouping_dimension][_i],
             }
             values = df.filter(**filter_dict)[plotting_variable].to_numpy()
+
             ax.scatter(
                 values,
-                _i + 1 + add_jitter(np.ones_like(values) * y_scatter_pos[_], 0.01),
-                # add_jitter(_i + np.ones_like(values), 0.1),
+                _i
+                + 1
+                + prepare_jitter(
+                    len(values), offset_value=offset[_], factor=jitter_factor
+                ),
                 color=scatterplot_mapping[label],
                 marker="o",
                 s=scatterplot_marker_size,
@@ -653,6 +434,7 @@ def draw_split_figure(
     axes_formatting: dict = None,
     xtick_format: str = "percentage",
     colormap_name: str = "viridis",
+    scatter_mode: str = "overlapping",
     plot_label: str = None,
     figsize=(8, 3),
 ):
@@ -715,6 +497,7 @@ def draw_split_figure(
                     scatterplot_dimension,
                     plotting_variable,
                     scatterplot_mapping=scatterplot_mapping,
+                    scatter_mode=scatter_mode,
                     xtick_format=xtick_format,
                     kind=kind,
                 )
@@ -730,6 +513,7 @@ def draw_split_figure(
                 scatterplot_dimension,
                 plotting_variable,
                 scatterplot_mapping=scatterplot_mapping,
+                scatter_mode=scatter_mode,
                 xtick_format=xtick_format,
                 kind=kind,
             )
@@ -763,14 +547,31 @@ def draw_triple_comparison(
     df,
     grouping_dimension,
     scatterplot_dimension,
+    scatter_mode="overlapping",
     colormap_name="viridis",
     figsize=(10, 4),
+    figwidth=None,
+    figheight=None,
+    savefig: bool = False,
+    savefig_type: list | str = "png",
 ):
+
+    df_r2 = get_difference_from_mean(
+        df, column_to_average=grouping_dimension, result_column="r2score"
+    )
+    df_time = get_difference_from_mean(
+        df,
+        column_to_average=grouping_dimension,
+        result_column="time_run",
+        geometric=True,
+    )
+
     n_cols = 3
     scatterplot_mapping = prepare_scatterplot_labels(
         df, scatterplot_dimension, "scaled_diff", colormap_name
     )
 
+    # axes = fig.subplots(
     fig, axes = plt.subplots(
         nrows=1,
         ncols=n_cols,
@@ -783,30 +584,39 @@ def draw_triple_comparison(
 
     plotting_variables = [
         "scaled_diff",
-        "diff_from_mean_r2score",
-        "diff_from_mean_time_run",
+        f"diff_{grouping_dimension}_r2score",
+        f"diff_{grouping_dimension}_time_run",
     ]
 
     formatting_dict = {
         "scaled_diff": {"xtick_format": "percentage"},
-        "diff_from_mean_r2score": {"xtick_format": "percentage"},
-        "diff_from_mean_time_run": {"xtick_format": "symlog"},
+        f"diff_{grouping_dimension}_r2score": {"xtick_format": "percentage"},
+        f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
     }
 
+    subplot_titles = [
+        rf"% $R^2$ difference",
+        rf"Relative $R^2$ ",
+        rf"Relative computation time",
+    ]
+
+    plot_df = [df_r2, df_r2, df_time]
     for idx, var in enumerate(plotting_variables):
         ax = axes[0, idx]
-        ax.grid(which="both", axis="x")
+        ax.grid(which="both", axis="x", alpha=0.3)
         h, l = prepare_case_subplot(
             ax,
-            df,
+            plot_df[idx],
             grouping_dimension,
             scatterplot_dimension,
             var,
             scatterplot_mapping=scatterplot_mapping,
+            scatter_mode=scatter_mode,
             xtick_format=formatting_dict[var]["xtick_format"],
             kind="box",
+            jitter_factor=0.03,
         )
-        axes[0][idx].set_title(var)
+        axes[0][idx].set_title(subplot_titles[idx])
 
     fig.legend(
         h,
@@ -823,4 +633,13 @@ def draw_triple_comparison(
     fig.set_constrained_layout_pads(
         w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
     )
-    # fig.suptitle(outer_dimension)
+    fig.suptitle(
+        f"{LABEL_MAPPING['variables'][grouping_dimension]} - {LABEL_MAPPING['variables'][scatterplot_dimension]}"
+    )
+
+    if savefig:
+        if isinstance(savefig_type, str):
+            savefig_type = [savefig_type]
+        for ext in savefig_type:
+            fname = f"triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
+            fig.savefig(Path("images", fname))

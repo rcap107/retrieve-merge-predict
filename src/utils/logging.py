@@ -174,7 +174,7 @@ def wrap_up_plot(exp_name, task="regression", variable_of_interest=None):
 
             for case in [current_score, "time_run"]:
                 path_plot = Path(path_target_run, "plots", f"{gname}_{case}.png")
-                ax = plotting.base_barplot(group.to_pandas(), y_variable=case)
+                ax = plotting.base_barplot(group.to_pandas(), result_variable=case)
                 ax.savefig(path_plot)
 
             path_plot = Path(
@@ -186,9 +186,72 @@ def wrap_up_plot(exp_name, task="regression", variable_of_interest=None):
     else:
         for case in [current_score, "time_run"]:
             path_plot = Path(path_target_run, "plots", f"overall_{case}.png")
-            ax = plotting.base_barplot(df_raw.to_pandas(), y_variable=case)
+            ax = plotting.base_barplot(df_raw.to_pandas(), result_variable=case)
             ax.savefig(path_plot)
 
         path_plot = Path(path_target_run, "plots", f"scatter_time_{current_score}.png")
         ax = plotting.base_relplot(df_raw.to_pandas(), y_variable=current_score)
         ax.savefig(path_plot)
+
+
+def prepare_data_for_plotting(df: pl.DataFrame) -> pl.DataFrame:
+    max_diff = df.select(pl.col("difference").abs().max()).item()
+    df = df.with_columns((pl.col("difference") / max_diff).alias("scaled_diff"))
+    return df
+
+
+def read_and_process(df_results):
+    df_ = df_results.select(
+        pl.col(
+            [
+                "scenario_id",
+                "target_dl",
+                "jd_method",
+                "base_table",
+                "estimator",
+                "chosen_model",
+                "aggregation",
+                "r2score",
+                "time_fit",
+                "time_predict",
+                "time_run",
+                "epsilon",
+            ]
+        )
+    ).filter(
+        (~pl.col("base_table").str.contains("open_data"))
+        & (pl.col("target_dl") != "wordnet_big")
+    )
+    df_ = df_.group_by(
+        ["target_dl", "jd_method", "base_table", "estimator", "chosen_model"]
+    ).map_groups(lambda x: x.with_row_count("fold_id"))
+
+    joined = df_.join(
+        df_.filter(pl.col("estimator") == "nojoin"),
+        on=["target_dl", "jd_method", "base_table", "chosen_model", "fold_id"],
+        how="left",
+    ).with_columns((pl.col("r2score") - pl.col("r2score_right")).alias("difference"))
+
+    projection = [
+        "fold_id",
+        "target_dl",
+        "jd_method",
+        "base_table",
+        "estimator",
+        "chosen_model",
+        "aggregation",
+        "r2score",
+        "time_fit",
+        "time_predict",
+        "time_run",
+        "difference",
+    ]
+    joined = joined.select(projection)
+
+    results_full = joined.filter(~pl.col("base_table").str.contains("depleted"))
+    results_depleted = joined.filter(pl.col("base_table").str.contains("depleted"))
+
+    results_full = prepare_data_for_plotting(results_full)
+    results_depleted = prepare_data_for_plotting(results_depleted)
+
+    return results_full, results_depleted

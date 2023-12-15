@@ -1,20 +1,17 @@
-# %%
+# # %%
 # %cd ~/bench
 # #%%
 # %load_ext autoreload
 # %autoreload 2
-# #%%
-import json
-import tarfile
+# %%
 from pathlib import Path
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-# %%
 import polars as pl
+import polars.selectors as cs
 import seaborn as sns
 from matplotlib.gridspec import GridSpec
 
@@ -54,24 +51,6 @@ def apply_log_scaling(df, target_column, log_base=10):
 def get_difference_from_mean(
     df, column_to_average, result_column, scaled=False, geometric=False
 ):
-    # projection = [
-    #     "fold_id",
-    #     "target_dl",
-    #     "jd_method",
-    #     "base_table",
-    #     "estimator",
-    #     "chosen_model",
-    #     "aggregation",
-    #     "r2score",
-    #     # TODO: add a case to not drop scaled_diff if this is called multiple times
-    #     "scaled_diff",
-    #     "time_fit",
-    #     "time_predict",
-    #     "time_run",
-    #     result_column,
-    # ]
-    # projection = set(projection)
-
     all_groupby_variables = [
         "fold_id",
         "target_dl",
@@ -83,44 +62,55 @@ def get_difference_from_mean(
 
     this_groupby = [_ for _ in all_groupby_variables if _ != column_to_average]
 
-    _prep = df.join(
-        df.group_by(this_groupby).agg(
-            pl.mean(result_column).alias(f"avg_{result_column}")
-        ),
-        on=this_groupby,
-    )
-    # _prep = df.select(projection).join(
-    #     df.select(projection)
-    #     .group_by(this_groupby)
-    #     .agg(pl.mean(result_column).alias(f"avg_{result_column}")),
-    #     on=this_groupby,
-    # )
+    n_unique = df.select(pl.col(column_to_average).n_unique()).item()
+    if n_unique > 2:
+        prepared_df = df.join(
+            df.group_by(this_groupby).agg(
+                pl.mean(result_column).alias("reference_column")
+            ),
+            on=this_groupby,
+        )
+
+    else:
+        best_method = (
+            df.group_by(column_to_average)
+            .agg(pl.mean(result_column))
+            .top_k(1, by=result_column)[column_to_average]
+            .item()
+        )
+
+        prepared_df = (
+            df.filter(pl.col(column_to_average) == best_method)
+            .join(df, on=this_groupby)
+            .filter(pl.col(column_to_average) != pl.col(column_to_average + "_right"))
+            .rename({result_column + "_right": "reference_column"})
+        )
 
     if geometric:
-        _prep = _prep.with_columns(
-            (pl.col(result_column) / pl.col(f"avg_{result_column}")).alias(
-                f"diff_from_mean_{result_column}"
+        prepared_df = prepared_df.with_columns(
+            (pl.col(result_column) / pl.col("reference_column")).alias(
+                f"diff_{column_to_average}_{result_column}"
             )
         )
     else:
-        _prep = _prep.with_columns(
-            (pl.col(result_column) - pl.col(f"avg_{result_column}")).alias(
-                f"diff_from_mean_{result_column}"
+        prepared_df = prepared_df.with_columns(
+            (pl.col(result_column) - pl.col("reference_column")).alias(
+                f"diff_{column_to_average}_{result_column}"
             )
         )
 
     if scaled:
-        _prep = _prep.with_columns(
-            _prep.with_columns(
-                pl.col(f"diff_from_mean_{result_column}")
-                / pl.col(f"diff_from_mean_{result_column}").abs().max()
+        prepared_df = prepared_df.with_columns(
+            prepared_df.with_columns(
+                pl.col(f"diff_{column_to_average}_{result_column}")
+                / pl.col(f"diff_{column_to_average}_{result_column}").abs().max()
             )
         )
 
-    return _prep
+    return prepared_df.drop(cs.ends_with("_right")).drop("reference_column")
 
 
-#%%
+# %%
 # Prepare data for the three plot cases
 
 # %%
@@ -192,7 +182,10 @@ projection = [
 current_results = current_results.select(projection)
 # %%
 current_results = current_results.filter(pl.col("estimator") != "nojoin")
-
+# %%
+p = get_difference_from_mean(
+    current_results, column_to_average="chosen_model", result_column="r2score"
+)
 
 # %%
 # Prepare comparison figure
@@ -210,19 +203,17 @@ def prepare_data_for_comparison(df, variable_of_interest):
     return df
 
 
-#%%
-df_tri = prepare_data_for_comparison(current_results, "estimator")
-
-#%%
-plotting.draw_triple_comparison(
-    df_tri, "estimator", scatterplot_dimension="chosen_model", figsize=(12, 4)
-)
 # %%
-result_column = "scaled_diff"
-_prep = get_difference_from_mean(
-    current_results, column_to_average=target_variable, result_column=result_column
+df_tri = prepare_data_for_comparison(current_results, "jd_method")
+# %%
+plotting.draw_triple_comparison(
+    df_tri,
+    "estimator",
+    scatterplot_dimension="chosen_model",
+    figsize=(12, 4),
+    scatter_mode="split",
+    savefig=True,
 )
-
 
 # %%
 cases = get_cases(
@@ -268,10 +259,10 @@ plotting.draw_split_figure(
 
 
 # %%
-target_variable = "estimator"
+target_variable = "chosen_model"
 result_column = "r2score"
 _prep = get_difference_from_mean(
-    current_results.filter(pl.col("chosen_model") == "catboost"),
+    current_results,
     column_to_average=target_variable,
     result_column=result_column,
     scaled=True,
@@ -282,17 +273,17 @@ cases = get_cases(
 
 plotting.draw_split_figure(
     cases,
-    split_dimension="chosen_model",
+    split_dimension=None,
     df=_prep,
-    grouping_dimensions=[target_variable],
+    grouping_dimensions=["jd_method"],
     scatterplot_dimension="base_table",
+    scatter_mode="split",
     colormap_name="viridis",
-    plotting_variable=f"diff_from_mean_{result_column}",
-    # plot_label=f"Difference from mean {target_variable}",
-    kind="box",
+    plotting_variable=f"diff_{target_variable}_{result_column}",
+    plot_label=f"Difference between {target_variable} classes",
+    kind="violin",
 )
 
-# %%
 # %%
 target_variable = "estimator"
 result_column = "time_run"
@@ -319,9 +310,10 @@ plotting.draw_split_figure(
     split_dimension="chosen_model",
     df=_prep,
     grouping_dimensions=[target_variable],
-    scatterplot_dimension="chosen_model",
+    scatterplot_dimension="base_table",
     plotting_variable=f"diff_from_mean_time_run",
     colormap_name="viridis",
+    scatter_mode="overlapping",
     xtick_format="symlog",
     kind="box",
     figsize=(10, 5),
