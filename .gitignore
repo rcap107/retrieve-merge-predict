@@ -1,6 +1,7 @@
 # Repository-specific
 data/*
 data/
+images/
 .vscode
 .idea
 *.pickle
