@@ -25,10 +25,10 @@ LABEL_MAPPING = {
     "jd_method": {"exact_matching": "Exact", "minhash": "MinHash"},
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
-        "full_join": "Full",
-        "best_single_join": "Best Single",
-        "stepwise_greedy_join": "Stepwise Greedy",
-        "highest_containment": "Highest Jaccard",
+        "full_join": "Full Join",
+        "best_single_join": "Best Single Join",
+        "stepwise_greedy_join": "Stepwise Greedy Join",
+        "highest_containment": "Highest Jaccard Join",
         "nojoin": "No",
     },
     "variables": {
@@ -80,7 +80,7 @@ def prepare_scatterplot_labels(
 
 
 def _custom_formatter(x, pos):
-    return rf"{x}x"
+    return rf"{x:g}x"
 
     if x > 1:
         return rf"{x}x"
@@ -91,32 +91,47 @@ def _custom_formatter(x, pos):
 def format_xaxis(ax, case, xmax=1):
     if case == "percentage":
         ax.xaxis.set_major_locator(ticker.AutoLocator())
-        ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax))
+        ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
     elif case == "log":
         print("log")
-        ax.set_xscale(mpl.scale.LogScale)
+        ax.set_xscale("log", base=10)
         ax.xaxis.set_major_locator(
-            ticker.LogLocator(base=10, numticks=15, subs=[-1.5, -0.5, 0.1, 0.2])
+            ticker.LogLocator(
+                base=2,
+                #   subs=[-1.5, -0.5, 0.1, 0.2]
+            )
         )
-        minor_locator = ticker.LogLocator(subs=np.arange(2, 10))
+        minor_locator = ticker.LogLocator(base=2)
         ax.xaxis.set_minor_locator(minor_locator)
         ax.xaxis.set_minor_formatter(ticker.ScalarFormatter())
-        # formatter = ticker.LogFormatter(minor_thresholds=(0,0))
-        # formatter.set_locs()
-        # ax.xaxis.set_major_formatter(formatter)
+
     elif case == "linear":
+        print("linear")
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.5))
+        ax.xaxis.set_minor_formatter(ticker.ScalarFormatter())
+
     elif case == "symlog":
         print("symlog")
         ax.set_xscale("symlog", base=2)
-        ax.xaxis.set_major_locator(ticker.SymmetricalLogLocator(base=2, linthresh=0.5))
+        # locator = ticker.SymmetricalLogLocator(
+        #     base=2,
+        #     linthresh=0.5,
+        # )
+        # locator.view_limits(2, 3)
+        # ax.xaxis.set_major_locator(locator)
+        # ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
+
+        major_locator = ticker.FixedLocator([0, 0.5, 1, 1.5, 2, 3])
+        ax.xaxis.set_major_locator(major_locator)
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
-        minor_locator = ticker.SymmetricalLogLocator(
-            base=2, linthresh=0.5, subs=np.arange(0.5, 3)
-        )
-        ax.xaxis.set_minor_locator(minor_locator)
-        ax.xaxis.set_minor_formatter(ticker.FuncFormatter(_custom_formatter))
+
+        # minor_locator = ticker.SymmetricalLogLocator(
+        #     base=2, linthresh=0.5, subs=np.arange(1, 3, 0.5)
+        # )
+        # ax.xaxis.set_minor_locator(minor_locator)
+        # ax.xaxis.set_minor_formatter(ticker.FuncFormatter(_custom_formatter))
 
     return ax
 
@@ -599,8 +614,8 @@ def prepare_case_subplot(
             values = df.filter(**filter_dict)[plotting_variable].to_numpy()
             ax.scatter(
                 values,
-                # _i + 1 + add_jitter(np.ones_like(values) * y_scatter_pos[_], 0.03),
-                add_jitter(_i + np.ones_like(values), 0.1),
+                _i + 1 + add_jitter(np.ones_like(values) * y_scatter_pos[_], 0.01),
+                # add_jitter(_i + np.ones_like(values), 0.1),
                 color=scatterplot_mapping[label],
                 marker="o",
                 s=scatterplot_marker_size,
@@ -617,9 +632,12 @@ def prepare_case_subplot(
 
     ax = format_xaxis(ax, xtick_format, xmax)
 
-    # xlim = ax.get_xlim()
-    # ax.axvspan(xlim[0], 0, zorder=0, alpha=0.05, color="red")
-    # ax.set_xlim(xlim)
+    xlim = ax.get_xlim()
+    if xtick_format in ["symlog", "log"]:
+        ax.axvspan(1, xlim[1], zorder=0, alpha=0.05, color="red")
+    else:
+        ax.axvspan(xlim[0], 0, zorder=0, alpha=0.05, color="red")
+    ax.set_xlim(xlim)
 
     return h, l
 
@@ -672,8 +690,8 @@ def draw_split_figure(
         df, scatterplot_dimension, plotting_variable, colormap_name
     )
 
-    for idx_inner_var, case_inner_ in enumerate(grouping_dimensions):
-        print(case_inner_)
+    for idx_inner_var, case_grouping_ in enumerate(grouping_dimensions):
+        print(case_grouping_)
         fig, axes = plt.subplots(
             nrows=1,
             ncols=n_cols,
@@ -685,15 +703,15 @@ def draw_split_figure(
         )
 
         if split_dimension is not None:
-            for idx_outer_var, case_outer_ in enumerate(cases[split_dimension]):
-                print("outer", case_outer_)
+            for idx_outer_var, case_split_ in enumerate(cases[split_dimension]):
+                print("outer", case_split_)
                 ax = axes[0, idx_outer_var]
-                subset = df.filter(pl.col(split_dimension) == case_outer_)
+                subset = df.filter(pl.col(split_dimension) == case_split_)
 
                 h, l = prepare_case_subplot(
                     ax,
                     subset,
-                    case_inner_,
+                    case_grouping_,
                     scatterplot_dimension,
                     plotting_variable,
                     scatterplot_mapping=scatterplot_mapping,
@@ -701,14 +719,14 @@ def draw_split_figure(
                     kind=kind,
                 )
                 axes[0][idx_outer_var].set_title(
-                    LABEL_MAPPING[split_dimension][case_outer_]
+                    LABEL_MAPPING[split_dimension][case_split_]
                 )
         else:
             ax = axes[0, 0]
             h, l = prepare_case_subplot(
                 ax,
                 df,
-                case_inner_,
+                case_grouping_,
                 scatterplot_dimension,
                 plotting_variable,
                 scatterplot_mapping=scatterplot_mapping,
@@ -739,3 +757,70 @@ def draw_split_figure(
             fig.supxlabel(plot_label)
 
         fig.savefig("test.pdf")
+
+
+def draw_triple_comparison(
+    df,
+    grouping_dimension,
+    scatterplot_dimension,
+    colormap_name="viridis",
+    figsize=(10, 4),
+):
+    n_cols = 3
+    scatterplot_mapping = prepare_scatterplot_labels(
+        df, scatterplot_dimension, "scaled_diff", colormap_name
+    )
+
+    fig, axes = plt.subplots(
+        nrows=1,
+        ncols=n_cols,
+        figsize=figsize,
+        sharex=False,
+        sharey="row",
+        layout="constrained",
+        squeeze=False,
+    )
+
+    plotting_variables = [
+        "scaled_diff",
+        "diff_from_mean_r2score",
+        "diff_from_mean_time_run",
+    ]
+
+    formatting_dict = {
+        "scaled_diff": {"xtick_format": "percentage"},
+        "diff_from_mean_r2score": {"xtick_format": "percentage"},
+        "diff_from_mean_time_run": {"xtick_format": "symlog"},
+    }
+
+    for idx, var in enumerate(plotting_variables):
+        ax = axes[0, idx]
+        ax.grid(which="both", axis="x")
+        h, l = prepare_case_subplot(
+            ax,
+            df,
+            grouping_dimension,
+            scatterplot_dimension,
+            var,
+            scatterplot_mapping=scatterplot_mapping,
+            xtick_format=formatting_dict[var]["xtick_format"],
+            kind="box",
+        )
+        axes[0][idx].set_title(var)
+
+    fig.legend(
+        h,
+        l,
+        # loc="outside right",
+        loc="outside lower left",
+        mode="expand",
+        ncols=len(l),
+        markerscale=5,
+        borderaxespad=-0.2,
+        bbox_to_anchor=(0, -0.1, 1, 0.5),
+        scatterpoints=1,
+    )
+    fig.set_constrained_layout_pads(
+        w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
+    )
+    # fig.suptitle(outer_dimension)

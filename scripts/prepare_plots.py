@@ -3,6 +3,7 @@
 # #%%
 # %load_ext autoreload
 # %autoreload 2
+# #%%
 import json
 import tarfile
 from pathlib import Path
@@ -53,21 +54,23 @@ def apply_log_scaling(df, target_column, log_base=10):
 def get_difference_from_mean(
     df, column_to_average, result_column, scaled=False, geometric=False
 ):
-    projection = [
-        "fold_id",
-        "target_dl",
-        "jd_method",
-        "base_table",
-        "estimator",
-        "chosen_model",
-        "aggregation",
-        "r2score",
-        "time_fit",
-        "time_predict",
-        "time_run",
-        result_column,
-    ]
-    projection = set(projection)
+    # projection = [
+    #     "fold_id",
+    #     "target_dl",
+    #     "jd_method",
+    #     "base_table",
+    #     "estimator",
+    #     "chosen_model",
+    #     "aggregation",
+    #     "r2score",
+    #     # TODO: add a case to not drop scaled_diff if this is called multiple times
+    #     "scaled_diff",
+    #     "time_fit",
+    #     "time_predict",
+    #     "time_run",
+    #     result_column,
+    # ]
+    # projection = set(projection)
 
     all_groupby_variables = [
         "fold_id",
@@ -80,12 +83,18 @@ def get_difference_from_mean(
 
     this_groupby = [_ for _ in all_groupby_variables if _ != column_to_average]
 
-    _prep = df.select(projection).join(
-        df.select(projection)
-        .group_by(this_groupby)
-        .agg(pl.mean(result_column).alias(f"avg_{result_column}")),
+    _prep = df.join(
+        df.group_by(this_groupby).agg(
+            pl.mean(result_column).alias(f"avg_{result_column}")
+        ),
         on=this_groupby,
     )
+    # _prep = df.select(projection).join(
+    #     df.select(projection)
+    #     .group_by(this_groupby)
+    #     .agg(pl.mean(result_column).alias(f"avg_{result_column}")),
+    #     on=this_groupby,
+    # )
 
     if geometric:
         _prep = _prep.with_columns(
@@ -110,6 +119,9 @@ def get_difference_from_mean(
 
     return _prep
 
+
+#%%
+# Prepare data for the three plot cases
 
 # %%
 root_path = Path("results/big_batch")
@@ -178,9 +190,39 @@ projection = [
     "scaled_diff",
 ]
 current_results = current_results.select(projection)
-
 # %%
 current_results = current_results.filter(pl.col("estimator") != "nojoin")
+
+
+# %%
+# Prepare comparison figure
+def prepare_data_for_comparison(df, variable_of_interest):
+    df = get_difference_from_mean(
+        df, column_to_average=variable_of_interest, result_column="r2score"
+    )
+    df = get_difference_from_mean(
+        df,
+        column_to_average=variable_of_interest,
+        result_column="time_run",
+        geometric=True,
+    )
+
+    return df
+
+
+#%%
+df_tri = prepare_data_for_comparison(current_results, "estimator")
+
+#%%
+plotting.draw_triple_comparison(
+    df_tri, "estimator", scatterplot_dimension="chosen_model", figsize=(12, 4)
+)
+# %%
+result_column = "scaled_diff"
+_prep = get_difference_from_mean(
+    current_results, column_to_average=target_variable, result_column=result_column
+)
+
 
 # %%
 cases = get_cases(
@@ -189,10 +231,10 @@ cases = get_cases(
 
 # # %%
 # for outer_variable in cases:
-#     plotting.draw_plot(cases, outer_variable, current_results)
+#     plotting.draw_split_figure(cases, outer_variable, current_results)
 
 # %%
-plotting.draw_plot(
+plotting.draw_split_figure(
     cases,
     split_dimension="chosen_model",
     df=current_results,
@@ -210,7 +252,7 @@ _prep = get_difference_from_mean(
     current_results, column_to_average=target_variable, result_column=result_column
 )
 
-plotting.draw_plot(
+plotting.draw_split_figure(
     cases,
     split_dimension="chosen_model",
     df=_prep,
@@ -238,7 +280,7 @@ cases = get_cases(
     _prep,
 )
 
-plotting.draw_plot(
+plotting.draw_split_figure(
     cases,
     split_dimension="chosen_model",
     df=_prep,
@@ -254,7 +296,7 @@ plotting.draw_plot(
 # %%
 target_variable = "estimator"
 result_column = "time_run"
-# df = current_results.filter(pl.col("chosen_model") == "catboost")
+# df = current_results.filter(pl.col("jd_method") == "exact_matching")
 df = current_results
 # _prep = apply_log_scaling(df, f"time_run")
 
@@ -272,50 +314,17 @@ cases = get_cases(
 )
 
 
-plotting.draw_plot(
+plotting.draw_split_figure(
     cases,
     split_dimension="chosen_model",
     df=_prep,
     grouping_dimensions=[target_variable],
-    scatterplot_dimension="base_table",
+    scatterplot_dimension="chosen_model",
     plotting_variable=f"diff_from_mean_time_run",
     colormap_name="viridis",
-    xtick_format="linear",
+    xtick_format="symlog",
     kind="box",
-)
-
-# %%
-# %%
-target_variable = "estimator"
-result_column = "time_run"
-# df = current_results.filter(pl.col("chosen_model") == "catboost")
-df = current_results
-# _prep = apply_log_scaling(df, f"time_run")
-
-_prep = get_difference_from_mean(
-    df,
-    column_to_average=target_variable,
-    result_column=result_column,
-    scaled=False,
-    geometric=True,
-)
-# _prep = apply_log_scaling(_prep, f"diff_from_mean_time_run")
-
-cases = get_cases(
-    _prep,
-)
-
-
-plotting.draw_plot(
-    cases,
-    split_dimension="estimator",
-    df=_prep,
-    grouping_dimensions=[target_variable],
-    scatterplot_dimension="base_table",
-    plotting_variable=f"diff_from_mean_time_run",
-    colormap_name="viridis",
-    xtick_format="linear",
-    kind="box",
+    figsize=(10, 5),
 )
 
 # %%
