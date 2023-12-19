@@ -34,20 +34,27 @@ if __name__ == "__main__":
 
     results_full, results_depleted = read_and_process(df_results)
 
-    current_results = results_depleted.clone()
+    case = "full"
 
-    current_results = current_results.filter(pl.col("estimator") != "nojoin")
+    if case == "dep":
+        current_results = results_depleted.clone()
+        current_results = current_results.filter(pl.col("estimator") != "nojoin")
 
-    # for var in ["estimator"]:
-    for var in ["estimator", "jd_method", "chosen_model"]:
-        for scatter_d in ["base_table", "chosen_model", "jd_method"]:
+    elif case == "full":
+        current_results = results_full.clone()
+
+    for var in ["jd_method"]:
+        # for var in ["estimator", "jd_method", "chosen_model"]:
+        print(f"Variable: {var}")
+        for scatter_d in ["base_table", "chosen_model", "jd_method", "estimator"]:
             if scatter_d == var:
                 continue
             plotting.draw_triple_comparison(
                 current_results,
                 var,
                 scatterplot_dimension=scatter_d,
-                figsize=(12, 4),
+                figsize=(18, 5),
                 scatter_mode="split",
                 savefig=True,
+                case=case,
             )

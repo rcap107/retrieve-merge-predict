@@ -47,7 +47,12 @@ LABEL_MAPPING = {
 
 
 def get_difference_from_mean(
-    df, column_to_average, result_column, scaled=False, geometric=False
+    df,
+    column_to_average,
+    result_column,
+    scaled=False,
+    geometric=False,
+    force_split=False,
 ):
     all_groupby_variables = [
         "fold_id",
@@ -61,7 +66,7 @@ def get_difference_from_mean(
     this_groupby = [_ for _ in all_groupby_variables if _ != column_to_average]
 
     n_unique = df.select(pl.col(column_to_average).n_unique()).item()
-    if n_unique > 2:
+    if n_unique > 2 or force_split:
         prepared_df = df.join(
             df.group_by(this_groupby).agg(
                 pl.mean(result_column).alias("reference_column")
@@ -76,7 +81,6 @@ def get_difference_from_mean(
             .top_k(1, by="scaled_diff")[column_to_average]
             .item()
         )
-        print("best ", best_method)
 
         prepared_df = (
             df.filter(pl.col(column_to_average) == best_method)
@@ -172,7 +176,6 @@ def format_xaxis(ax, case, xmax=1):
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
     elif case == "log":
-        print("log")
         ax.set_xscale("log", base=10)
         ax.xaxis.set_major_locator(
             ticker.LogLocator(
@@ -184,14 +187,12 @@ def format_xaxis(ax, case, xmax=1):
         ax.xaxis.set_minor_formatter(ticker.ScalarFormatter())
 
     elif case == "linear":
-        print("linear")
         ax.xaxis.set_major_locator(ticker.AutoLocator())
         ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.5))
         ax.xaxis.set_minor_formatter(ticker.ScalarFormatter())
 
     elif case == "symlog":
-        print("symlog")
         ax.set_xscale("symlog", base=2)
 
         major_locator = ticker.FixedLocator([0, 0.5, 1, 1.5, 2, 3])
@@ -300,14 +301,15 @@ def prepare_case_subplot(
     average_folds="none",
     box_width=0.9,
     xmax=1,
+    sorting_variable="r2score",
 ):
-    # Prepare the plotting data sorting the cases in ascending order by that variable.
+    # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
     data = (
-        df.select(grouping_dimension, plotting_variable)
+        df.select(grouping_dimension, plotting_variable, sorting_variable)
         .group_by(grouping_dimension)
-        .agg(pl.all(), pl.mean(plotting_variable).alias("sort_col"))
+        .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
         .sort("sort_col")
-        .drop("sort_col")
+        .select(grouping_dimension, plotting_variable)
         .to_dict()
     )
 
@@ -368,7 +370,6 @@ def prepare_case_subplot(
             zorder=3.5,
             edgecolors="black",
         )
-        print(scatter_mode)
         if scatter_mode == "split":
             offset = (
                 np.linspace(
@@ -405,7 +406,6 @@ def prepare_case_subplot(
                 zorder=2.5,
             )
     h, l = ax.get_legend_handles_labels()
-    print(l)
     ax.set_yticks(
         range(1, len(data[grouping_dimension]) + 1),
         [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
@@ -473,7 +473,6 @@ def draw_split_figure(
     )
 
     for idx_inner_var, case_grouping_ in enumerate(grouping_dimensions):
-        print(case_grouping_)
         fig, axes = plt.subplots(
             nrows=1,
             ncols=n_cols,
@@ -486,7 +485,6 @@ def draw_split_figure(
 
         if split_dimension is not None:
             for idx_outer_var, case_split_ in enumerate(cases[split_dimension]):
-                print("outer", case_split_)
                 ax = axes[0, idx_outer_var]
                 subset = df.filter(pl.col(split_dimension) == case_split_)
 
@@ -554,9 +552,10 @@ def draw_triple_comparison(
     figheight=None,
     savefig: bool = False,
     savefig_type: list | str = "png",
+    case: str = "dep",
 ):
 
-    df_r2 = get_difference_from_mean(
+    df_rel_r2 = get_difference_from_mean(
         df, column_to_average=grouping_dimension, result_column="r2score"
     )
     df_time = get_difference_from_mean(
@@ -577,10 +576,13 @@ def draw_triple_comparison(
         ncols=n_cols,
         figsize=figsize,
         sharex=False,
-        sharey="row",
+        sharey=False,
         layout="constrained",
         squeeze=False,
     )
+
+    axes[0, 1].sharey(axes[0, 2])
+    axes[0, 2].label_outer()
 
     plotting_variables = [
         "scaled_diff",
@@ -600,7 +602,9 @@ def draw_triple_comparison(
         rf"Relative computation time",
     ]
 
-    plot_df = [df_r2, df_r2, df_time]
+    scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
+
+    plot_df = [df, df_rel_r2, df_time]
     for idx, var in enumerate(plotting_variables):
         ax = axes[0, idx]
         ax.grid(which="both", axis="x", alpha=0.3)
@@ -622,12 +626,12 @@ def draw_triple_comparison(
         h,
         l,
         # loc="outside right",
-        loc="outside lower left",
+        loc="lower left",
         mode="expand",
         ncols=len(l),
         markerscale=5,
-        borderaxespad=-0.2,
-        bbox_to_anchor=(0, -0.1, 1, 0.5),
+        # borderaxespad=-0.2,
+        # bbox_to_anchor=(0, -0.1, 1, 0.5),
         scatterpoints=1,
     )
     fig.set_constrained_layout_pads(
@@ -641,5 +645,5 @@ def draw_triple_comparison(
         if isinstance(savefig_type, str):
             savefig_type = [savefig_type]
         for ext in savefig_type:
-            fname = f"triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
+            fname = f"{case}_triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
             fig.savefig(Path("images", fname))
