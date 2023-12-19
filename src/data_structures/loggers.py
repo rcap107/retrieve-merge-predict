@@ -1,6 +1,5 @@
 import copy
 import csv
-import datetime
 import datetime as dt
 import json
 import logging
@@ -11,14 +10,6 @@ import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
 from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
-
-# TODO remove dependency
-try:
-    import telegram
-
-    telegram_on = True
-except ImportError:
-    telegram_on = False
 
 import src.utils.logging as log
 from src.utils.logging import HEADER_RUN_LOGFILE
@@ -187,7 +178,7 @@ class ScenarioLogger:
         res_dict["timestamps"] = {
             k: v.isoformat()
             for k, v in res_dict["timestamps"].items()
-            if isinstance(v, datetime.datetime)
+            if isinstance(v, dt.datetime)
         }
         if Path(root_path).exists():
             with open(
