@@ -42,7 +42,8 @@ def parse_config(config_file_path):
 
 if __name__ == "__main__":
     config_file_path = (
-        "config/join_discovery/prepare-exact_matching-wordnet_full_flat.toml"
+        "config/join_discovery/prepare-exact_matching-wordnet_full.toml"
+        # "config/join_discovery/prepare-exact_matching-wordnet_full_flat.toml"
     )
     config = parse_config(config_file_path)
     prepare_join_discovery_methods(config)
