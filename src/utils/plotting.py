@@ -602,7 +602,8 @@ def draw_triple_comparison(
         rf"Relative computation time",
     ]
 
-    scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
+    if scatter_mode is None:
+        scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
     plot_df = [df, df_rel_r2, df_time]
     for idx, var in enumerate(plotting_variables):
