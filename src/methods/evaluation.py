@@ -128,7 +128,7 @@ def evaluate_joins(
     res_list = []
     add_info_dict = {}
 
-    for idx, (train_split, test_split) in tqdm(
+    for fold_id, (train_split, test_split) in tqdm(
         enumerate(splits),
         total=len(splits),
         desc="CV progress: ",
@@ -144,7 +144,9 @@ def evaluate_joins(
 
         for estim in estimators:
             run_logger = RunLogger(
-                scenario_logger, additional_parameters=estim.get_estimator_parameters()
+                scenario_logger,
+                additional_parameters=estim.get_estimator_parameters(),
+                fold_id=fold_id,
             )
             run_logger.start_time("run")
             if estim is None:
@@ -165,8 +167,8 @@ def evaluate_joins(
                     ),
                 ),
                 timestamps=True,
-                include_children=True,
-                multiprocess=True,
+                # include_children=True,
+                # multiprocess=True,
                 max_iterations=1,
             )
             run_logger.mark_memory(mem_usage, "fit")
@@ -179,8 +181,8 @@ def evaluate_joins(
                     (X_test,),
                 ),
                 timestamps=True,
-                include_children=True,
-                multiprocess=True,
+                # include_children=True,
+                # multiprocess=True,
                 max_iterations=1,
                 retval=True,
             )
@@ -196,8 +198,8 @@ def evaluate_joins(
                     ),
                 ),
                 timestamps=True,
-                include_children=True,
-                multiprocess=True,
+                # include_children=True,
+                # multiprocess=True,
                 max_iterations=1,
                 retval=True,
             )
@@ -209,12 +211,13 @@ def evaluate_joins(
 
             # Additional info includes best candidate join and relative info
             run_logger.set_additional_info(estim.get_additional_info())
+            run_logger.update_durations(additional_durations=estim.get_durations())
 
             run_logger.end_time("run")
             run_logger.set_run_status("SUCCESS")
             run_logger.to_run_log_file()
             res_list.append(curr_res)
-            add_info_dict[f"{idx}_{estim.name}"] = run_logger.additional_info
+            add_info_dict[f"{fold_id}_{estim.name}"] = run_logger.additional_info
 
     scenario_logger.additional_info = add_info_dict
     scenario_logger.results = pl.from_dicts(res_list)

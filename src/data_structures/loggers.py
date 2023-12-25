@@ -235,6 +235,7 @@ class RunLogger:
         self,
         scenario_logger: ScenarioLogger,
         additional_parameters: dict,
+        fold_id: int = None,
     ):
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
@@ -252,6 +253,7 @@ class RunLogger:
         }
 
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
+        self.parameters["fold_id"] = fold_id
         self.results = {}
         self.additional_info = {
             "best_candidate_hash": None,
@@ -296,6 +298,10 @@ class RunLogger:
     def update_timestamps(self, additional_timestamps=None):
         if additional_timestamps is not None:
             self.timestamps.update(additional_timestamps)
+
+    def update_durations(self, additional_durations=None):
+        if additional_durations is not None:
+            self.durations.update(additional_durations)
 
     def set_run_status(self, status: str):
         """Set run status for logging.
@@ -424,6 +430,11 @@ class RunLogger:
             self.durations.get("time_fit", ""),
             self.durations.get("time_predict", ""),
             self.durations.get("time_run", ""),
+            self.durations.get("time_prepare", ""),
+            self.durations.get("time_model_train", ""),
+            self.durations.get("time_join_train", ""),
+            self.durations.get("time_model_predict", ""),
+            self.durations.get("time_join_predict", ""),
             self.memory_usage.get("peak_fit", ""),
             self.memory_usage.get("peak_predict", ""),
             self.memory_usage.get("peak_test", ""),
