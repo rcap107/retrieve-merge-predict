@@ -260,6 +260,15 @@ class RunLogger:
             "joined_columns": None,
         }
 
+        self.memory_usage = {
+            "fit": None,
+            "predict": None,
+            "test": None,
+            "peak_fit": None,
+            "peak_predict": None,
+            "peak_test": None,
+        }
+
         self.mark_time("run")
 
     def get_parameters(self, scenario_logger: ScenarioLogger, additional_parameters):
@@ -288,7 +297,7 @@ class RunLogger:
         if additional_timestamps is not None:
             self.timestamps.update(additional_timestamps)
 
-    def set_run_status(self, status):
+    def set_run_status(self, status: str):
         """Set run status for logging.
 
         Args:
@@ -296,7 +305,7 @@ class RunLogger:
         """
         self.status = status
 
-    def start_time(self, label, cumulative=False):
+    def start_time(self, label: str, cumulative: bool = False):
         """Wrapper around the `mark_time` function for better clarity.
 
         Args:
@@ -306,12 +315,12 @@ class RunLogger:
         """
         return self.mark_time(label, cumulative)
 
-    def end_time(self, label, cumulative=False):
+    def end_time(self, label: str, cumulative: bool = False):
         if label not in self.timestamps:
             raise KeyError(f"Label {label} was not found.")
         return self.mark_time(label, cumulative)
 
-    def mark_time(self, label, cumulative=False):
+    def mark_time(self, label: str, cumulative: bool = False):
         """Given a `label`, add a new timestamp if `label` isn't found, otherwise
         mark the end of the timestamp and add a new duration.
 
@@ -336,7 +345,7 @@ class RunLogger:
                     this_segment[1] - this_segment[0]
                 ).total_seconds()
 
-    def get_time(self, label):
+    def get_time(self, label: str):
         """Retrieve a time according to the given label.
 
         Args:
@@ -349,7 +358,7 @@ class RunLogger:
         else:
             raise KeyError(f"Label {label} not found in timestamps.")
 
-    def get_duration(self, label):
+    def get_duration(self, label: str):
         """Retrieve a duration according to the given label.
 
         Args:
@@ -364,6 +373,24 @@ class RunLogger:
             return self.durations[label]
         else:
             raise KeyError(f"Label {label} not found in durations.")
+
+    def mark_memory(self, mem_usage: list, label: str):
+        """Record the memory usage for a given section of the code.
+
+        Args:
+            mem_usage (list): List containing the memory usage and timestamps.
+            label (str): One of "fit", "predict", "test".
+
+        Raises:
+            KeyError: Raise KeyError if the label is not correct.
+        """
+        if label in self.memory_usage:
+            self.memory_usage[label] = mem_usage
+            self.memory_usage[f"peak_{label}"] = max(
+                _[0] for _ in self.memory_usage[label]
+            )
+        else:
+            raise KeyError(f"Label {label} not found in mem_usage.")
 
     def measure_results(self, y_true, y_pred):
         if y_true.shape[0] != y_pred.shape[0]:
@@ -397,6 +424,9 @@ class RunLogger:
             self.durations.get("time_fit", ""),
             self.durations.get("time_predict", ""),
             self.durations.get("time_run", ""),
+            self.memory_usage.get("peak_fit", ""),
+            self.memory_usage.get("peak_predict", ""),
+            self.memory_usage.get("peak_test", ""),
             self.results.get("r2", ""),
             self.results.get("rmse", ""),
             self.results.get("f1", ""),

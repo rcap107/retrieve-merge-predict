@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from memory_profiler import memory_usage
 from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
 from tqdm import tqdm
 
@@ -149,17 +150,61 @@ def evaluate_joins(
             if estim is None:
                 run_logger.set_run_status("FAILURE")
                 run_logger.end_time("run")
+                run_logger.to_run_log_file()
                 continue
 
             run_logger.start_time("fit")
             estim.fit(X_train, y_train)
+
+            mem_usage = memory_usage(
+                (
+                    estim.fit,
+                    (
+                        X_train,
+                        y_train,
+                    ),
+                ),
+                timestamps=True,
+                include_children=True,
+                multiprocess=True,
+                max_iterations=1,
+            )
+            run_logger.mark_memory(mem_usage, "fit")
             run_logger.end_time("fit")
 
             run_logger.start_time("predict")
-            y_pred = estim.predict(X_test)
+            mem_usage, y_pred = memory_usage(
+                (
+                    estim.predict,
+                    (X_test,),
+                ),
+                timestamps=True,
+                include_children=True,
+                multiprocess=True,
+                max_iterations=1,
+                retval=True,
+            )
+            run_logger.mark_memory(mem_usage, "predict")
             run_logger.end_time("predict")
 
-            results = run_logger.measure_results(y_test, y_pred)
+            mem_usage, results = memory_usage(
+                (
+                    run_logger.measure_results,
+                    (
+                        y_test,
+                        y_pred,
+                    ),
+                ),
+                timestamps=True,
+                include_children=True,
+                multiprocess=True,
+                max_iterations=1,
+                retval=True,
+            )
+
+            # results = run_logger.measure_results(y_test, y_pred)
+
+            run_logger.mark_memory(mem_usage, "test")
             curr_res = {"estimator": estim.name, **results}
 
             # Additional info includes best candidate join and relative info
