@@ -1,3 +1,4 @@
+import datetime as dt
 import random
 import string
 from collections import deque
@@ -112,6 +113,9 @@ class BaseJoinEstimator(BaseEstimator):
         self.task = task
         self.n_joined_columns = None
         self.with_validation = True
+
+        self.timestamps = {}
+        self.durations = {}
 
         self.model = None
         self.cat_features = None
@@ -287,6 +291,26 @@ class BaseJoinEstimator(BaseEstimator):
         else:
             return None
 
+    def _start_time(self, label: str):
+        self._mark_time(label)
+
+    def _end_time(self, label: str):
+        self._mark_time(label)
+
+    def _mark_time(
+        self,
+        label: str,
+    ):
+        if label not in self.timestamps:
+            self.timestamps[label] = [dt.datetime.now(), None]
+            self.durations["time_" + label] = 0
+        else:
+            self.timestamps[label][1] = dt.datetime.now()
+            this_segment = self.timestamps[label]
+            self.durations["time_" + label] += (
+                this_segment[1] - this_segment[0]
+            ).total_seconds()
+
     def prepare_table(self, table):
         if type(table) == pd.DataFrame:
             table = pl.from_pandas(table)
@@ -367,6 +391,7 @@ class NoJoin(BaseJoinEstimator):
         # TODO: ADD ERROR CHECKING HERE
 
         if self.with_validation:
+            _start = dt.datetime.now()
             if X is not None and y is not None:
                 if X.shape[0] != y.shape[0]:
                     raise ValueError
@@ -376,12 +401,24 @@ class NoJoin(BaseJoinEstimator):
             self.build_model(X_train)
 
             self.n_joined_columns = len(X_train.columns)
-            self.fit_model(X_train, y_train, X_valid, y_valid)
+            _end = dt.datetime.now()
+            self.timestamps["prepare"] += (_end - _start).total_seconds()
 
+            _start = dt.datetime.now()
+            self.fit_model(X_train, y_train, X_valid, y_valid)
+            _end = dt.datetime.now()
+            self.timestamps["train"] += (_end - _start).total_seconds()
         else:
+            _start = dt.datetime.now()
             self.build_model(X)
+            _end = dt.datetime.now()
             self.n_joined_columns = len(X.columns)
+            self.timestamps["prepare"] += (_end - _start).total_seconds()
+
+            _start = dt.datetime.now()
             self.fit_model(X, y)
+            _end = dt.datetime.now()
+            self.timestamps["train"] += (_end - _start).total_seconds()
 
     def predict(self, X):
         return self.predict_model(X)
@@ -515,6 +552,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         self.left_on = self.right_on = None
 
     def fit(self, X, y):
+        self._start_time("prepare")
         # Find the exact containment ranking
         self.candidate_ranking = build_containment_ranking(X, self.candidate_joins)
         # Select the top-1 candidate
@@ -529,6 +567,8 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
         if self.with_validation:
             X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+            self._end_time("prepare")
+            self._start_time("join")
             merged_train, merged_valid = self._execute_joins(
                 X_train=X_train,
                 X_valid=X_valid,
@@ -537,9 +577,14 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
                 right_on=self.right_on,
             )
             self.n_joined_columns = len(merged_train.columns)
+            self._end_time("join")
+            self._start_time("fit")
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
+            self._end_time("fit")
         else:
+            self._end_time("prepare")
+            self._start_time("join")
             merged_train = self._execute_joins(
                 X_train=X,
                 cnd_table=self.best_cnd_table,
@@ -547,10 +592,14 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
                 right_on=self.right_on,
             )
             self.n_joined_columns = len(merged_train.columns)
+            self._end_time("join")
+            self._start_time("fit")
             self.build_model(merged_train)
             self.fit_model(merged_train, y)
+            self._end_time("fit")
 
     def predict(self, X):
+        self._start_time("join_predict")
         merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
             self.best_cnd_table,
@@ -559,7 +608,11 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
-        return self.predict_model(merged_test)
+        self._end_time("join_predict")
+        self._start_time("predict")
+        pred = self.predict_model(merged_test)
+        self._end_time("predict")
+        return pred
 
     def get_estimator_parameters(self):
         d = super().get_estimator_parameters()
@@ -625,10 +678,11 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             return self.candidate_ranking.limit(top_k)
 
     def fit(self, X, y):
+        self._start_time("prepare")
         X_train, X_valid, y_train, y_valid = train_test_split(
             X, y, test_size=self.valid_size
         )
-
+        self._end_time("prepare")
         ranking = []
 
         for hash_, cjoin in tqdm(
@@ -638,18 +692,22 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             desc="BestSingleJoin",
             position=0,
         ):
+            self._start_time("join")
             _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
 
             merged_train, merged_valid = self._execute_joins(
                 X_train, X_valid, cnd_table, left_on, right_on
             )
+            self._end_time("join")
 
+            self._start_time("fit")
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
 
             y_pred = self.predict_model(merged_valid)
             metric = self._evaluate_candidate(y_valid, y_pred)
+            self._end_time("fit")
 
             ranking.append({"candidate": hash_, "metric": metric})
 
@@ -659,6 +717,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
                 self.best_cjoin = cjoin.candidate_id
 
         # RETRAINING THE MODEL
+        self._start_time("join")
         best_join_mdata = self.candidate_joins[self.best_cnd_hash]
         (
             _,
@@ -671,12 +730,16 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             X_train, X_valid, self.best_cnd_table, self.left_on, self.right_on
         )
         self.n_joined_columns = len(best_train.columns)
+        self._end_time("join")
 
+        self._start_time("fit")
         self.build_model(best_train)
         self.fit_model(best_train, y_train, best_valid, y_valid)
         self.candidate_ranking = pl.from_dicts(ranking).sort("metric", descending=True)
+        self._end_time("fit")
 
     def predict(self, X):
+        self._start_time("join_predict")
         merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
             self.best_cnd_table,
@@ -685,7 +748,13 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
-        return self.predict_model(merged_test)
+        self._end_time("join_predict")
+
+        self._start_time("predict")
+        pred = self.predict_model(merged_test)
+        self._end_time("predict")
+
+        return pred
 
     def transform(self, X):
         pass
