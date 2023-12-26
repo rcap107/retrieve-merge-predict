@@ -8,10 +8,11 @@ from src.data_structures.metadata import MetadataIndex
 from src.utils.indexing import DEFAULT_INDEX_DIR, load_index, query_index
 
 # %%
-config = toml.load("config/retrieval/query-wordnet_full.toml")
+config = toml.load("config/retrieval/query-wordnet_full_flat.toml")
 
 jd_methods = config["join_discovery_method"]
 data_lake_version = config["data_lake"]
+exact_matching = config.get("exact_matching", False)
 
 query_cases = config["query_cases"]
 
@@ -46,5 +47,7 @@ for query_case in query_cases:
             index = ExactMatchingIndex(file_path=index_path)
         else:
             raise ValueError
-        query_index(index, query_tab_path, query_column, mdata_index)
+        query_index(
+            index, query_tab_path, query_column, mdata_index, exact_matching=True
+        )
 # %%
