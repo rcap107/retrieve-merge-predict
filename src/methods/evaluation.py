@@ -10,7 +10,7 @@ from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
 from tqdm import tqdm
 
 import src.utils.joining as ju
-from src.data_structures.loggers import RunLogger
+from src.data_structures.loggers import RunLogger, ScenarioLogger
 from src.methods.join_estimators import (
     BestSingleJoin,
     FullJoin,
@@ -19,18 +19,28 @@ from src.methods.join_estimators import (
     StepwiseGreedyJoin,
 )
 
-# from tqdm.contrib.telegram import tqdm
-
-
 logger_sh = logging.getLogger("pipeline")
-
 
 # TODO: move this somewhere else
 model_folder = Path("data/models")
 os.makedirs(model_folder, exist_ok=True)
 
 
-def prepare_splits(run_parameters, base_table=None, group_column=None):
+def prepare_splits(run_parameters: dict, base_table: pl.DataFrame, group_column: str):
+    """Prepare the crossvalidation splits.
+
+    Args:
+        run_parameters (dict): Dictionary that contains the run parameters.
+        base_table (pl.DataFrame): Base table to be used for training.
+        group_column (str): Column that will used for joining and that will be used to
+        separate splits with the GroupShuffle.
+
+    Raises:
+        ValueError: Raise value error if the provided split_kind is not an acceptable value.
+
+    Returns:
+        list: List of indices to be used to set the crossvalidation splits.
+    """
     split_kind = run_parameters["split_kind"]
     n_splits = run_parameters["n_splits"]
     test_size = run_parameters["test_size"]
@@ -50,7 +60,18 @@ def prepare_splits(run_parameters, base_table=None, group_column=None):
     return splits
 
 
-def prepare_X_y(src_df, target_column, schema=None):
+def prepare_X_y(src_df: pl.DataFrame, target_column: str, schema: dict = None):
+    """Given a dataframe with a given target column and a schema, execute casting and return the dataframe
+    as X and y.
+
+    Args:
+        src_df (pl.DataFrame): Dataframe to prepare.
+        target_column (str): Name of the target column to pass as y.
+        schema (dict, optional): Schema to be used for casting the tables. Defaults to None.
+
+    Returns:
+        pd.DataFrame, pd.Series: Dataframe and target series to be used in the training.
+    """
     y = src_df[target_column].to_pandas()
     df = src_df.clone().cast(schema).fill_null(value="null").fill_nan(value=np.nan)
     if schema is None:
@@ -63,12 +84,22 @@ def prepare_X_y(src_df, target_column, schema=None):
 
 
 def prepare_estimator(
-    estimator_name,
-    estimator_parameters,
-    join_candidates,
+    estimator_name: str,
+    estimator_parameters: dict,
+    join_candidates: list,
     join_parameters,
-    base_table_schema,
 ):
+    """Prepare the estimator based on the given parameters.
+
+    Args:
+        estimator_name (str): Name of the estimator.
+        estimator_parameters (dict): Parameters to be provided to the estimator.
+        join_candidates (list): Candidates for the join operation.
+        join_parameters (dict): Parameters to be used in the join operation.
+
+    Returns:
+        An estimator with the given type.
+    """
     estimator_parameters.pop("active")
     if estimator_name == "no_join":
         return NoJoin(**estimator_parameters)
@@ -87,16 +118,33 @@ def prepare_estimator(
 
 
 def evaluate_joins(
-    scenario_logger,
+    scenario_logger: ScenarioLogger,
     base_table: pl.DataFrame,
     join_candidates,
-    target_column="target",
-    group_column="col_to_embed",
-    estim_parameters=None,
-    join_parameters=None,
-    model_parameters=None,
-    run_parameters=None,
+    target_column: str = "target",
+    group_column: str = "col_to_embed",
+    estim_parameters: dict | None = None,
+    join_parameters: dict | None = None,
+    model_parameters: dict | None = None,
+    run_parameters: dict | None = None,
 ):
+    """Evaluate the join estimators on the given base table and join candidates. Potential additioanl parameters
+    are provided.
+
+    Args:
+        scenario_logger (ScenarioLogger): ScenarioLogger object used to track the results of the runs.
+        base_table (pl.DataFrame): Base table to evaluate.
+        join_candidates (_type_): List of candidate joins that will be used for the estimators.
+        target_column (str, optional): Target column that is used for training the model. Defaults to "target".
+        group_column (str, optional): Column that will be used for joining. Defaults to "col_to_embed".
+        estim_parameters (dict | None, optional): Additional parameters for the estimator. Defaults to None.
+        join_parameters (dict | None, optional): Additional parameters for the join operation. Defaults to None.
+        model_parameters (dict | None, optional): Additional parameters to be passed to the ML model. Defaults to None.
+        run_parameters (dict | None, optional): Additional parameters relative to the run. Defaults to None.
+
+    Raises:
+        ValueError: Raise ValueError if the number of provided estimators is 0.
+    """
     splits = prepare_splits(run_parameters, base_table, group_column)
 
     estim_common_parameters = {
@@ -108,6 +156,7 @@ def evaluate_joins(
 
     estimators = []
 
+    # Prepare the estimators using the provided parameters
     for estim in estim_parameters:
         params = dict(estim_common_parameters)
         params.update(estim_parameters.get(estim, {}))
@@ -118,7 +167,6 @@ def evaluate_joins(
                     params,
                     join_candidates,
                     join_parameters,
-                    base_table_schema=base_table.schema,
                 )
             )
 
@@ -143,6 +191,7 @@ def evaluate_joins(
         X_test, y_test = prepare_X_y(base_table_test, target_column, schema=schema)
 
         for estim in estimators:
+            # Prepare the logger for this un
             run_logger = RunLogger(
                 scenario_logger,
                 additional_parameters=estim.get_estimator_parameters(),
@@ -173,6 +222,7 @@ def evaluate_joins(
             run_logger.mark_memory(mem_usage, "fit")
             run_logger.end_time("fit")
 
+            # Execute the predict operation
             run_logger.start_time("predict")
             mem_usage, y_pred = memory_usage(
                 (
@@ -188,6 +238,7 @@ def evaluate_joins(
             run_logger.mark_memory(mem_usage, "predict")
             run_logger.end_time("predict")
 
+            # Evaluate the results
             mem_usage, results = memory_usage(
                 (
                     run_logger.measure_results,
@@ -202,9 +253,6 @@ def evaluate_joins(
                 max_iterations=1,
                 retval=True,
             )
-
-            # results = run_logger.measure_results(y_test, y_pred)
-
             run_logger.mark_memory(mem_usage, "test")
             curr_res = {"estimator": estim.name, **results}
 
