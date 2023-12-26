@@ -1,8 +1,6 @@
 import datetime as dt
 import random
-import string
 from collections import deque
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,10 +9,10 @@ import polars.selectors as cs
 from catboost import CatBoostClassifier, CatBoostRegressor
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression, SGDClassifier
-from sklearn.metrics import auc, f1_score, mean_squared_error, r2_score, roc_curve
+from sklearn.metrics import f1_score, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
-from tqdm import tqdm, trange
+from tqdm import tqdm
 
 import src.utils.indexing as iu
 import src.utils.joining as ju
@@ -930,8 +928,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         # Calling this "current_metric" to be more generic
         self.current_metric = -np.inf
-        self.current_X_train = None
-        self.current_X_valid = None
+        self.current_X_train = self.current_X_valid = None
         self.selected_candidates = {}
         self.valid_size = valid_size
         self.blacklist = deque([], maxlen=max_candidates)
