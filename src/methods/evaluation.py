@@ -155,9 +155,8 @@ def evaluate_joins(
                 run_logger.to_run_log_file()
                 continue
 
+            # Execute the fit operation
             run_logger.start_time("fit")
-            estim.fit(X_train, y_train)
-
             mem_usage = memory_usage(
                 (
                     estim.fit,
