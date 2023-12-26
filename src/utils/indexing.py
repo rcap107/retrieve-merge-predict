@@ -217,14 +217,20 @@ def load_index(config):
 
 
 def query_index(
-    index: MinHashIndex | LazoIndex, query_tab_path, query_column, mdata_index
+    index: MinHashIndex | LazoIndex,
+    query_tab_path,
+    query_column,
+    mdata_index,
+    exact_matching: bool = False,
 ):
     query_tab_metadata = RawDataset(
         query_tab_path.resolve(), "queries", "data/metadata/queries"
     )
     query_tab_metadata.save_metadata_to_json()
 
-    query_result = QueryResult(index, query_tab_metadata, query_column, mdata_index)
+    query_result = QueryResult(
+        index, query_tab_metadata, query_column, mdata_index, exact_matching
+    )
     query_result.save_to_pickle()
     return query_result
 

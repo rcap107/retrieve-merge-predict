@@ -303,6 +303,7 @@ class QueryResult:
         source_mdata: RawDataset,
         query_column: str,
         mdata_index: MetadataIndex,
+        exact_matching: bool,
     ) -> None:
         self.index_name = index.index_name
         self.data_lake_version = mdata_index.data_lake_variant
@@ -333,16 +334,49 @@ class QueryResult:
             )
             tmp_cand[cjoin.candidate_id] = cjoin
 
-        ranked_results = dict(
-            sorted(
-                [(k, v.similarity_score) for k, v in tmp_cand.items()],
-                key=lambda x: x[1],
-                reverse=True,
-            )
-        )
+        ranked_results = self.rank_results(tmp_cand, exact_matching)
 
         self.candidates = {k: tmp_cand[k] for k in ranked_results}
         self.n_candidates = len(self.candidates)
+
+    def measure_containment(
+        self, source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on, right_on
+    ):
+        unique_source = source_table[left_on].unique()
+        unique_cand = cand_table[right_on].unique()
+
+        s1 = set(unique_source[left_on].to_series().to_list())
+        s2 = set(unique_cand[right_on].to_series().to_list())
+        return len(s1.intersection(s2)) / len(s1)
+
+    def rank_results(self, candidates, exact_matching=False):
+        if not exact_matching:
+            return dict(
+                sorted(
+                    [(k, v.similarity_score) for k, v in candidates.items()],
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+            )
+        else:
+            resort = []
+
+            for k, candidate_join in candidates.items():
+                source_md = candidate_join.source_metadata
+                cand_md = candidate_join.candidate_metadata
+                left_on = candidate_join.left_on
+                right_on = candidate_join.right_on
+
+                source_table = pl.read_parquet(source_md["full_path"])
+                cand_table = pl.read_parquet(cand_md["full_path"])
+
+                cont = self.measure_containment(
+                    source_table, cand_table, left_on, right_on
+                )
+                resort.append((k, cont))
+
+            resort.sort(key=lambda x: x[1], reverse=True)
+            return dict(resort)
 
     def select_top_k(self, top_k):
         if top_k > 0:

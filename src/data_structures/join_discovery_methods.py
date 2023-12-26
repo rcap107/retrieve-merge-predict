@@ -267,9 +267,6 @@ class MinHashIndex:
         with open(output_path, "wb") as fp:
             dump(self.ensembles, fp)
 
-    def measure_exact_overlap(self, query_results):
-        return query_results
-
     def save_index(self, output_dir):
         out_dict = {
             "index_name": self.index_name,
@@ -300,6 +297,7 @@ class MinHashIndex:
                     self.num_part = index_dict["num_part"]
                     self.thresholds = index_dict["thresholds"]
                     self.ensembles = index_dict["ensembles"]
+                    self.compute_exact = index_dict["compute_exact"]
                     self.initialized = True
             else:
                 raise FileNotFoundError(f"File `{index_file}` not found.")
@@ -309,6 +307,7 @@ class MinHashIndex:
             self.num_part = index_dict["num_part"]
             self.thresholds = index_dict["thresholds"]
             self.ensembles = index_dict["ensembles"]
+            # self.compute_exact = index_dict["compute_exact"]
             self.initialized = True
         else:
             raise ValueError("Either `index_file` or `index_dict` must be provided.")
