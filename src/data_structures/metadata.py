@@ -303,9 +303,11 @@ class QueryResult:
         source_mdata: RawDataset,
         query_column: str,
         mdata_index: MetadataIndex,
-        exact_matching: bool,
+        rerank: bool,
     ) -> None:
         self.index_name = index.index_name
+        if rerank:
+            self.index_name += "_hybrid"
         self.data_lake_version = mdata_index.data_lake_variant
         self.source_mdata = source_mdata
         self.query_column = query_column
@@ -334,7 +336,7 @@ class QueryResult:
             )
             tmp_cand[cjoin.candidate_id] = cjoin
 
-        ranked_results = self.rank_results(tmp_cand, exact_matching)
+        ranked_results = self.rank_results(tmp_cand, rerank)
 
         self.candidates = {k: tmp_cand[k] for k in ranked_results}
         self.n_candidates = len(self.candidates)
@@ -360,7 +362,6 @@ class QueryResult:
             )
         else:
             resort = []
-
             for k, candidate_join in candidates.items():
                 source_md = candidate_join.source_metadata
                 cand_md = candidate_join.candidate_metadata

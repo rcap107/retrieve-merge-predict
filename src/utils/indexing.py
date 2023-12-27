@@ -221,7 +221,7 @@ def query_index(
     query_tab_path,
     query_column,
     mdata_index,
-    exact_matching: bool = False,
+    rerank: bool = False,
 ):
     query_tab_metadata = RawDataset(
         query_tab_path.resolve(), "queries", "data/metadata/queries"
@@ -229,7 +229,7 @@ def query_index(
     query_tab_metadata.save_metadata_to_json()
 
     query_result = QueryResult(
-        index, query_tab_metadata, query_column, mdata_index, exact_matching
+        index, query_tab_metadata, query_column, mdata_index, rerank
     )
     query_result.save_to_pickle()
     return query_result
