@@ -1,5 +1,6 @@
-join_discovery_method=["exact_matching", "minhash"]
+join_discovery_method=["minhash"]
 data_lake="wordnet_full_flat"
+exact_matching = false
 
 # [["query_cases"]]
 # table_path="data/source_tables/batch/us-elections-yadl.parquet"

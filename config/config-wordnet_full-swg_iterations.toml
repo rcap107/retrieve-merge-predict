@@ -18,13 +18,13 @@ catboost.l2_leaf_reg=0.01
 catboost.thread_count=32
 
 ["estimators"]
-no_join.active=true
+no_join.active=false
 stepwise_greedy_join.active=true
-highest_containment.active=true
-best_single_join.active=true
-full_join.active=true
+highest_containment.active=false
+best_single_join.active=false
+full_join.active=false
 stepwise_greedy_join.budget_type="iterations"
-stepwise_greedy_join.budget_amount=[30]
+stepwise_greedy_join.budget_amount=[10, 30, 100]
 stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
 
@@ -41,4 +41,4 @@ table_path=[
 "data/source_tables/yadl/us_county_population-depleted-yadl.parquet",
 ]
 query_column="col_to_embed"
-top_k=[10, 30, 100]
+top_k=[ 30]

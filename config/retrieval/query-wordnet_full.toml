@@ -1,30 +1,31 @@
-join_discovery_method=["exact_matching"]
+join_discovery_method=["minhash"]
 data_lake="wordnet_full"
+hybrid=false
 
 [["query_cases"]]
-table_path="data/source_tables/batch/us-elections-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/us_elections-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/batch/housing-prices-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/housing_prices-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/batch/company-employees-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/company_employees-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/batch/movies-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/movies-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/batch/us-accidents-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/us_accidents-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/batch/movies-vote-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/movies_vote-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/yadl/us_county_population-depleted-yadl.parquet"
+table_path="data/source_tables/yadl/us_county_population-yadl-depleted.parquet"
 query_column="col_to_embed"

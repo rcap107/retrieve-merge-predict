@@ -11,15 +11,15 @@ aggregation=["first"]
 
 ["evaluation_models"]
 chosen_model=["linear", ]
-catboost.iterations=300
+catboost.iterations=30
 catboost.od_type="Iter"
 catboost.od_wait=10
 catboost.l2_leaf_reg=0.01
 
 ["estimators"]
 no_join.active=false
-stepwise_greedy_join.active=false
-highest_containment.active=true
+stepwise_greedy_join.active=true
+highest_containment.active=false
 best_single_join.active=false
 full_join.active=false
 stepwise_greedy_join.budget_type="iterations"
@@ -32,17 +32,17 @@ data_lake=["binary_update"]
 join_discovery_method=["minhash"]
 table_path=[
 "data/source_tables/batch/us-elections-yadl.parquet",
-"data/source_tables/batch/housing-prices-yadl.parquet",
-"data/source_tables/batch/company-employees-yadl.parquet",
-"data/source_tables/batch/movies-yadl.parquet",
-"data/source_tables/batch/movies-vote-yadl.parquet",
-"data/source_tables/batch/us-accidents-yadl.parquet",
-"data/source_tables/batch/us-elections-yadl-depleted.parquet",
-"data/source_tables/batch/housing-prices-yadl-depleted.parquet",
-"data/source_tables/batch/company-employees-yadl-depleted.parquet",
-"data/source_tables/batch/movies-yadl-depleted.parquet",
-"data/source_tables/batch/movies-vote-yadl-depleted.parquet",
-"data/source_tables/batch/us-accidents-yadl-depleted.parquet",
+# "data/source_tables/batch/housing-prices-yadl.parquet",
+# "data/source_tables/batch/company-employees-yadl.parquet",
+# "data/source_tables/batch/movies-yadl.parquet",
+# "data/source_tables/batch/movies-vote-yadl.parquet",
+# "data/source_tables/batch/us-accidents-yadl.parquet",
+# "data/source_tables/batch/us-elections-yadl-depleted.parquet",
+# "data/source_tables/batch/housing-prices-yadl-depleted.parquet",
+# "data/source_tables/batch/company-employees-yadl-depleted.parquet",
+# "data/source_tables/batch/movies-yadl-depleted.parquet",
+# "data/source_tables/batch/movies-vote-yadl-depleted.parquet",
+# "data/source_tables/batch/us-accidents-yadl-depleted.parquet",
 ]
 query_column="col_to_embed"
 top_k=30

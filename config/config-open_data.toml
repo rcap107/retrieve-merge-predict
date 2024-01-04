@@ -1,20 +1,21 @@
 ["run_parameters"]
 task="regression"
 debug=false
-n_splits=[20]
+n_splits=[10]
 test_size=0.2
 split_kind="group_shuffle"
 
 ["join_parameters"]
 join_strategy="left"
-aggregation=["first"]
+aggregation=["mean"]
 
 ["evaluation_models"]
-chosen_model=["catboost"]
+chosen_model=["catboost", "linear"]
 catboost.iterations=300
 catboost.od_type="Iter"
 catboost.od_wait=10
 catboost.l2_leaf_reg=0.01
+catboost.thread_count=32
 
 ["estimators"]
 no_join.active=true
@@ -23,7 +24,7 @@ highest_containment.active=true
 best_single_join.active=true
 full_join.active=true
 stepwise_greedy_join.budget_type="iterations"
-stepwise_greedy_join.budget_amount=[20]
+stepwise_greedy_join.budget_amount=[30]
 stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
 
@@ -31,7 +32,7 @@ stepwise_greedy_join.ranking_metric="containment"
 # Company employees
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/company_employees-open_data.parquet"
 query_column="name"
@@ -39,7 +40,7 @@ query_column="name"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
 query_column="name"
@@ -47,21 +48,21 @@ query_column="name"
 # Housing prices
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
 query_column="County"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
 query_column="Metro"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
@@ -69,7 +70,7 @@ query_column="County"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/housing_prices-depleted_Metro-open_data.parquet"
@@ -78,7 +79,7 @@ query_column="Metro"
 # US elections
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_elections-open_data.parquet"
@@ -86,7 +87,7 @@ query_column="county_name"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
@@ -95,7 +96,7 @@ query_column="county_name"
 # Movies
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
@@ -103,7 +104,7 @@ query_column="title"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies-open_data.parquet"
@@ -113,7 +114,7 @@ query_column="title"
 # Movies vote
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies_vote-open_data.parquet"
@@ -121,7 +122,7 @@ query_column="title"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
@@ -131,7 +132,7 @@ query_column="title"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_accidents-open_data.parquet"
@@ -139,7 +140,7 @@ query_column="County"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method="minhash"
+join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"

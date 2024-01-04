@@ -18,7 +18,6 @@ catboost.od_wait=10
 catboost.l2_leaf_reg=0.01
 catboost.thread_count=32
 
-
 ["estimators"]
 no_join.active=true
 stepwise_greedy_join.active=true
@@ -31,7 +30,7 @@ stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
 
 ["query_cases"]
-data_lake=["wordnet_full", "binary_update"]
+data_lake=["wordnet_full"]
 join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 table_path=[
 # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
@@ -40,7 +39,7 @@ table_path=[
 # "data/source_tables/yadl/movies-yadl-depleted.parquet",
 # "data/source_tables/yadl/movies_vote-yadl-depleted.parquet",
 # "data/source_tables/yadl/us_accidents-yadl-depleted.parquet",
-# "data/source_tables/yadl/us_county_population-depleted-yadl.parquet",
+# "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
 "data/source_tables/yadl/us_elections-yadl.parquet",
 "data/source_tables/yadl/housing_prices-yadl.parquet",
 "data/source_tables/yadl/company_employees-yadl.parquet",
