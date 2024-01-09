@@ -21,6 +21,7 @@ LABEL_MAPPING = {
         "housing-prices-yadl-depleted": "(D) Housing Prices",
         "us-accidents-yadl-depleted": "(D) US Accidents",
         "us-elections-yadl-depleted": "(D) US Elections",
+        "us_county_population-depleted-yadl": "(D) US County Population",
         "company-employees-yadl": "Employees",
         "movies-yadl": "Movies",
         "movies-vote-yadl": "Movies Vote",
@@ -43,6 +44,7 @@ LABEL_MAPPING = {
         "chosen_model": "ML model",
         "base_table": "Base table",
     },
+    "budget_amount": {10: 10, 30: 30, 100: 100},
 }
 
 
@@ -304,14 +306,23 @@ def prepare_case_subplot(
     sorting_variable="r2score",
 ):
     # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
-    data = (
-        df.select(grouping_dimension, plotting_variable, sorting_variable)
-        .group_by(grouping_dimension)
-        .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
-        .sort("sort_col")
-        .select(grouping_dimension, plotting_variable)
-        .to_dict()
-    )
+    if sorting_variable == plotting_variable:
+        data = (
+            df.select(grouping_dimension, sorting_variable)
+            .group_by(grouping_dimension)
+            .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+            .sort("sort_col")
+            .to_dict()
+        )
+    else:
+        data = (
+            df.select(grouping_dimension, plotting_variable, sorting_variable)
+            .group_by(grouping_dimension)
+            .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+            .sort("sort_col")
+            .select(grouping_dimension, plotting_variable)
+            .to_dict()
+        )
 
     if scatterplot_mapping is None:
         scatterplot_mapping = prepare_scatterplot_labels(
@@ -384,7 +395,7 @@ def prepare_case_subplot(
         for _, label in enumerate(scatterplot_mapping):
             this_label = LABEL_MAPPING[scatterplot_dimension][label]
             if _i > 0:
-                this_label = "_" + this_label
+                this_label = "_" + str(this_label)
             filter_dict = {
                 scatterplot_dimension: label,
                 grouping_dimension: data[grouping_dimension][_i],
@@ -455,6 +466,8 @@ def draw_split_figure(
             for _ in cases.keys()
             if (_ != split_dimension) & (_ != scatterplot_dimension)
         ]
+    if isinstance(grouping_dimensions, str):
+        grouping_dimensions = [grouping_dimensions]
 
     # Check that all columns are found
     assert all(_ in df.columns for _ in grouping_dimensions)
