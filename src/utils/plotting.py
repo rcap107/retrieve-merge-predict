@@ -16,26 +16,41 @@ GROUPING_KEYS = ["jd_method", "estimator", "chosen_model", "target_dl", "base_ta
 LABEL_MAPPING = {
     "base_table": {
         "company-employees-yadl-depleted": "(D) Employees",
+        "company_employees-yadl-depleted": "(D) Employees",
         "movies-yadl-depleted": "(D) Movies",
         "movies-vote-yadl-depleted": "(D) Movies Vote",
+        "movies_vote-yadl-depleted": "(D) Movies Vote",
         "housing-prices-yadl-depleted": "(D) Housing Prices",
+        "housing_prices-yadl-depleted": "(D) Housing Prices",
         "us-accidents-yadl-depleted": "(D) US Accidents",
+        "us_accidents-yadl-depleted": "(D) US Accidents",
         "us-elections-yadl-depleted": "(D) US Elections",
+        "us_elections-yadl-depleted": "(D) US Elections",
         "us_county_population-depleted-yadl": "(D) US County Population",
+        "us_county_population-yadl-depleted": "(D) US County Population",
         "company-employees-yadl": "Employees",
+        "company_employees-yadl": "Employees",
         "movies-yadl": "Movies",
         "movies-vote-yadl": "Movies Vote",
+        "movies_vote-yadl": "Movies Vote",
         "housing-prices-yadl": "Housing Prices",
+        "housing_prices-yadl": "Housing Prices",
         "us-accidents-yadl": "US Accidents",
+        "us_accidents-yadl": "US Accidents",
         "us-elections-yadl": "US Elections",
+        "us_elections-yadl": "US Elections",
     },
-    "jd_method": {"exact_matching": "Exact", "minhash": "MinHash"},
+    "jd_method": {
+        "exact_matching": "Exact",
+        "minhash": "MinHash",
+        "minhash_hybrid": "Hybrid MinHash",
+    },
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
-        "full_join": "Full Join",
-        "best_single_join": "Best Single Join",
-        "stepwise_greedy_join": "Stepwise Greedy Join",
-        "highest_containment": "Highest Jaccard Join",
+        "full_join": "Full\nJoin",
+        "best_single_join": "Best Single\nJoin",
+        "stepwise_greedy_join": "Stepwise Greedy\nJoin",
+        "highest_containment": "Highest Cont.\nJoin",
         "nojoin": "No",
     },
     "variables": {
@@ -175,8 +190,10 @@ def _custom_formatter(x, pos):
 
 def format_xaxis(ax, case, xmax=1):
     if case == "percentage":
-        ax.xaxis.set_major_locator(ticker.AutoLocator())
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.05))
         ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
+        # ax.xaxis.set_minor_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
     elif case == "log":
         ax.set_xscale("log", base=10)
         ax.xaxis.set_major_locator(
@@ -196,8 +213,15 @@ def format_xaxis(ax, case, xmax=1):
 
     elif case == "symlog":
         ax.set_xscale("symlog", base=2)
-
-        major_locator = ticker.FixedLocator([0, 0.5, 1, 1.5, 2, 3])
+        major_locator = ticker.SymmetricalLogLocator(
+            base=2,
+            linthresh=2,
+            subs=[
+                0.5,
+                1,
+            ],
+        )
+        # major_locator = ticker.FixedLocator([0, 0.5, 1, 1.5, 2, 3])
         ax.xaxis.set_major_locator(major_locator)
         ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
     return ax
@@ -417,10 +441,13 @@ def prepare_case_subplot(
                 zorder=2.5,
             )
     h, l = ax.get_legend_handles_labels()
-    ax.set_yticks(
-        range(1, len(data[grouping_dimension]) + 1),
-        [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
-    )
+    if len(data[plotting_variable]) == 1:
+        ax.set_yticks([1], ["Best"])
+    else:
+        ax.set_yticks(
+            range(1, len(data[grouping_dimension]) + 1),
+            [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
+        )
 
     ax = format_xaxis(ax, xtick_format, xmax)
 
@@ -558,15 +585,16 @@ def draw_triple_comparison(
     df,
     grouping_dimension,
     scatterplot_dimension,
+    form_factor: str = "multi",
     scatter_mode="overlapping",
     colormap_name="viridis",
     figsize=(10, 4),
-    figwidth=None,
-    figheight=None,
     savefig: bool = False,
     savefig_type: list | str = "png",
     case: str = "dep",
 ):
+    # The form factor decides whether plots should be on a row, or use a gridspec
+    assert form_factor in ["multi", "binary"]
 
     df_rel_r2 = get_difference_from_mean(
         df, column_to_average=grouping_dimension, result_column="r2score"
@@ -578,24 +606,18 @@ def draw_triple_comparison(
         geometric=True,
     )
 
-    n_cols = 3
     scatterplot_mapping = prepare_scatterplot_labels(
         df, scatterplot_dimension, "scaled_diff", colormap_name
     )
 
-    # axes = fig.subplots(
-    fig, axes = plt.subplots(
-        nrows=1,
-        ncols=n_cols,
-        figsize=figsize,
-        sharex=False,
-        sharey=False,
-        layout="constrained",
-        squeeze=False,
-    )
-
-    axes[0, 1].sharey(axes[0, 2])
-    axes[0, 2].label_outer()
+    if form_factor == "multi":
+        fig, axes = plt.subplot_mosaic(
+            [[1, 2, 3]], layout="constrained", sharey=True, figsize=figsize
+        )
+    else:
+        fig, axes = plt.subplot_mosaic(
+            [[1, 2], [1, 3]], layout="constrained", sharey=False, figsize=figsize
+        )
 
     plotting_variables = [
         "scaled_diff",
@@ -619,9 +641,9 @@ def draw_triple_comparison(
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
     plot_df = [df, df_rel_r2, df_time]
-    for idx, var in enumerate(plotting_variables):
-        ax = axes[0, idx]
-        ax.grid(which="both", axis="x", alpha=0.3)
+    for idx, var in enumerate(plotting_variables, start=0):
+        ax = axes[idx + 1]
+        # ax.grid(which="both", axis="x", alpha=0.3)
         h, l = prepare_case_subplot(
             ax,
             plot_df[idx],
@@ -634,30 +656,41 @@ def draw_triple_comparison(
             kind="box",
             jitter_factor=0.03,
         )
-        axes[0][idx].set_title(subplot_titles[idx])
+        axes[idx + 1].set_title(subplot_titles[idx])
 
-    fig.legend(
-        h,
-        l,
-        # loc="outside right",
-        loc="lower left",
-        mode="expand",
-        ncols=len(l),
-        markerscale=5,
-        # borderaxespad=-0.2,
-        # bbox_to_anchor=(0, -0.1, 1, 0.5),
-        scatterpoints=1,
-    )
+    # fig.legend(
+    #     h,
+    #     l,
+    #     loc="right",
+    #     ncols=1,
+    #     markerscale=5,
+    #     # borderaxespad=-0.2,
+    #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
+    #     scatterpoints=1,
+    # )
+    # fig.legend(
+    #     h,
+    #     l,
+    #     # loc="outside right",
+    #     loc="lower left",
+    #     mode="expand",
+    #     ncols=len(l),
+    #     markerscale=5,
+    #     # borderaxespad=-0.2,
+    #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
+    #     scatterpoints=1,
+    # )
     fig.set_constrained_layout_pads(
         w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
     )
-    fig.suptitle(
-        f"{LABEL_MAPPING['variables'][grouping_dimension]} - {LABEL_MAPPING['variables'][scatterplot_dimension]}"
-    )
+    # fig.suptitle(
+    #     f"{LABEL_MAPPING['variables'][grouping_dimension]} - {LABEL_MAPPING['variables'][scatterplot_dimension]}"
+    # )
 
     if savefig:
         if isinstance(savefig_type, str):
             savefig_type = [savefig_type]
         for ext in savefig_type:
             fname = f"{case}_triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
+            print(fname)
             fig.savefig(Path("images", fname))
