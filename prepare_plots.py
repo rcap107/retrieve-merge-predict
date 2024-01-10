@@ -1,4 +1,4 @@
-# 3245# %%
+# # %%
 # %cd ~/bench
 # #%%
 # %load_ext autoreload
@@ -20,95 +20,6 @@ from src.utils.logging import read_logs
 
 cfg = pl.Config()
 cfg.set_fmt_str_lengths(150)
-
-
-# %%
-def prepare_data_for_plotting(df: pl.DataFrame) -> pl.DataFrame:
-    max_diff = df.select(pl.col("difference").abs().max()).item()
-    df = df.with_columns((pl.col("difference") / max_diff).alias("scaled_diff"))
-    return df
-
-
-# %%
-def get_cases(df: pl.DataFrame, keep_nojoin: bool = False) -> dict:
-    if not keep_nojoin:
-        df = df.filter(pl.col("estimator") != "nojoin")
-
-    cases = (
-        df.select(pl.col(["jd_method", "chosen_model", "estimator"]).unique().implode())
-        .transpose(include_header=True)
-        .to_dict(as_series=False)
-    )
-
-    return dict(zip(*list(cases.values())))
-
-
-def apply_log_scaling(df, target_column, log_base=10):
-    return df.with_columns(pl.col(target_column).log(log_base))
-
-
-# %%
-def get_difference_from_mean(
-    df, column_to_average, result_column, scaled=False, geometric=False
-):
-    all_groupby_variables = [
-        "fold_id",
-        "target_dl",
-        "base_table",
-        "jd_method",
-        "estimator",
-        "chosen_model",
-    ]
-
-    this_groupby = [_ for _ in all_groupby_variables if _ != column_to_average]
-
-    n_unique = df.select(pl.col(column_to_average).n_unique()).item()
-    if n_unique > 2:
-        prepared_df = df.join(
-            df.group_by(this_groupby).agg(
-                pl.mean(result_column).alias("reference_column")
-            ),
-            on=this_groupby,
-        )
-
-    else:
-        best_method = (
-            df.group_by(column_to_average)
-            .agg(pl.mean(result_column))
-            .top_k(1, by=result_column)[column_to_average]
-            .item()
-        )
-
-        prepared_df = (
-            df.filter(pl.col(column_to_average) == best_method)
-            .join(df, on=this_groupby)
-            .filter(pl.col(column_to_average) != pl.col(column_to_average + "_right"))
-            .rename({result_column + "_right": "reference_column"})
-        )
-
-    if geometric:
-        prepared_df = prepared_df.with_columns(
-            (pl.col(result_column) / pl.col("reference_column")).alias(
-                f"diff_{column_to_average}_{result_column}"
-            )
-        )
-    else:
-        prepared_df = prepared_df.with_columns(
-            (pl.col(result_column) - pl.col("reference_column")).alias(
-                f"diff_{column_to_average}_{result_column}"
-            )
-        )
-
-    if scaled:
-        prepared_df = prepared_df.with_columns(
-            prepared_df.with_columns(
-                pl.col(f"diff_{column_to_average}_{result_column}")
-                / pl.col(f"diff_{column_to_average}_{result_column}").abs().max()
-            )
-        )
-
-    return prepared_df.drop(cs.ends_with("_right")).drop("reference_column")
-
 
 # %%
 # Prepare data for the three plot cases
@@ -257,66 +168,52 @@ plotting.draw_split_figure(
     figsize=(8, 3),
 )
 
+#%%
+
+# Create a figure and a GridSpec with 2 rows and 2 columns
+fig = plt.figure(figsize=(8, 3))
+gs = GridSpec(2, 2, width_ratios=[2, 1])
+
+# Add subplots to the GridSpec
+ax_left = fig.add_subplot(gs[:, 0])  # One plot in the left column, spanning both rows
+ax_top_right = fig.add_subplot(gs[0, 1])  # Top plot in the right column
+ax_bottom_right = fig.add_subplot(
+    gs[1, 1], sharey=ax_top_right
+)  # Bottom plot in the right column
+
+# Customize the subplots (you can plot your data here)
+ax_left.set_title("Left Plot")
+ax_top_right.set_title("Top Right Plot")
+ax_bottom_right.set_title("Bottom Right Plot")
+
+# Adjust layout to prevent clipping of titles
+plt.tight_layout()
+
+# Show the plot
+plt.show()
 
 # %%
-target_variable = "chosen_model"
-result_column = "r2score"
-_prep = get_difference_from_mean(
-    current_results,
-    column_to_average=target_variable,
-    result_column=result_column,
-    scaled=True,
-)
-cases = get_cases(
-    _prep,
-)
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
-plotting.draw_split_figure(
-    cases,
-    split_dimension=None,
-    df=_prep,
-    grouping_dimensions=["jd_method"],
-    scatterplot_dimension="base_table",
-    scatter_mode="split",
-    colormap_name="viridis",
-    plotting_variable=f"diff_{target_variable}_{result_column}",
-    plot_label=f"Difference between {target_variable} classes",
-    kind="violin",
+fig, axes = plt.subplot_mosaic(
+    [[1, 3], [2, 3]],
+    layout="constrained",
+    figsize=(8, 3),
+    sharey=True,
+    width_ratios=(3, 1),
 )
-
-# %%
-target_variable = "estimator"
-result_column = "time_run"
-# df = current_results.filter(pl.col("jd_method") == "exact_matching")
-df = current_results
-# _prep = apply_log_scaling(df, f"time_run")
-
-_prep = get_difference_from_mean(
-    df,
-    column_to_average=target_variable,
-    result_column=result_column,
-    scaled=False,
-    geometric=True,
-)
-# _prep = apply_log_scaling(_prep, f"diff_from_mean_time_run")
-
-cases = get_cases(
-    _prep,
-)
+axes[3].set_frame_on(False)
 
 
-plotting.draw_split_figure(
-    cases,
-    split_dimension="chosen_model",
-    df=_prep,
-    grouping_dimensions=[target_variable],
-    scatterplot_dimension="base_table",
-    plotting_variable=f"diff_from_mean_time_run",
-    colormap_name="viridis",
-    scatter_mode="overlapping",
-    xtick_format="symlog",
-    kind="box",
-    figsize=(10, 5),
-)
+def simpleaxis(ax):
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    return ax
+
+
+axes[3] = simpleaxis(axes[3])
 
 # %%
