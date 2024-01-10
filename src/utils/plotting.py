@@ -47,11 +47,11 @@ LABEL_MAPPING = {
     },
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
-        "full_join": "Full\nJoin",
+        "full_join": "Full Join",
         "best_single_join": "Best Single\nJoin",
         "stepwise_greedy_join": "Stepwise Greedy\nJoin",
         "highest_containment": "Highest Cont.\nJoin",
-        "nojoin": "No",
+        "nojoin": "No Join",
     },
     "variables": {
         "estimator": "Estimator",
@@ -165,7 +165,7 @@ def add_subplot(fig, position):
 def prepare_scatterplot_labels(
     df, scatterplot_dimension, plotting_variable, colormap_name="viridis"
 ):
-    # Prepare the labels for the scatter plot and the corresponding colors. Labels are sorted by
+    # Prepare the labels for the scatter plot and the corresponding colors.
     scatterplot_labels = (
         df.group_by(pl.col(scatterplot_dimension))
         .agg(pl.mean(plotting_variable))
@@ -174,7 +174,8 @@ def prepare_scatterplot_labels(
         .to_numpy()
         .squeeze()
     )
-    colors = plt.colormaps[colormap_name](np.linspace(0, 1, len(scatterplot_labels)))
+    # colors = plt.colormaps[colormap_name](np.linspace(0, 1, len(scatterplot_labels)))
+    colors = plt.colormaps[colormap_name].resampled(len(scatterplot_labels)).colors
     scatterplot_mapping = dict(
         zip(
             scatterplot_labels,
@@ -682,6 +683,140 @@ def draw_triple_comparison(
     # )
     fig.set_constrained_layout_pads(
         w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
+    )
+    # fig.suptitle(
+    #     f"{LABEL_MAPPING['variables'][grouping_dimension]} - {LABEL_MAPPING['variables'][scatterplot_dimension]}"
+    # )
+
+    if savefig:
+        if isinstance(savefig_type, str):
+            savefig_type = [savefig_type]
+        for ext in savefig_type:
+            fname = f"{case}_triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
+            print(fname)
+            fig.savefig(Path("images", fname))
+
+
+def draw_pair_comparison(
+    df,
+    grouping_dimension,
+    scatterplot_dimension,
+    form_factor="multi",
+    scatter_mode="overlapping",
+    colormap_name="viridis",
+    figsize=(10, 4),
+    savefig: bool = False,
+    savefig_type: list | str = "png",
+    case: str = "dep",
+):
+    df_rel_r2 = get_difference_from_mean(
+        df, column_to_average=grouping_dimension, result_column="r2score"
+    )
+    df_time = get_difference_from_mean(
+        df,
+        column_to_average=grouping_dimension,
+        result_column="time_run",
+        geometric=True,
+    )
+
+    scatterplot_mapping = prepare_scatterplot_labels(
+        df, scatterplot_dimension, "scaled_diff", colormap_name
+    )
+
+    if form_factor == "multi":
+        fig, axes = plt.subplot_mosaic(
+            [[0, 1]],
+            layout="constrained",
+            figsize=figsize,
+            sharey=True,
+            width_ratios=(2, 2),
+        )
+    elif form_factor == "binary":
+        fig, axes = plt.subplot_mosaic(
+            [
+                [
+                    0,
+                ],
+                [
+                    1,
+                ],
+            ],
+            layout="constrained",
+            figsize=figsize,
+            sharey=False,
+            width_ratios=(1),
+        )
+
+    axes[1].sharey(axes[0])
+    axes[1].set_yticks([])
+
+    # axes[2].set_frame_on(False)
+    # axes[2].spines["top"].set_visible(False)
+    # axes[2].spines["right"].set_visible(False)
+    # axes[2].set_xticks([])
+    # axes[2].set_yticks([])
+    # plt.setp(axes[2].get_yticklabels(), visible=False)
+
+    plotting_variables = [
+        f"diff_{grouping_dimension}_r2score",
+        f"diff_{grouping_dimension}_time_run",
+    ]
+
+    formatting_dict = {
+        f"diff_{grouping_dimension}_r2score": {"xtick_format": "percentage"},
+        f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
+    }
+
+    subplot_titles = [
+        rf"$R^2$ difference",
+        rf"Time difference",
+    ]
+
+    if scatter_mode is None:
+        scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
+
+    plot_df = [df_rel_r2, df_time]
+    for idx, var in enumerate(plotting_variables, start=0):
+        ax = axes[idx]
+        # ax.grid(which="both", axis="x", alpha=0.3)
+        h, l = prepare_case_subplot(
+            ax,
+            plot_df[idx],
+            grouping_dimension,
+            scatterplot_dimension,
+            var,
+            scatterplot_mapping=scatterplot_mapping,
+            scatter_mode=scatter_mode,
+            xtick_format=formatting_dict[var]["xtick_format"],
+            kind="box",
+            jitter_factor=0.03,
+        )
+        axes[idx].set_title(subplot_titles[idx])
+
+    fig.legend(
+        h,
+        l,
+        loc="outside right",
+        ncols=1,
+        markerscale=2,
+        # borderaxespad=-0.2,
+        # bbox_to_anchor=(0, -0.1, 1, 0.5),
+        scatterpoints=1,
+    )
+    # fig.legend(
+    #     h,
+    #     l,
+    #     # loc="outside right",
+    #     loc="lower left",
+    #     mode="expand",
+    #     ncols=len(l),
+    #     markerscale=5,
+    #     # borderaxespad=-0.2,
+    #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
+    #     scatterpoints=1,
+    # )
+    fig.set_constrained_layout_pads(
+        w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=5.0 / 72.0
     )
     # fig.suptitle(
     #     f"{LABEL_MAPPING['variables'][grouping_dimension]} - {LABEL_MAPPING['variables'][scatterplot_dimension]}"
