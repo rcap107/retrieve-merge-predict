@@ -242,7 +242,10 @@ def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
         tab_name,
         query_column,
     )
-    with open(Path(DEFAULT_QUERY_RESULT_DIR, query_result_path), "rb") as fp:
+
+    with open(
+        Path(DEFAULT_QUERY_RESULT_DIR, yadl_version, query_result_path), "rb"
+    ) as fp:
         query_result = pickle.load(fp)
 
     query_result.select_top_k(top_k)
