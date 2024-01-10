@@ -191,7 +191,7 @@ def evaluate_joins(
         X_test, y_test = prepare_X_y(base_table_test, target_column, schema=schema)
 
         for estim in estimators:
-            # Prepare the logger for this un
+            # Prepare the logger for this run
             run_logger = RunLogger(
                 scenario_logger,
                 additional_parameters=estim.get_estimator_parameters(),
@@ -204,6 +204,7 @@ def evaluate_joins(
                 run_logger.to_run_log_file()
                 continue
 
+            estim.clean_timers()
             # Execute the fit operation
             run_logger.start_time("fit")
             mem_usage = memory_usage(
@@ -215,12 +216,10 @@ def evaluate_joins(
                     ),
                 ),
                 timestamps=True,
-                # include_children=True,
-                # multiprocess=True,
                 max_iterations=1,
             )
-            run_logger.mark_memory(mem_usage, "fit")
             run_logger.end_time("fit")
+            run_logger.mark_memory(mem_usage, "fit")
 
             # Execute the predict operation
             run_logger.start_time("predict")
@@ -230,13 +229,11 @@ def evaluate_joins(
                     (X_test,),
                 ),
                 timestamps=True,
-                # include_children=True,
-                # multiprocess=True,
                 max_iterations=1,
                 retval=True,
             )
-            run_logger.mark_memory(mem_usage, "predict")
             run_logger.end_time("predict")
+            run_logger.mark_memory(mem_usage, "predict")
 
             # Evaluate the results
             mem_usage, results = memory_usage(
@@ -248,8 +245,6 @@ def evaluate_joins(
                     ),
                 ),
                 timestamps=True,
-                # include_children=True,
-                # multiprocess=True,
                 max_iterations=1,
                 retval=True,
             )

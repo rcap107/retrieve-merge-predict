@@ -301,8 +301,16 @@ class BaseJoinEstimator(BaseEstimator):
             this_segment[1] - this_segment[0]
         ).total_seconds()
 
+    def clean_timers(self):
+        self.timestamps = {}
+        self.durations = {}
+
     def get_durations(self):
         return self.durations
+
+    def update_durations(self, new_durations):
+        for k, v in new_durations.items():
+            self.durations[k] += v
 
     def prepare_table(self, table):
         if type(table) == pd.DataFrame:
@@ -703,15 +711,17 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             metric = self._evaluate_candidate(y_valid, y_pred)
             self._end_time("model_train")
 
+            self._start_time("prepare")
             ranking.append({"candidate": hash_, "metric": metric})
 
             if metric > self.best_cnd_metric:
                 self.best_cnd_metric = metric
                 self.best_cnd_hash = hash_
                 self.best_cjoin = cjoin.candidate_id
+            self._end_time("prepare")
 
         # RETRAINING THE MODEL
-        self._start_time("join_train")
+        self._start_time("prepare")
         best_join_mdata = self.candidate_joins[self.best_cnd_hash]
         (
             _,
@@ -720,6 +730,8 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             self.right_on,
         ) = best_join_mdata.get_join_information()
         self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
+        self._end_time("prepare")
+        self._start_time("join_train")
         best_train, best_valid = self._execute_joins(
             X_train, X_valid, self.best_cnd_table, self.left_on, self.right_on
         )
@@ -1055,6 +1067,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             self._end_time("model_train")
 
         self.n_joined_columns = self.wrap_up_joiner.n_joined_columns
+        self.update_durations(self.wrap_up_joiner.get_durations())
 
     def _build_ranking(self, X):
         if self.ranking_metric == "containment":
