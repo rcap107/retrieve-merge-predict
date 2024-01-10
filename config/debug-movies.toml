@@ -12,12 +12,11 @@ aggregation=["mean"]
 
 ["evaluation_models"]
 chosen_model=["linear", "catboost"]
-catboost.iterations=300
+catboost.iterations=3
 catboost.od_type="Iter"
 catboost.od_wait=10
 catboost.l2_leaf_reg=0.01
 catboost.thread_count=32
-
 
 ["estimators"]
 no_join.active=true
@@ -40,13 +39,8 @@ table_path=[
 # "data/source_tables/yadl/movies-yadl-depleted.parquet",
 # "data/source_tables/yadl/movies_vote-yadl-depleted.parquet",
 # "data/source_tables/yadl/us_accidents-yadl-depleted.parquet",
-# "data/source_tables/yadl/us_county_population-depleted-yadl.parquet",
-"data/source_tables/yadl/us_elections-yadl.parquet",
-"data/source_tables/yadl/housing_prices-yadl.parquet",
-"data/source_tables/yadl/company_employees-yadl.parquet",
+# "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
 "data/source_tables/yadl/movies-yadl.parquet",
-"data/source_tables/yadl/movies_vote-yadl.parquet",
-"data/source_tables/yadl/us_accidents-yadl.parquet",
 ]
 query_column="col_to_embed"
 top_k=[30]
