@@ -32,9 +32,11 @@ if __name__ == "__main__":
 
     df_results = pl.concat(df_list)
 
+    # df_results  = read_logs(exp_name="0332-92xkckqk")
+
     results_full, results_depleted = read_and_process(df_results)
 
-    case = "full"
+    case = "dep"
 
     if case == "dep":
         current_results = results_depleted.clone()
@@ -43,18 +45,23 @@ if __name__ == "__main__":
     elif case == "full":
         current_results = results_full.clone()
 
-    for var in ["jd_method"]:
-        # for var in ["estimator", "jd_method", "chosen_model"]:
+    # for var in ["jd_method"]:
+    for var in ["estimator", "jd_method", "chosen_model"]:
         print(f"Variable: {var}")
-        for scatter_d in ["base_table", "chosen_model", "jd_method", "estimator"]:
+        n_unique = current_results.select(pl.col(var).n_unique()).item()
+        for scatter_d in ["base_table"]:
+            # for scatter_d in ["base_table", "chosen_model", "jd_method", "estimator"]:
             if scatter_d == var:
                 continue
+            form_factor = "binary" if n_unique == 2 else "multi"
             plotting.draw_triple_comparison(
                 current_results,
                 var,
+                form_factor=form_factor,
                 scatterplot_dimension=scatter_d,
-                figsize=(18, 5),
+                figsize=(12, 3),
                 scatter_mode="split",
                 savefig=True,
+                savefig_type=["png", "pdf"],
                 case=case,
             )
