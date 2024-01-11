@@ -48,9 +48,9 @@ LABEL_MAPPING = {
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
         "full_join": "Full Join",
-        "best_single_join": "Best Single\nJoin",
-        "stepwise_greedy_join": "Stepwise Greedy\nJoin",
-        "highest_containment": "Highest Cont.\nJoin",
+        "best_single_join": "Best Single Join",
+        "stepwise_greedy_join": "Stepwise Greedy Join",
+        "highest_containment": "Highest Cont. Join",
         "nojoin": "No Join",
     },
     "variables": {
@@ -750,13 +750,6 @@ def draw_pair_comparison(
     axes[1].sharey(axes[0])
     axes[1].set_yticks([])
 
-    # axes[2].set_frame_on(False)
-    # axes[2].spines["top"].set_visible(False)
-    # axes[2].spines["right"].set_visible(False)
-    # axes[2].set_xticks([])
-    # axes[2].set_yticks([])
-    # plt.setp(axes[2].get_yticklabels(), visible=False)
-
     plotting_variables = [
         f"diff_{grouping_dimension}_r2score",
         f"diff_{grouping_dimension}_time_run",
@@ -829,3 +822,103 @@ def draw_pair_comparison(
             fname = f"{case}_triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
             print(fname)
             fig.savefig(Path("images", fname))
+
+
+def prepare_grouped_stacked_barplot_time(
+    df: pl.DataFrame, first_var: str, second_var: str
+):
+    assert first_var in df.columns
+    assert second_var in df.columns
+
+    df_prepare = (
+        df.group_by([first_var, second_var])
+        .agg(
+            pl.col("time_prepare").mean(),
+            pl.col("time_model_train").mean(),
+            pl.col("time_join_train").mean(),
+            pl.col("time_model_predict").mean(),
+            pl.col("time_join_predict").mean(),
+        )
+        .melt(id_vars=[first_var, second_var])
+        .sort(first_var, second_var)
+    )
+
+    # Map an index to each distinct value in first_var and second_var
+    fv_c = first_var + "_c"
+    sv_c = second_var + "_c"
+    treated = (
+        df_prepare.join(
+            df_prepare.select(pl.col(first_var).unique()).with_row_count(name=fv_c),
+            on=first_var,
+        ).join(
+            df_prepare.select(pl.col(second_var).unique()).with_row_count(name=sv_c),
+            on=second_var,
+        )
+    ).sort(fv_c, sv_c)
+
+    # Build the cumsum and bottom columns required for the stacked barplot
+    to_concat = []
+    for _, gr in treated.group_by((first_var, second_var)):
+        new_g = (
+            gr.sort("variable")
+            .with_columns(pl.col("value").cumsum().alias("csum"))
+            .with_columns(
+                pl.col("csum").alias("bottom").shift(1).fill_null(0),
+            )
+        )
+        to_concat.append(new_g)
+    df_c = pl.concat(to_concat)
+
+    # Find the number of unique values in the second variable
+    n_unique = df_c[sv_c].n_unique()
+
+    # Prepare the palette with the appropriate number of variables
+    cmap = mpl.colormaps["Set1"](range(n_unique))
+
+    # Define the offset
+    offset_v = np.arange(n_unique) - n_unique // 2
+
+    fig, axs = plt.subplots(squeeze=True, layout="constrained")
+
+    # Define the width of each bar based on the number of unique values
+    width = 1 / (n_unique + 1)
+
+    x_ticks = []
+    x_tick_labels = []
+
+    for row_idx, row in enumerate(
+        df_c.group_by([first_var, second_var]).agg(pl.all()).iter_rows(named=True)
+    ):
+        first_coord = row[fv_c][0]
+        second_coord = row[sv_c][0]
+
+        # Move the bar by the given offset
+        offset = offset_v[second_coord] * width
+        for idx, (label, w, left) in enumerate(
+            zip(row["variable"], row["value"], row["bottom"])
+        ):
+            # Hide unnecessary labels
+            l = label if row_idx == 0 else "_" + label
+            # Plot the bar for this specific row
+            p = axs.barh(
+                y=first_coord + offset,
+                width=w,
+                left=left,
+                label=l,
+                height=width,
+                align="center",
+                color=cmap[idx],
+            )
+        # Add the position and label for the ticks
+        x_ticks.append(first_coord + offset)
+        x_tick_labels.append(
+            f"{LABEL_MAPPING[first_var][row[first_var]]} {LABEL_MAPPING[second_var][row[second_var]]}"
+        )
+
+        # Add the final value as label to the bar
+        axs.bar_label(p, fmt="{:.2f}")
+    axs.legend()
+    axs.set_xlabel("Execution time (s)")
+    _ = axs.set_yticks(x_ticks, x_tick_labels)
+
+    fig.savefig(f"images/breakdown_time_{first_var}_{second_var}.pdf")
