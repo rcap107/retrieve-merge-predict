@@ -728,11 +728,13 @@ class ExactMatchingIndex:
         query_column=None,
         top_k=200,
     ):
-        return (
-            self.counts.top_k(top_k, by="containment")
-            .filter(pl.col("containment") > 0)
-            .rows()
+        query_results = self.counts.filter(pl.col("containment") > 0).sort(
+            "containment", descending=True
         )
+        if top_k > 0:
+            return query_results.top_k(top_k, by="containment").rows()
+        else:
+            return query_results.rows()
 
     def save_index(self, output_dir):
         path_mdata = Path(
