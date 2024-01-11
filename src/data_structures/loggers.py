@@ -478,3 +478,106 @@ class RunLogger:
                     writer.writerow(self.to_dict())
         else:
             print(json.dumps(self.to_dict(), indent=2))
+
+
+class SimpleIndexLogger:
+    def __init__(
+        self,
+        index_name: str,
+        step: str,
+        data_lake_version: str,
+        index_parameters: dict = None,
+        query_parameters: dict = None,
+        log_path: str | Path = "results/index_logging.txt",
+    ) -> None:
+        self.log_path = log_path
+        self.index_name = index_name
+        self.data_lake_version = data_lake_version
+        self.step = step
+        self.index_parameters = index_parameters if index_parameters is not None else {}
+        self.query_parameters = query_parameters if query_parameters is not None else {}
+
+        self.timestamps = {}
+        self.durations = {}
+
+        self.header = [
+            "data_lake_version",
+            "index_name",
+            "base_table",
+            "query_column",
+            "step",
+            "time_create",
+            "time_save",
+            "time_load",
+            "time_query",
+        ]
+
+    def update_query_parameters(self, query_table, query_column):
+        self.query_parameters["base_table"] = query_table
+        self.query_parameters["query_column"] = query_column
+
+    def start_time(self, label: str, cumulative: bool = False):
+        """Wrapper around the `mark_time` function for better clarity.
+
+        Args:
+            label (str): Label of the operation to mark.
+            cumulative (bool, optional): If set to true, all operations performed with the same label
+            will add up to a total duration rather than being marked independently. Defaults to False.
+        """
+        return self.mark_time(label, cumulative)
+
+    def end_time(self, label: str, cumulative: bool = False):
+        if label not in self.timestamps:
+            raise KeyError(f"Label {label} was not found.")
+        return self.mark_time(label, cumulative)
+
+    def mark_time(self, label: str, cumulative: bool = False):
+        """Given a `label`, add a new timestamp if `label` isn't found, otherwise
+        mark the end of the timestamp and add a new duration.
+
+        Args:
+            label (str): Label of the operation to mark.
+            cumulative (bool, optional): If set to true, all operations performed with the same label
+            will add up to a total duration rather than being marked independently. Defaults to False.
+
+        """
+        if label not in self.timestamps:
+            self.timestamps[label] = [dt.datetime.now(), None]
+            self.durations["time_" + label] = 0
+        else:
+            self.timestamps[label][1] = dt.datetime.now()
+            this_segment = self.timestamps[label]
+            if cumulative:
+                self.durations["time_" + label] += (
+                    this_segment[1] - this_segment[0]
+                ).total_seconds()
+            else:
+                self.durations["time_" + label] = (
+                    this_segment[1] - this_segment[0]
+                ).total_seconds()
+
+    def to_dict(self):
+        values = [
+            self.data_lake_version,
+            self.index_name,
+            self.query_parameters.get("base_table", ""),
+            self.query_parameters.get("query_column", ""),
+            self.step,
+            self.durations.get("time_create", 0),
+            self.durations.get("time_save", 0),
+            self.durations.get("time_load", 0),
+            self.durations.get("time_query", 0),
+        ]
+
+        return dict(zip(self.header, values))
+
+    def to_logfile(self):
+        if Path(self.log_path).exists():
+            with open(self.log_path, "a") as fp:
+                writer = csv.DictWriter(fp, fieldnames=self.header)
+                writer.writerow(self.to_dict())
+        else:
+            with open(self.log_path, "w") as fp:
+                writer = csv.DictWriter(fp, fieldnames=self.header)
+                writer.writeheader()
+                writer.writerow(self.to_dict())

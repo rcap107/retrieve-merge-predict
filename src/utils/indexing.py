@@ -13,6 +13,7 @@ from src.data_structures.join_discovery_methods import (
     LazoIndex,
     MinHashIndex,
 )
+from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import (
     CandidateJoin,
     MetadataIndex,
@@ -152,18 +153,29 @@ def prepare_join_discovery_methods(index_configurations: dict):
         for i_conf in config:
             metadata_dir = Path(i_conf["metadata_dir"])
             pprint(i_conf, indent=2)
-            case = metadata_dir.stem
+            data_lake_version = metadata_dir.stem
             if "thresholds" in i_conf:
-                case += f"_{i_conf['thresholds']}"
-            index_dir = Path(f"data/metadata/_indices/{case}")
+                data_lake_version += f"_{i_conf['thresholds']}"
+            index_dir = Path(f"data/metadata/_indices/{data_lake_version}")
             os.makedirs(index_dir, exist_ok=True)
+            index_logger = SimpleIndexLogger(
+                index_name=index,
+                step="creation",
+                data_lake_version=data_lake_version,
+                index_parameters=i_conf,
+            )
+
             if "base_table_path" in i_conf:
                 logger.info(
                     "Index creation start: %s - %s - %s"
-                    % (case, index, i_conf["base_table_path"])
+                    % (data_lake_version, index, i_conf["base_table_path"])
                 )
             else:
-                logger.info("Index creation start: %s - %s " % (case, index))
+                logger.info(
+                    "Index creation start: %s - %s " % (data_lake_version, index)
+                )
+
+            index_logger.start_time("creation")
             if index == "lazo":
                 this_index = LazoIndex(**i_conf)
             elif index == "minhash":
@@ -174,9 +186,12 @@ def prepare_join_discovery_methods(index_configurations: dict):
                 this_index = ExactMatchingIndex(**i_conf)
             else:
                 raise NotImplementedError
-            logger.info("Index creation end: %s - %s " % (case, index))
+            index_logger.end_time("creation")
+            logger.info("Index creation end: %s - %s " % (data_lake_version, index))
 
+            index_logger.start_time("save")
             this_index.save_index(index_dir)
+            index_logger.end_time("save")
 
 
 def save_indices(index_dict: dict, index_dir: str | Path):
@@ -222,17 +237,28 @@ def query_index(
     query_column,
     mdata_index,
     rerank: bool = False,
+    index_logger: SimpleIndexLogger | None = None,
 ):
+
     query_tab_metadata = RawDataset(
         query_tab_path.resolve(), "queries", "data/metadata/queries"
     )
     query_tab_metadata.save_metadata_to_json()
 
+    if index_logger is not None:
+        index_logger.start_time("query")
     query_result = QueryResult(
         index, query_tab_metadata, query_column, mdata_index, rerank
     )
     query_result.save_to_pickle()
-    return query_result
+
+    if index_logger is not None:
+        index_logger.end_time("query")
+
+    if index_logger is not None:
+        return query_result, index_logger
+    else:
+        return query_result, None
 
 
 def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
@@ -244,7 +270,9 @@ def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
     )
 
     with open(
-        Path(DEFAULT_QUERY_RESULT_DIR, yadl_version, query_result_path), "rb"
+        # Path(DEFAULT_QUERY_RESULT_DIR, yadl_version, query_result_path), "rb"
+        Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
+        "rb",
     ) as fp:
         query_result = pickle.load(fp)
 
