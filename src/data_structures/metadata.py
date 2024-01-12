@@ -396,6 +396,8 @@ class QueryResult:
         )
         os.makedirs(Path(QUERY_RESULTS_PATH, self.data_lake_version), exist_ok=True)
         with open(
-            Path(QUERY_RESULTS_PATH, self.data_lake_version, output_name), "wb"
+            Path(QUERY_RESULTS_PATH, self.data_lake_version, output_name),
+            "wb"
+            # Path(QUERY_RESULTS_PATH, output_name), "wb"
         ) as fp:
             pickle.dump(self, fp)

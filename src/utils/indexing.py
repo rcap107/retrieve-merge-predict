@@ -272,8 +272,8 @@ def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
     )
 
     with open(
-        # Path(DEFAULT_QUERY_RESULT_DIR, yadl_version, query_result_path), "rb"
-        Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
+        Path(DEFAULT_QUERY_RESULT_DIR, yadl_version, query_result_path),
+        # Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
         "rb",
     ) as fp:
         query_result = pickle.load(fp)
