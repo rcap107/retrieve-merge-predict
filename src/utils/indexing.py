@@ -260,10 +260,7 @@ def query_index(
     if index_logger is not None:
         index_logger.end_time("query")
 
-    if index_logger is not None:
-        return query_result, index_logger
-    else:
-        return query_result, None
+    return query_result, index_logger
 
 
 def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
