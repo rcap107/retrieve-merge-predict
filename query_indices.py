@@ -9,7 +9,7 @@ from src.data_structures.metadata import MetadataIndex
 from src.utils.indexing import DEFAULT_INDEX_DIR, load_index, query_index
 
 if __name__ == "__main__":
-    config = toml.load("config/retrieval/query-wordnet_full.toml")
+    config = toml.load("config/retrieval/query-binary_update.toml")
 
     jd_methods = config["join_discovery_method"]
     data_lake_version = config["data_lake"]
@@ -31,9 +31,12 @@ if __name__ == "__main__":
     )
 
     if "minhash" in jd_methods:
-        iname = "minhash_hybrid" if rerank else "minhash"
+        index_name = "minhash_hybrid" if rerank else "minhash"
         logger_minhash = SimpleIndexLogger(
-            index_name=iname, step="query", data_lake_version=data_lake_version
+            index_name=index_name,
+            step="query",
+            data_lake_version=data_lake_version,
+            log_path="results/query_logging.txt",
         )
         logger_minhash.start_time("load")
         minhash_index = load_index(
@@ -54,6 +57,7 @@ if __name__ == "__main__":
                     index_name="exact_matching",
                     step="query",
                     data_lake_version=data_lake_version,
+                    log_path="results/query_logging.txt",
                 )
                 index_path = Path(
                     DEFAULT_INDEX_DIR,
