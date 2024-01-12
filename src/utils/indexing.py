@@ -160,7 +160,7 @@ def prepare_join_discovery_methods(index_configurations: dict):
             os.makedirs(index_dir, exist_ok=True)
             index_logger = SimpleIndexLogger(
                 index_name=index,
-                step="creation",
+                step="create",
                 data_lake_version=data_lake_version,
                 index_parameters=i_conf,
             )
@@ -175,7 +175,7 @@ def prepare_join_discovery_methods(index_configurations: dict):
                     "Index creation start: %s - %s " % (data_lake_version, index)
                 )
 
-            index_logger.start_time("creation")
+            index_logger.start_time("create")
             if index == "lazo":
                 this_index = LazoIndex(**i_conf)
             elif index == "minhash":
@@ -186,12 +186,13 @@ def prepare_join_discovery_methods(index_configurations: dict):
                 this_index = ExactMatchingIndex(**i_conf)
             else:
                 raise NotImplementedError
-            index_logger.end_time("creation")
+            index_logger.end_time("create")
             logger.info("Index creation end: %s - %s " % (data_lake_version, index))
 
             index_logger.start_time("save")
             this_index.save_index(index_dir)
             index_logger.end_time("save")
+            index_logger.to_logfile()
 
 
 def save_indices(index_dict: dict, index_dir: str | Path):
