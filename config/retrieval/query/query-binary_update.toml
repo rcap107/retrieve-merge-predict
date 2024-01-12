@@ -1,5 +1,6 @@
 join_discovery_method=["exact_matching","minhash"]
 data_lake="binary_update"
+hybrid=true
 
 # [["query_cases"]]
 # table_path="data/source_tables/us-elections-yadl.parquet"
@@ -18,7 +19,7 @@ data_lake="binary_update"
 # query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/movies-vote-yadl.parquet"
+table_path="data/source_tables/yadl/movies-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 # [["query_cases"]]

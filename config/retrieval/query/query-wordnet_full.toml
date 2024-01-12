@@ -1,6 +1,6 @@
-join_discovery_method=["minhash"]
+join_discovery_method=["exact_matching"]
 data_lake="wordnet_full"
-hybrid=false
+hybrid=true
 
 [["query_cases"]]
 table_path="data/source_tables/yadl/us_elections-yadl-depleted.parquet"

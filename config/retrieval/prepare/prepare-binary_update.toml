@@ -1,6 +1,5 @@
 [["minhash"]]
 metadata_dir="data/metadata/binary_update"
-thresholds=[20]
 oneshot=true
 num_perm=128
 n_jobs=-1
