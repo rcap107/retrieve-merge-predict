@@ -192,6 +192,10 @@ def prepare_join_discovery_methods(index_configurations: dict):
             index_logger.start_time("save")
             this_index.save_index(index_dir)
             index_logger.end_time("save")
+            query_table = Path(i_conf.get("base_table_path", "")).stem
+            query_column = i_conf.get("query_column", "")
+
+            index_logger.update_query_parameters(query_table, query_column)
             index_logger.to_logfile()
 
 
