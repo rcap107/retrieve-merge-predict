@@ -73,13 +73,6 @@ class ScenarioLogger:
         self.exception_name = None
         self.additional_info = None
         self.debug = debug
-        if False:
-            with open("telegram_credentials.txt", "r") as fp:
-                line = fp.readline()
-                self.telegram_token = line.split(":", maxsplit=1)[1]
-                line = fp.readline()
-                self.telegram_chat_id = int(line.split(":", maxsplit=1)[1])
-            self.bot = telegram.Bot(token=self.telegram_token)
 
     def prepare_logger(self, run_name=None):
         self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
@@ -138,16 +131,6 @@ class ScenarioLogger:
         print(f"Base table: {self.base_table_name}")
         print(f"DL Variant: {self.target_dl}")
 
-    async def send_message(self):
-        s = ""
-        s += f"Run name: {self.exp_name}"
-        s += f"Scenario ID: {self.scenario_id}"
-        s += f"Base table: {self.base_table_name}"
-        s += f"DL Variant: {self.target_dl}"
-
-        async with self.bot:
-            await self.bot.send_message(text=s, chat_id=self.telegram_chat_id)
-
     def write_to_log(self, out_path):
         if Path(out_path).parent.exists():
             with open(out_path, "a") as fp:
@@ -181,9 +164,13 @@ class ScenarioLogger:
             if isinstance(v, dt.datetime)
         }
         if Path(root_path).exists():
-            with open(
-                Path(root_path, self.exp_name, "json", f"{self.scenario_id}.json"), "w"
-            ) as fp:
+            dest_path = Path(root_path, self.exp_name, "json")
+            if self.status == "SUCCESS":
+                dest_path = Path(dest_path, f"{self.scenario_id}.json")
+            elif self.status == "FAILURE":
+                dest_path = Path(dest_path, "failed", f"{self.scenario_id}.json")
+
+            with open(dest_path, "w") as fp:
                 json.dump(res_dict, fp, indent=2)
         else:
             raise IOError(f"Invalid path {root_path}")
@@ -226,6 +213,7 @@ class ScenarioLogger:
             self.write_to_json(root_path)
         elif self.status == "FAILURE":
             print("Run failed.")
+            self.write_to_json(root_path)
         else:
             print("ScenarioLogger is in debugging mode. No files will be created.")
 

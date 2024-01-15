@@ -138,36 +138,36 @@ def single_run(run_config, run_name=None):
         debug=debug,
     )
 
-    # try:
-    query_result = load_query_result(
-        query_info["data_lake"],
-        query_info["join_discovery_method"],
-        tab_name,
-        query_info["query_column"],
-        top_k=query_info["top_k"],
-    )
+    try:
+        query_result = load_query_result(
+            query_info["data_lake"],
+            query_info["join_discovery_method"],
+            tab_name,
+            query_info["query_column"],
+            top_k=query_info["top_k"],
+        )
 
-    df_source = pl.read_parquet(query_tab_path).unique()
+        df_source = pl.read_parquet(query_tab_path).unique()
 
-    scl.add_timestamp("start_evaluation")
-    logger.info("Starting evaluation.")
-    em.evaluate_joins(
-        scl,
-        df_source,
-        join_candidates=query_result.candidates,
-        # TODO: generalize this
-        target_column="target",
-        group_column=query_info["query_column"],
-        estim_parameters=estim_parameters,
-        join_parameters=join_parameters,
-        model_parameters=model_parameters,
-        run_parameters=run_parameters,
-    )
-    scl.set_status("SUCCESS")
-    # except Exception as exception:
-    #     # raise exception
-    #     exception_name = exception.__class__.__name__
-    #     scl.set_status("FAILURE", exception_name)
+        scl.add_timestamp("start_evaluation")
+        logger.info("Starting evaluation.")
+        em.evaluate_joins(
+            scl,
+            df_source,
+            join_candidates=query_result.candidates,
+            # TODO: generalize this
+            target_column="target",
+            group_column=query_info["query_column"],
+            estim_parameters=estim_parameters,
+            join_parameters=join_parameters,
+            model_parameters=model_parameters,
+            run_parameters=run_parameters,
+        )
+        scl.set_status("SUCCESS")
+    except Exception as exception:
+        # raise exception
+        exception_name = exception.__class__.__name__
+        scl.set_status("FAILURE", exception_name)
 
     logger.info("End evaluation.")
     scl.add_timestamp("end_evaluation")
