@@ -222,7 +222,7 @@ class ScenarioLogger:
 
     def finish_run(self, root_path="results/logs/"):
         if not self.debug and self.status == "SUCCESS":
-            self.write_summary_plot(root_path)
+            # self.write_summary_plot(root_path)
             self.write_to_json(root_path)
         elif self.status == "FAILURE":
             print("Run failed.")

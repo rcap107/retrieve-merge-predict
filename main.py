@@ -76,12 +76,13 @@ if __name__ == "__main__":
         archive_experiment(exp_name)
     end_run = dt.now()
     if not args.debug:
-        var_int = base_config["run_parameters"].get("variable_of_interest", None)
-        wrap_up_plot(
-            exp_name,
-            base_config["run_parameters"]["task"],
-            variable_of_interest=var_int,
-        )
+        pass
+        # var_int = base_config["run_parameters"].get("variable_of_interest", None)
+        # wrap_up_plot(
+        #     exp_name,
+        #     base_config["run_parameters"]["task"],
+        #     variable_of_interest=var_int,
+        # )
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
     # finish_run()
