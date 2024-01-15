@@ -945,14 +945,12 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 task=self.task,
             )
             self._end_time("prepare")
-            self._start_time("model_train")
             self.wrap_up_joiner.fit(
                 X_train=X_train,
                 y_train=y_train,
                 X_valid=X_valid,
                 y_valid=y_valid,
             )
-            self._end_time("model_train")
 
         else:
             self._start_time("prepare")
@@ -963,7 +961,6 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 task=self.task,
             )
             self._end_time("prepare")
-            self._start_time("model_train")
             if self.chosen_model == "catboost":
                 self.wrap_up_joiner.fit(
                     X_train=X_train,
@@ -973,7 +970,6 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 )
             else:
                 self.wrap_up_joiner.fit(X, y)
-            self._end_time("model_train")
 
         self.n_joined_columns = self.wrap_up_joiner.n_joined_columns
         self.update_durations(self.wrap_up_joiner.get_durations())
