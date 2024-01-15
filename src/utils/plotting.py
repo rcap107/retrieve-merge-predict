@@ -59,6 +59,7 @@ LABEL_MAPPING = {
         "chosen_model": "ML model",
         "base_table": "Base table",
     },
+    "aggregation": {"first": "First", "mean": "Mean", "DFS": "DFS"},
     "budget_amount": {10: 10, 30: 30, 100: 100},
 }
 
@@ -872,8 +873,8 @@ def prepare_grouped_stacked_barplot_time(
     # Find the number of unique values in the second variable
     n_unique = df_c[sv_c].n_unique()
 
-    # Prepare the palette with the appropriate number of variables
-    cmap = mpl.colormaps["Set1"](range(n_unique))
+    # Prepare a palette with 5 colors (one for each step of the pipeline)
+    cmap = mpl.colormaps["Set1"](range(5))
 
     # Define the offset
     offset_v = np.arange(n_unique) - n_unique // 2
