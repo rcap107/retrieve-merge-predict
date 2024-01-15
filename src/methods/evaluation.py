@@ -154,25 +154,6 @@ def evaluate_joins(
         "task": run_parameters["task"],
     }
 
-    estimators = []
-
-    # Prepare the estimators using the provided parameters
-    for estim in estim_parameters:
-        params = dict(estim_common_parameters)
-        params.update(estim_parameters.get(estim, {}))
-        if estim_parameters[estim]["active"]:
-            estimators.append(
-                prepare_estimator(
-                    estim,
-                    params,
-                    join_candidates,
-                    join_parameters,
-                )
-            )
-
-    if len(estimators) == 0:
-        raise ValueError("No estimators were prepared. ")
-
     res_list = []
     add_info_dict = {}
 
@@ -189,6 +170,24 @@ def evaluate_joins(
         schema = base_table_train.schema
         X_train, y_train = prepare_X_y(base_table_train, target_column, schema=schema)
         X_test, y_test = prepare_X_y(base_table_test, target_column, schema=schema)
+
+        # Prepare the estimators using the provided parameters
+        estimators = []
+        for estim in estim_parameters:
+            params = dict(estim_common_parameters)
+            params.update(estim_parameters.get(estim, {}))
+            if estim_parameters[estim]["active"]:
+                estimators.append(
+                    prepare_estimator(
+                        estim,
+                        params,
+                        join_candidates,
+                        join_parameters,
+                    )
+                )
+
+        if len(estimators) == 0:
+            raise ValueError("No estimators were prepared. ")
 
         for estim in estimators:
             # Prepare the logger for this run
