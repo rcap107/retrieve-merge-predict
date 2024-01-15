@@ -1024,12 +1024,12 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
     def predict(self, X):
         pred = self.wrap_up_joiner.predict(X)
-        self.durations["time_join_predict"] = self.wrap_up_joiner.durations[
-            "time_join_predict"
-        ]
-        self.durations["time_model_predict"] = self.wrap_up_joiner.durations[
-            "time_model_predict"
-        ]
+        self.durations["time_join_predict"] = self.wrap_up_joiner.durations.get(
+            "time_join_predict", 0
+        )
+        self.durations["time_model_predict"] = self.wrap_up_joiner.durations.get(
+            "time_model_predict", 0
+        )
         return pred
 
     def _check_ranking_method(self, ranking_method):
