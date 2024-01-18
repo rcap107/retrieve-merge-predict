@@ -1,5 +1,6 @@
-join_discovery_method=["exact_matching","minhash"]
+join_discovery_method=["exact_matching"]
 data_lake="open_data_us"
+hybrid=true
 
 # Company employees
 [["query_cases"]]

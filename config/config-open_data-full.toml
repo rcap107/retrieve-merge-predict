@@ -7,7 +7,7 @@ split_kind="group_shuffle"
 
 ["join_parameters"]
 join_strategy="left"
-aggregation=["mean"]
+aggregation=["first"]
 
 ["evaluation_models"]
 chosen_model=["catboost", "linear"]

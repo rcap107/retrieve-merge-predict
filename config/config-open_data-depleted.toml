@@ -7,10 +7,10 @@ split_kind="group_shuffle"
 
 ["join_parameters"]
 join_strategy="left"
-aggregation=["mean"]
+aggregation=["first"]
 
 ["evaluation_models"]
-chosen_model=["catboost", "linear"]
+chosen_model=["linear", "catboost"]
 catboost.iterations=300
 catboost.od_type="Iter"
 catboost.od_wait=10
@@ -32,32 +32,32 @@ stepwise_greedy_join.ranking_metric="containment"
 # Company employees
 [["query_cases"]]
 top_k=30
-join_discovery_method="exact_matching"
+join_discovery_method="minhash"
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
 query_column="name"
 
-# Housing prices
-[["query_cases"]]
-top_k=30
-join_discovery_method="exact_matching"
-data_lake="open_data_us"
+# # Housing prices
+# [["query_cases"]]
+# top_k=30
+# join_discovery_method="minhash"
+# data_lake="open_data_us"
 
-table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
-query_column="County"
+# table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
+# query_column="County"
 
-[["query_cases"]]
-top_k=30
-join_discovery_method="exact_matching"
-data_lake="open_data_us"
+# [["query_cases"]]
+# top_k=30
+# join_discovery_method="minhash"
+# data_lake="open_data_us"
 
-table_path="data/source_tables/open_data/housing_prices-depleted_Metro-open_data.parquet"
-query_column="Metro"
+# table_path="data/source_tables/open_data/housing_prices-depleted_Metro-open_data.parquet"
+# query_column="Metro"
 
 # US elections
 [["query_cases"]]
 top_k=30
-join_discovery_method="exact_matching"
+join_discovery_method="minhash"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
@@ -66,7 +66,7 @@ query_column="county_name"
 # Movies
 [["query_cases"]]
 top_k=30
-join_discovery_method="exact_matching"
+join_discovery_method="minhash"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
@@ -75,7 +75,7 @@ query_column="title"
 # Movies vote
 [["query_cases"]]
 top_k=30
-join_discovery_method="exact_matching"
+join_discovery_method="minhash"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
@@ -84,7 +84,70 @@ query_column="title"
 # US Accidents
 [["query_cases"]]
 top_k=30
-join_discovery_method="exact_matching"
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"
+query_column="County"
+
+
+###############################################################################
+# Company employees
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
+query_column="name"
+
+# # Housing prices
+# [["query_cases"]]
+# top_k=30
+# join_discovery_method="minhash_hybrid"
+# data_lake="open_data_us"
+
+# table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
+# query_column="County"
+
+# [["query_cases"]]
+# top_k=30
+# join_discovery_method="minhash_hybrid"
+# data_lake="open_data_us"
+
+# table_path="data/source_tables/open_data/housing_prices-depleted_Metro-open_data.parquet"
+# query_column="Metro"
+
+# US elections
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
+query_column="county_name"
+
+# Movies
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
+query_column="title"
+
+# Movies vote
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
+query_column="title"
+
+# US Accidents
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"
