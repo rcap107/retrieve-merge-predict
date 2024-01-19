@@ -1,13 +1,10 @@
 import argparse
-import itertools
 import logging
 import os
 import pprint
 from datetime import datetime as dt
-from types import SimpleNamespace
 
 import toml
-from sklearn.model_selection import ParameterGrid
 
 from src.pipeline import prepare_config_dict, single_run
 from src.utils.logging import (
