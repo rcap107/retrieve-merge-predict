@@ -444,7 +444,7 @@ def prepare_case_subplot(
             )
     h, l = ax.get_legend_handles_labels()
     if len(data[plotting_variable]) == 1:
-        ax.set_yticks([1], ["Best"])
+        ax.set_yticks([1], [""])
     else:
         ax.set_yticks(
             range(1, len(data[grouping_dimension]) + 1),
@@ -708,6 +708,8 @@ def draw_pair_comparison(
     figsize=(10, 4),
     savefig: bool = False,
     savefig_type: list | str = "png",
+    savefig_name: str | None = None,
+    savefig_tag: str = "",
     case: str = "dep",
 ):
     df_rel_r2 = get_difference_from_mean(
@@ -819,10 +821,17 @@ def draw_pair_comparison(
     if savefig:
         if isinstance(savefig_type, str):
             savefig_type = [savefig_type]
-        for ext in savefig_type:
-            fname = f"{case}_triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
-            print(fname)
-            fig.savefig(Path("images", fname))
+        if savefig_name is not None:
+            print(savefig_name)
+            fig.savefig(Path("images", savefig_name))
+        else:
+            for ext in savefig_type:
+                fname = f"{case}_pair_{grouping_dimension}_{scatterplot_dimension}"
+                if savefig_tag:
+                    fname += f"_{savefig_tag}"
+                fname += f".{ext}"
+                print(fname)
+                fig.savefig(Path("images", fname))
 
 
 def prepare_grouped_stacked_barplot_time(
@@ -870,23 +879,29 @@ def prepare_grouped_stacked_barplot_time(
         to_concat.append(new_g)
     df_c = pl.concat(to_concat)
 
+    # Find the unique values in the first variable
+    unique_fv = df_c[fv_c].unique()
+    # Find the unique values in the second variable
+    unique_sv = df_c[sv_c].unique()
+
+    # Find the number of unique values in the first variable
+    n_unique_fv = len(unique_fv)
     # Find the number of unique values in the second variable
-    n_unique = df_c[sv_c].n_unique()
+    n_unique_sv = len(unique_sv)
 
     # Prepare a palette with 5 colors (one for each step of the pipeline)
     cmap = mpl.colormaps["Set1"](range(5))
 
     # Define the offset
-    offset_v = np.arange(n_unique) - n_unique // 2
+    offset_v = np.arange(n_unique_sv) - n_unique_sv // 2
 
-    fig, axs = plt.subplots(squeeze=True, layout="constrained")
+    fig, axs = plt.subplots(squeeze=True, layout="constrained", figsize=(8, 6))
 
     # Define the width of each bar based on the number of unique values
-    width = 1 / (n_unique + 1)
+    width = (1 / (n_unique_sv)) * 0.9
 
     x_ticks = []
     x_tick_labels = []
-
     for row_idx, row in enumerate(
         df_c.group_by([first_var, second_var]).agg(pl.all()).iter_rows(named=True)
     ):
@@ -922,4 +937,5 @@ def prepare_grouped_stacked_barplot_time(
     axs.set_xlabel("Execution time (s)")
     _ = axs.set_yticks(x_ticks, x_tick_labels)
 
-    fig.savefig(f"images/breakdown_time_{first_var}_{second_var}.pdf")
+    fig.savefig(f"images/breakdown_time_{first_var}_{second_var}.png")
+    # fig.savefig(f"images/breakdown_time_{first_var}_{second_var}.pdf")
