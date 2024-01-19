@@ -227,9 +227,6 @@ def read_and_process(df_results):
                 "epsilon",
             ]
         )
-    ).filter(
-        (~pl.col("base_table").str.contains("open_data"))
-        & (pl.col("target_dl") != "wordnet_big")
     )
     df_ = df_.group_by(
         ["target_dl", "jd_method", "base_table", "estimator", "chosen_model"]
