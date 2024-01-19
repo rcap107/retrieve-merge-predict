@@ -306,6 +306,8 @@ class QueryResult:
         rerank: bool,
     ) -> None:
         self.index_name = index.index_name
+        if self.index_name == "exact_matching":
+            rerank = False
         if rerank:
             self.index_name += "_hybrid"
         self.data_lake_version = mdata_index.data_lake_variant
@@ -351,8 +353,8 @@ class QueryResult:
         s2 = set(unique_cand[right_on].to_series().to_list())
         return len(s1.intersection(s2)) / len(s1)
 
-    def rank_results(self, candidates, exact_matching=False):
-        if not exact_matching:
+    def rank_results(self, candidates, rerank=False):
+        if not rerank:
             return dict(
                 sorted(
                     [(k, v.similarity_score) for k, v in candidates.items()],
