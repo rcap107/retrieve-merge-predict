@@ -22,15 +22,10 @@ cfg = pl.Config()
 cfg.set_fmt_str_lengths(150)
 
 # %%
-root_path = Path("results/big_batch")
-df_list = []
-for rpath in root_path.iterdir():
-    df_raw = read_logs(exp_name=None, exp_path=rpath)
-    df_list.append(df_raw)
+result_path = "results/overall/wordnet_aggr.parquet"
 
-df_results = pl.concat(df_list)
+df_results = pl.read_parquet(result_path)
 
-#%%
 results_full, results_depleted = read_and_process(df_results)
 
 
@@ -43,23 +38,6 @@ if case == "dep":
 
 elif case == "full":
     current_results = results_full.clone()
-
-# %%
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
-
-fig, axes = plt.subplot_mosaic(
-    [[1, 3], [2, 3]],
-    layout="constrained",
-    figsize=(8, 3),
-    sharey=True,
-    width_ratios=(3, 1),
-)
-axes[3].set_frame_on(False)
-axes[3].spines["top"].set_visible(False)
-axes[3].spines["right"].set_visible(False)
-axes[3].set_xticks([])
-axes[3].set_yticks([])
 
 # %%
 var = "estimator"
