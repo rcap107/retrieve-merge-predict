@@ -224,7 +224,6 @@ def read_and_process(df_results):
                 "time_fit",
                 "time_predict",
                 "time_run",
-                "epsilon",
             ]
         )
     )
