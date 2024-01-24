@@ -35,7 +35,7 @@ data_lake = ["wordnet_full"]
 join_discovery_method = ["exact_matching"]
 table_path = [
     "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
-    "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
+    # "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
     "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
     "data/source_tables/yadl/movies-yadl-depleted.parquet",
     "data/source_tables/yadl/movies_vote-yadl-depleted.parquet",
