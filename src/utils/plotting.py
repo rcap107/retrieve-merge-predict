@@ -82,7 +82,7 @@ LABEL_MAPPING = {
         "chosen_model": "ML model",
         "base_table": "Base table",
     },
-    "aggregation": {"first": "First", "mean": "Mean", "DFS": "DFS"},
+    "aggregation": {"first": "First", "mean": "Mean", "dfs": "DFS"},
     "budget_amount": {10: 10, 30: 30, 100: 100},
 }
 
@@ -95,16 +95,6 @@ def get_difference_from_mean(
     geometric=False,
     force_split=False,
 ):
-    all_groupby_variables = [
-        "fold_id",
-        "target_dl",
-        "base_table",
-        "jd_method",
-        "estimator",
-        "aggregation",
-        "chosen_model",
-    ]
-
     this_groupby = [_ for _ in GROUPING_KEYS if _ != column_to_average]
 
     n_unique = df.select(pl.col(column_to_average).n_unique()).item()
@@ -119,8 +109,8 @@ def get_difference_from_mean(
     else:
         best_method = (
             df.group_by(column_to_average)
-            .agg(pl.mean("scaled_diff"))
-            .top_k(1, by="scaled_diff")[column_to_average]
+            .agg(pl.mean(result_column))
+            .top_k(1, by=result_column)[column_to_average]
             .item()
         )
 
@@ -214,10 +204,20 @@ def _custom_formatter(x, pos):
     return rf"{x:g}x"
 
 
-def format_xaxis(ax, case, xmax=1):
+def format_xaxis(ax, case, limits, xmax=1):
     if case == "percentage":
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.10))
-        ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.05))
+        if max(np.abs(limits)) < 0.10:
+            major_locator = ticker.MultipleLocator(0.05)
+            minor_locator = ticker.MultipleLocator(0.01)
+        elif 0.10 <= max(np.abs(limits)) < 0.20:
+            major_locator = ticker.MultipleLocator(0.10)
+            minor_locator = ticker.MultipleLocator(0.05)
+        elif 0.20 <= max(np.abs(limits)):
+            major_locator = ticker.MultipleLocator(0.20)
+            minor_locator = ticker.MultipleLocator(0.10)
+
+        ax.xaxis.set_major_locator(major_locator)
+        ax.xaxis.set_minor_locator(minor_locator)
         ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
         # ax.xaxis.set_minor_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
         # ax.set_xlim((-0.4, 0.4))
@@ -248,9 +248,19 @@ def format_xaxis(ax, case, xmax=1):
                 1,
             ],
         )
-        # major_locator = ticker.FixedLocator([0, 0.5, 1, 1.5, 2, 3])
+        major_locator = ticker.FixedLocator([0.5, 1, 1.5, 2, 3])
+        major_formatter = ticker.FixedFormatter(
+            [
+                r"$0.5x$",
+                r"$1x$",
+                r"$1.5x$",
+                r"$2x$",
+                r"$3x$",
+            ]
+        )
         ax.xaxis.set_major_locator(major_locator)
-        ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
+        ax.xaxis.set_major_formatter(major_formatter)
+        # ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
     return ax
 
 
@@ -355,6 +365,7 @@ def prepare_case_subplot(
     box_width=0.9,
     xmax=1,
     sorting_variable="r2score",
+    qle=0.05,
 ):
     # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
     if sorting_variable == plotting_variable:
@@ -382,7 +393,7 @@ def prepare_case_subplot(
 
     ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
 
-    qle = 0.01
+    qle = 0.05
 
     limits = (
         df.select(
@@ -491,7 +502,7 @@ def prepare_case_subplot(
         )
 
     ax.set_xlim(limits)
-    ax = format_xaxis(ax, xtick_format, xmax=1)
+    ax = format_xaxis(ax, xtick_format, limits, xmax=xmax)
 
     xlim = ax.get_xlim()
     if xtick_format in ["symlog", "log"]:

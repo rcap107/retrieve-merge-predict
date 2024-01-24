@@ -12,6 +12,16 @@ import src.utils.plotting as plotting
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
+GROUPING_KEYS = [
+    "jd_method",
+    "estimator",
+    "chosen_model",
+    "target_dl",
+    "base_table",
+    "aggregation",
+    "fold_id",
+]
+
 HEADER_RUN_LOGFILE = [
     "scenario_id",
     "status",
@@ -214,6 +224,7 @@ def read_and_process(df_results):
         pl.col(
             [
                 "scenario_id",
+                "fold_id",
                 "target_dl",
                 "jd_method",
                 "base_table",
@@ -227,13 +238,13 @@ def read_and_process(df_results):
             ]
         )
     )
-    df_ = df_.group_by(
-        ["target_dl", "jd_method", "base_table", "estimator", "chosen_model"]
-    ).map_groups(lambda x: x.with_row_count("fold_id"))
+    # df_ = df_.group_by(
+    #     [_ for _ in GROUPING_KEYS if _ != "fold_id"]
+    # ).map_groups(lambda x: x.with_row_count("fold_id"))
 
     joined = df_.join(
         df_.filter(pl.col("estimator") == "nojoin"),
-        on=["target_dl", "jd_method", "base_table", "chosen_model", "fold_id"],
+        on=GROUPING_KEYS,
         how="left",
     ).with_columns((pl.col("r2score") - pl.col("r2score_right")).alias("difference"))
 
