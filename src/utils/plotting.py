@@ -11,10 +11,33 @@ import seaborn as sns
 
 plt.style.use("seaborn-v0_8-talk")
 
-GROUPING_KEYS = ["jd_method", "estimator", "chosen_model", "target_dl", "base_table"]
+GROUPING_KEYS = [
+    "jd_method",
+    "estimator",
+    "chosen_model",
+    "target_dl",
+    "base_table",
+    "aggregation",
+    "fold_id",
+]
+
+SCATTERPLOT_LABELS = [
+    "(D) Employees",
+    "(D) Housing Prices",
+    "(D) Movies",
+    "(D) Movies Vote",
+    "(D) US Accidents",
+    "(D) US County Population",
+    "(D) US Elections",
+]
 
 LABEL_MAPPING = {
     "base_table": {
+        "movies_vote-depleted_title-open_data": "(D) Movies Vote",
+        "us_elections-depleted_county_name-open_data": "(D) US Elections",
+        "us_accidents-depleted_County-open_data": "(D) US Accidents",
+        "movies-depleted_title-open_data": "(D) Movies",
+        "company_employees-depleted_name-open_data": "(D) Employees",
         "company-employees-yadl-depleted": "(D) Employees",
         "company_employees-yadl-depleted": "(D) Employees",
         "movies-yadl-depleted": "(D) Movies",
@@ -78,10 +101,11 @@ def get_difference_from_mean(
         "base_table",
         "jd_method",
         "estimator",
+        "aggregation",
         "chosen_model",
     ]
 
-    this_groupby = [_ for _ in all_groupby_variables if _ != column_to_average]
+    this_groupby = [_ for _ in GROUPING_KEYS if _ != column_to_average]
 
     n_unique = df.select(pl.col(column_to_average).n_unique()).item()
     if n_unique > 2 or force_split:
@@ -192,10 +216,11 @@ def _custom_formatter(x, pos):
 
 def format_xaxis(ax, case, xmax=1):
     if case == "percentage":
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.10))
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.05))
         ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
         # ax.xaxis.set_minor_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
+        # ax.set_xlim((-0.4, 0.4))
     elif case == "log":
         ax.set_xscale("log", base=10)
         ax.xaxis.set_major_locator(
@@ -357,6 +382,20 @@ def prepare_case_subplot(
 
     ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
 
+    qle = 0.01
+
+    limits = (
+        df.select(
+            pl.col(plotting_variable).quantile(qle).alias("min"),
+            pl.col(plotting_variable).quantile(1 - qle).alias("max"),
+        )
+        .transpose()
+        .to_numpy()
+        .squeeze()
+    )
+
+    print("limits", limits)
+
     ax.axvline(ref_vline, alpha=0.4, zorder=0, color="blue", linestyle="--")
     if kind == "violin":
         parts = ax.violinplot(
@@ -451,14 +490,14 @@ def prepare_case_subplot(
             [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
         )
 
-    ax = format_xaxis(ax, xtick_format, xmax)
+    ax.set_xlim(limits)
+    ax = format_xaxis(ax, xtick_format, xmax=1)
 
     xlim = ax.get_xlim()
     if xtick_format in ["symlog", "log"]:
         ax.axvspan(1, xlim[1], zorder=0, alpha=0.05, color="red")
     else:
         ax.axvspan(xlim[0], 0, zorder=0, alpha=0.05, color="red")
-    ax.set_xlim(xlim)
 
     return h, l
 
@@ -568,7 +607,7 @@ def draw_split_figure(
             loc="outside lower left",
             mode="expand",
             ncols=len(l),
-            markerscale=5,
+            markerscale=10,
             borderaxespad=-0.2,
             bbox_to_anchor=(0, -0.1, 1, 0.5),
             scatterpoints=1,
@@ -747,7 +786,7 @@ def draw_pair_comparison(
             layout="constrained",
             figsize=figsize,
             sharey=False,
-            width_ratios=(1),
+            # width_ratios=(2, 2),
         )
 
     axes[1].sharey(axes[0])
@@ -794,7 +833,7 @@ def draw_pair_comparison(
         l,
         loc="outside right",
         ncols=1,
-        markerscale=2,
+        markerscale=5,
         # borderaxespad=-0.2,
         # bbox_to_anchor=(0, -0.1, 1, 0.5),
         scatterpoints=1,
@@ -843,6 +882,7 @@ def prepare_grouped_stacked_barplot_time(
     df_prepare = (
         df.group_by([first_var, second_var])
         .agg(
+            # pl.col("time_run").mean(),
             pl.col("time_prepare").mean(),
             pl.col("time_model_train").mean(),
             pl.col("time_join_train").mean(),
