@@ -8,83 +8,11 @@ import pandas as pd
 import polars as pl
 import polars.selectors as cs
 import seaborn as sns
+from matplotlib.colors import ListedColormap
+
+import src.utils.constants as constants
 
 plt.style.use("seaborn-v0_8-talk")
-
-GROUPING_KEYS = [
-    "jd_method",
-    "estimator",
-    "chosen_model",
-    "target_dl",
-    "base_table",
-    "aggregation",
-    "fold_id",
-]
-
-SCATTERPLOT_LABELS = [
-    "(D) Employees",
-    "(D) Housing Prices",
-    "(D) Movies",
-    "(D) Movies Vote",
-    "(D) US Accidents",
-    "(D) US County Population",
-    "(D) US Elections",
-]
-
-LABEL_MAPPING = {
-    "base_table": {
-        "movies_vote-depleted_title-open_data": "(D) Movies Vote",
-        "us_elections-depleted_county_name-open_data": "(D) US Elections",
-        "us_accidents-depleted_County-open_data": "(D) US Accidents",
-        "movies-depleted_title-open_data": "(D) Movies",
-        "company_employees-depleted_name-open_data": "(D) Employees",
-        "company-employees-yadl-depleted": "(D) Employees",
-        "company_employees-yadl-depleted": "(D) Employees",
-        "movies-yadl-depleted": "(D) Movies",
-        "movies-vote-yadl-depleted": "(D) Movies Vote",
-        "movies_vote-yadl-depleted": "(D) Movies Vote",
-        "housing-prices-yadl-depleted": "(D) Housing Prices",
-        "housing_prices-yadl-depleted": "(D) Housing Prices",
-        "us-accidents-yadl-depleted": "(D) US Accidents",
-        "us_accidents-yadl-depleted": "(D) US Accidents",
-        "us-elections-yadl-depleted": "(D) US Elections",
-        "us_elections-yadl-depleted": "(D) US Elections",
-        "us_county_population-depleted-yadl": "(D) US County Population",
-        "us_county_population-yadl-depleted": "(D) US County Population",
-        "company-employees-yadl": "Employees",
-        "company_employees-yadl": "Employees",
-        "movies-yadl": "Movies",
-        "movies-vote-yadl": "Movies Vote",
-        "movies_vote-yadl": "Movies Vote",
-        "housing-prices-yadl": "Housing Prices",
-        "housing_prices-yadl": "Housing Prices",
-        "us-accidents-yadl": "US Accidents",
-        "us_accidents-yadl": "US Accidents",
-        "us-elections-yadl": "US Elections",
-        "us_elections-yadl": "US Elections",
-    },
-    "jd_method": {
-        "exact_matching": "Exact",
-        "minhash": "MinHash",
-        "minhash_hybrid": "Hybrid MinHash",
-    },
-    "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
-    "estimator": {
-        "full_join": "Full Join",
-        "best_single_join": "Best Single Join",
-        "stepwise_greedy_join": "Stepwise Greedy Join",
-        "highest_containment": "Highest Cont. Join",
-        "nojoin": "No Join",
-    },
-    "variables": {
-        "estimator": "Estimator",
-        "jd_method": "Retrieval method",
-        "chosen_model": "ML model",
-        "base_table": "Base table",
-    },
-    "aggregation": {"first": "First", "mean": "Mean", "dfs": "DFS"},
-    "budget_amount": {10: 10, 30: 30, 100: 100},
-}
 
 
 def get_difference_from_mean(
@@ -95,7 +23,7 @@ def get_difference_from_mean(
     geometric=False,
     force_split=False,
 ):
-    this_groupby = [_ for _ in GROUPING_KEYS if _ != column_to_average]
+    this_groupby = [_ for _ in constants.GROUPING_KEYS if _ != column_to_average]
 
     n_unique = df.select(pl.col(column_to_average).n_unique()).item()
     if n_unique > 2 or force_split:
@@ -177,7 +105,25 @@ def add_subplot(fig, position):
     return new_ax
 
 
-def prepare_scatterplot_labels(
+def prepare_scatterplot_mapping_case(df: pl.DataFrame):
+    assert "target_dl" in df.columns
+    assert "case" in df.columns
+
+    def get_cmap(cmap_name, n_colors):
+        c = plt.colormaps[cmap_name].resampled(n_colors)
+        cmap = ListedColormap(colors=c(range(n_colors)))
+        return cmap
+
+    maps = []
+    for gdx, group in df.group_by(["target_dl"]):
+        cases = group.select(pl.col("case").unique()).sort("case")["case"].to_numpy()
+        cmap = get_cmap(constants.COLORMAP_DATALAKE_MAPPING[gdx[0]], len(cases))
+        maps += list(zip(cases, cmap.colors))
+    scatterplot_mapping = dict(maps)
+    return scatterplot_mapping
+
+
+def prepare_scatterplot_mapping_general(
     df, scatterplot_dimension, plotting_variable, colormap_name="viridis"
 ):
     # Prepare the labels for the scatter plot and the corresponding colors.
@@ -189,7 +135,6 @@ def prepare_scatterplot_labels(
         .to_numpy()
         .squeeze()
     )
-    # colors = plt.colormaps[colormap_name](np.linspace(0, 1, len(scatterplot_labels)))
     colors = plt.colormaps[colormap_name].resampled(len(scatterplot_labels)).colors
     scatterplot_mapping = dict(
         zip(
@@ -387,13 +332,11 @@ def prepare_case_subplot(
         )
 
     if scatterplot_mapping is None:
-        scatterplot_mapping = prepare_scatterplot_labels(
+        scatterplot_mapping = prepare_scatterplot_mapping_general(
             df, scatterplot_dimension, plotting_variable, colormap_name=colormap_name
         )
 
     ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
-
-    qle = 0.05
 
     limits = (
         df.select(
@@ -468,8 +411,9 @@ def prepare_case_subplot(
         elif scatter_mode == "overlapping":
             offset = np.zeros(len(scatterplot_mapping))
 
+        # TODO fixed scatterplot mapping when the scatterplot dimension is base table
         for _, label in enumerate(scatterplot_mapping):
-            this_label = LABEL_MAPPING[scatterplot_dimension][label]
+            this_label = constants.LABEL_MAPPING[scatterplot_dimension][label]
             if _i > 0:
                 this_label = "_" + str(this_label)
             filter_dict = {
@@ -498,7 +442,10 @@ def prepare_case_subplot(
     else:
         ax.set_yticks(
             range(1, len(data[grouping_dimension]) + 1),
-            [LABEL_MAPPING[grouping_dimension][_l] for _l in data[grouping_dimension]],
+            [
+                constants.LABEL_MAPPING[grouping_dimension][_l]
+                for _l in data[grouping_dimension]
+            ],
         )
 
     ax.set_xlim(limits)
@@ -522,6 +469,7 @@ def draw_split_figure(
     plotting_variable: str = "scaled_diff",
     kind: str = "violin",
     axes_formatting: dict = None,
+    scatterplot_mapping=None,
     xtick_format: str = "percentage",
     colormap_name: str = "viridis",
     scatter_mode: str = "overlapping",
@@ -560,7 +508,7 @@ def draw_split_figure(
         n_cols = len(cases[split_dimension])
     else:
         n_cols = 1
-    scatterplot_mapping = prepare_scatterplot_labels(
+    scatterplot_mapping = prepare_scatterplot_mapping_general(
         df, scatterplot_dimension, plotting_variable, colormap_name
     )
 
@@ -592,7 +540,7 @@ def draw_split_figure(
                     kind=kind,
                 )
                 axes[0][idx_outer_var].set_title(
-                    LABEL_MAPPING[split_dimension][case_split_]
+                    constants.LABEL_MAPPING[split_dimension][case_split_]
                 )
         else:
             ax = axes[0, 0]
@@ -658,7 +606,7 @@ def draw_triple_comparison(
         geometric=True,
     )
 
-    scatterplot_mapping = prepare_scatterplot_labels(
+    scatterplot_mapping = prepare_scatterplot_mapping_general(
         df, scatterplot_dimension, "scaled_diff", colormap_name
     )
 
@@ -761,6 +709,8 @@ def draw_pair_comparison(
     savefig_name: str | None = None,
     savefig_tag: str = "",
     case: str = "dep",
+    jitter_factor: float = 0.03,
+    qle: float = 0.05,
 ):
     df_rel_r2 = get_difference_from_mean(
         df, column_to_average=grouping_dimension, result_column="r2score"
@@ -772,9 +722,12 @@ def draw_pair_comparison(
         geometric=True,
     )
 
-    scatterplot_mapping = prepare_scatterplot_labels(
-        df, scatterplot_dimension, "scaled_diff", colormap_name
-    )
+    if scatterplot_dimension == "case":
+       scatterplot_mapping =  prepare_scatterplot_mapping_case(df)
+    else:
+        scatterplot_mapping = prepare_scatterplot_mapping_general(
+            df, scatterplot_dimension, "scaled_diff", colormap_name
+        )
 
     if form_factor == "multi":
         fig, axes = plt.subplot_mosaic(
@@ -835,7 +788,8 @@ def draw_pair_comparison(
             scatter_mode=scatter_mode,
             xtick_format=formatting_dict[var]["xtick_format"],
             kind="box",
-            jitter_factor=0.03,
+            jitter_factor=jitter_factor,
+            qle=qle
         )
         axes[idx].set_title(subplot_titles[idx])
 
@@ -979,7 +933,7 @@ def prepare_grouped_stacked_barplot_time(
         # Add the position and label for the ticks
         x_ticks.append(first_coord + offset)
         x_tick_labels.append(
-            f"{LABEL_MAPPING[first_var][row[first_var]]} {LABEL_MAPPING[second_var][row[second_var]]}"
+            f"{constants.LABEL_MAPPING[first_var][row[first_var]]} {constants.LABEL_MAPPING[second_var][row[second_var]]}"
         )
 
         # Add the final value as label to the bar

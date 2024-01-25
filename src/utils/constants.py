@@ -1,0 +1,111 @@
+GROUPING_KEYS = [
+    "jd_method",
+    "estimator",
+    "chosen_model",
+    "target_dl",
+    "base_table",
+    "aggregation",
+    "fold_id",
+]
+
+
+COLORMAP_DATALAKE_MAPPING = {
+    "wordnet_full": "spring",
+    "open_data_us": "winter",
+    "binary_update": "gray",
+}
+
+
+LEGEND_LABELS = {
+    "company_employees":"Employees",
+    "housing_prices":"Housing Prices",
+    "movies":"Movies Revenue",
+    "movies_vote":"Movies Vote",
+    "us_accidents":"US Accidents",
+    "us_county_population":"US County Population",
+    "us_elections":"US Elections",
+}
+
+LABEL_MAPPING = {
+    "base_table": {
+        "movies_vote-depleted_title-open_data": "(D) Movies Vote",
+        "us_elections-depleted_county_name-open_data": "(D) US Elections",
+        "us_accidents-depleted_County-open_data": "(D) US Accidents",
+        "movies-depleted_title-open_data": "(D) Movies",
+        "company_employees-depleted_name-open_data": "(D) Employees",
+        "company-employees-yadl-depleted": "(D) Employees",
+        "company_employees-yadl-depleted": "(D) Employees",
+        "movies-yadl-depleted": "(D) Movies",
+        "movies-vote-yadl-depleted": "(D) Movies Vote",
+        "movies_vote-yadl-depleted": "(D) Movies Vote",
+        "housing-prices-yadl-depleted": "(D) Housing Prices",
+        "housing_prices-yadl-depleted": "(D) Housing Prices",
+        "housing_prices-depleted_County-open_data": "(D) Housing Prices",
+        "us-accidents-yadl-depleted": "(D) US Accidents",
+        "us_accidents-yadl-depleted": "(D) US Accidents",
+        "us-elections-yadl-depleted": "(D) US Elections",
+        "us_elections-yadl-depleted": "(D) US Elections",
+        "us_county_population-depleted-yadl": "(D) US County Population",
+        "us_county_population-yadl-depleted": "(D) US County Population",
+        "company-employees-yadl": "Employees",
+        "company_employees-yadl": "Employees",
+        "movies-yadl": "Movies",
+        "movies-vote-yadl": "Movies Vote",
+        "movies_vote-yadl": "Movies Vote",
+        "housing-prices-yadl": "Housing Prices",
+        "housing_prices-yadl": "Housing Prices",
+        "us-accidents-yadl": "US Accidents",
+        "us_accidents-yadl": "US Accidents",
+        "us-elections-yadl": "US Elections",
+        "us_elections-yadl": "US Elections",
+    },
+    "case": {
+        "company_employees-binary_update": "Employees",
+        "housing_prices-binary_update": "Housing Prices",
+        "movies-binary_update": "Movies Revenue",
+        "movies_vote-binary_update": "Movies Vote",
+        "us_accidents-binary_update": "US Accidents",
+        "us_county_population-binary_update": "US County Population",
+        "us_elections-binary_update": "US Elections",
+        "company_employees-open_data_us": "Employees",
+        "housing_prices-open_data_us": "Housing Prices",
+        "movies-open_data_us": "Movies Revenue",
+        "movies_vote-open_data_us": "Movies Vote",
+        "us_accidents-open_data_us": "US Accidents",
+        "us_elections-open_data_us": "US Elections",
+        "company_employees-wordnet_full": "Employees",
+        "housing_prices-wordnet_full": "Housing Prices",
+        "movies-wordnet_full": "Movies Revenue",
+        "movies_vote-wordnet_full": "Movies Vote",
+        "us_accidents-wordnet_full": "US Accidents",
+        "us_county_population-wordnet_full": "US Elections",
+        "us_elections-wordnet_full": "Employees",
+    },
+    "jd_method": {
+        "exact_matching": "Exact",
+        "minhash": "MinHash",
+        "minhash_hybrid": "Hybrid MinHash",
+    },
+    "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
+    "estimator": {
+        "full_join": "Full Join",
+        "best_single_join": "Best Single Join",
+        "stepwise_greedy_join": "Stepwise Greedy Join",
+        "highest_containment": "Highest Cont. Join",
+        "nojoin": "No Join",
+    },
+    "variables": {
+        "estimator": "Estimator",
+        "jd_method": "Retrieval method",
+        "chosen_model": "ML model",
+        "base_table": "Base table",
+    },
+    "aggregation": {"first": "First", "mean": "Mean", "dfs": "DFS"},
+    "budget_amount": {10: 10, 30: 30, 100: 100},
+    "target_dl": {
+        "binary_update": "Binary",
+        "wordnet_full": "Wordnet",
+        "open_data_us": "Open Data",
+        }
+}
+
