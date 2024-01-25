@@ -24,15 +24,9 @@ def get_cases(df: pl.DataFrame, keep_nojoin: bool = False) -> dict:
 
 
 if __name__ == "__main__":
-    root_path = Path("results/big_batch")
-    df_list = []
-    for rpath in root_path.iterdir():
-        df_raw = read_logs(exp_name=None, exp_path=rpath)
-        df_list.append(df_raw)
+    result_path = "results/overall/wordnet_open_data_first.parquet"
 
-    df_results = pl.concat(df_list)
-
-    # df_results  = read_logs(exp_name="0332-92xkckqk")
+    df_results = pl.read_parquet(result_path)
 
     results_full, results_depleted = read_and_process(df_results)
 
@@ -45,23 +39,40 @@ if __name__ == "__main__":
     elif case == "full":
         current_results = results_full.clone()
 
-    # for var in ["jd_method"]:
+    # for var in ["base_table",]:
     for var in ["estimator", "jd_method", "chosen_model"]:
         print(f"Variable: {var}")
         n_unique = current_results.select(pl.col(var).n_unique()).item()
-        for scatter_d in ["base_table"]:
+        for scatter_d in ["target_dl", "base_table"]:
             # for scatter_d in ["base_table", "chosen_model", "jd_method", "estimator"]:
             if scatter_d == var:
                 continue
             form_factor = "binary" if n_unique == 2 else "multi"
-            plotting.draw_triple_comparison(
+            if form_factor == "multi":
+                figsize = (12, 3)
+            else:
+                figsize = (8, 3)
+            plotting.draw_pair_comparison(
                 current_results,
                 var,
                 form_factor=form_factor,
                 scatterplot_dimension=scatter_d,
-                figsize=(12, 3),
+                figsize=figsize,
                 scatter_mode="split",
                 savefig=True,
                 savefig_type=["png", "pdf"],
+                savefig_tag="open_data",
                 case=case,
+                colormap_name="Set1",
             )
+            # plotting.draw_triple_comparison(
+            #     current_results,
+            #     var,
+            #     form_factor=form_factor,
+            #     scatterplot_dimension=scatter_d,
+            #     figsize=(12, 3),
+            #     scatter_mode="split",
+            #     savefig=True,
+            #     savefig_type=["png", "pdf"],
+            #     case=case,
+            # )
