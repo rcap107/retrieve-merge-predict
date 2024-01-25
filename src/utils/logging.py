@@ -190,7 +190,6 @@ def wrap_up_plot(exp_name, task="regression", variable_of_interest=None):
 
     if variable_of_interest is not None:
         for gname, group in df_raw.group_by(variable_of_interest):
-
             for case in [current_score, "time_run"]:
                 path_plot = Path(path_target_run, "plots", f"{gname}_{case}.png")
                 ax = plotting.base_barplot(group.to_pandas(), result_variable=case)
@@ -237,6 +236,10 @@ def read_and_process(df_results):
                 "time_run",
             ]
         )
+    ).with_columns(
+        (
+            pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
+        ).alias("case")
     )
     # df_ = df_.group_by(
     #     [_ for _ in GROUPING_KEYS if _ != "fold_id"]
@@ -253,6 +256,7 @@ def read_and_process(df_results):
         "target_dl",
         "jd_method",
         "base_table",
+        "case",
         "estimator",
         "chosen_model",
         "aggregation",
