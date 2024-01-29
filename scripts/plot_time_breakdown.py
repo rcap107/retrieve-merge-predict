@@ -1,7 +1,8 @@
-# #%%
+# %%
 # %cd ~/bench
 # %load_ext autoreload
 # %autoreload 2
+#%%
 import json
 import tarfile
 from pathlib import Path
@@ -11,8 +12,6 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-#%%
 import polars as pl
 import polars.selectors as cs
 import seaborn as sns
@@ -22,13 +21,15 @@ import src.utils.constants as constants
 import src.utils.plotting as plotting
 from src.utils.logging import read_logs
 
+#%%
+
 cfg = pl.Config()
 cfg.set_fmt_str_lengths(150)
 LABEL_MAPPING = constants.LABEL_MAPPING
 
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
-plt.rc("font", family="serif")
+plt.rc("font", family="sans-serif")
 
 
 #%%
@@ -140,7 +141,7 @@ def prepare_subplot(df, ax, grouping_variable, variant: str = "absolute"):
             tick_label=d[grouping_variable],
         )
         if variant == "total":
-            ax.bar_label(p, fmt="{:.2f}", label_type="edge")
+            ax.bar_label(p, fmt="{:.2f}", label_type="edge", fontsize=10)
     ax.set_xlabel(label)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
