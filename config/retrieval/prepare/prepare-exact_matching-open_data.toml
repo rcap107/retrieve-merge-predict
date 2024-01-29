@@ -17,18 +17,8 @@ query_column="County"
 
 [["exact_matching"]]
 metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
-query_column="Metro"
-
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
 base_table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
 query_column="County"
-
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/housing_prices-depleted_Metro-open_data.parquet"
-query_column="Metro"
 
 # US elections
 [["exact_matching"]]
@@ -40,6 +30,18 @@ query_column="county_name"
 metadata_dir="data/metadata/open_data_us"
 base_table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
 query_column="county_name"
+
+# US elections dems
+[["exact_matching"]]
+metadata_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/open_data/us_elections_dems-open_data.parquet"
+query_column="county_name"
+
+[["exact_matching"]]
+metadata_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/open_data/us_elections_dems-depleted_county_name-open_data.parquet"
+query_column="county_name"
+
 
 # Movies
 [["exact_matching"]]

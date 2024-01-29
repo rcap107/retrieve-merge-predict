@@ -1,0 +1,7 @@
+join_discovery_method=["exact_matching"]
+data_lake="open_data_us"
+hybrid=true
+
+[["query_cases"]]
+table_path="data/source_tables/open_data/schools-open_data.parquet"
+query_column="col_to_embed"
