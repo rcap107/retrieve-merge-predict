@@ -120,9 +120,6 @@ def prepare_dfs_table(
         drop_contains=["target"],
         return_types="all",
     )
-
-    feature_matrix["target"] = left_table_dedup["target"]
-
     new_df = feature_matrix.copy()
     cat_cols = new_df.select_dtypes(exclude="number").columns
     num_cols = new_df.select_dtypes("number").columns

@@ -1,7 +1,7 @@
 Benchmarking Join Suggestions
 ===
-This repository contains the code for implementing and running the pipeline described in the paper "A Benchmarking Data
-Lake for Join Discovery and Learning with Relational Data".
+This repository contains the code for implementing and running the pipeline described in the paper "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes
+(Experiment, Analysis & Benchmark Paper).
 
 The objective is modeling a situation where an user is trying to execute ML tasks on some base data, enriching it by
 using new tables found in a data lake through Join Discovery methods.
@@ -11,9 +11,9 @@ joined tables is compared to that of the base table by training a regressor with
 measured before and after joining.
 
 We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
-are available on Zenodo: https://zenodo.org/record/8015298
+are available [on Zenodo](https://zenodo.org/record/8015298).
 
-The code for preparing the YADL variants can be found in this repo: https://github.com/rcap107/prepare-data-lakes
+The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/prepare-data-lakes)
 
 # Installing the requirements
 We strongly recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the
@@ -34,47 +34,80 @@ wget -O data/YADL_binary.tar.gz https://zenodo.org/record/8015298/files/YADL_bin
 wget -O data/YADL_wordnet.tar.gz https://zenodo.org/record/8015298/files/YADL_wordnet.tar.gz
 ```
 
-# Running the pipeline
-## Creating the indices
-Before running the pipeline, it is necessary to set up the indices and the metadata of the tables in the data lake.
+# Preparing the environment
+Once the required python environment has been prepared it is necessary to prepare the files required
+for the execution of the pipeline.
 
-Extract the variants to folder `data/yadl/`, then run the script `prepare_metadata.py`.
+For efficiency reasons and to avoid running unnecessary operations when testing different components, the pipeline has
+been split in different modules that have to be run in sequence.
+
+## Preparing the metadata
+Given a data lake version to evaluate, the first step is preparing a metadata file for each table in the data lake. This
+metadata is used in all steps of the pipeline.
+
+The script `prepare_metadata.py`is used to generate the files for a given data lake case.
+
+Use the command:
 ```
-python prepare_metadata.py -s CASE PATH
+python prepare_metadata.py DATA_FOLDER
 ```
-`CASE` is the tag to be given to the index (e.g., `binary` or `wordnet`).
+where `DATA_FOLDER` is the root path of the data lake.
 
-`PATH` is the path to the root folder containing all the tables (saved in parquet) to be added to the metadata index and
-to the indices.
+The script will recursively scan all folders found in `DATA_FOLDER` and generate a json file for each parquet file
+encountered.
 
-`-s` is needed to save the indices after preparing the metadata.
+## Preparing the Retrieval methods
+This step is an offline operation during which the retrieval methods are prepared by building the data structures they rely on to function. The preparation of these data structures can require a substantial amount of
+time and disk space and is not required for the querying step, as such it can be executed only once for each data lake.
 
+Different retrieval methods require different data structures and different starting configurations, which should be stored in `config/retrieval/prepare`. In all configurations,
+`n_jobs` is the number of parallel jobs that will be executed; if it set to -1, all available
+CPU cores will be used.
+
+### Execution
 ```
-# wordnet case
-python prepare_metadata.py -s wordnet data/wordnet_big/
-# binary case
-python prepare_metadata.py -s binary data/binary/
+python prepare_retrieval_methods.py [--repeats REPEATS] config_file
 ```
-Running the indexing step for `wordnet` takes about ~30 minutes on our cluster.
+`config_file` is the path to the configuration file. `repeats` is a parameter that can be
+added to re-run the current configuration `repeats` times to track the time.
 
-## Running the experiments
-The sample script `example_config.sh` runs a single, shortened run: the results will not necessarily be accurate, but it
-simplifies debugging. If all the previous steps were successful, the script should run without errors in a few minutes.
+### Config files
+Here is a sample configuration for MinHash.
+```toml
+[["minhash"]]
+data_lake_variant="wordnet_full"
+thresholds=20
+oneshot=true
+num_perm=128
+n_jobs=-1
+```
 
-To run the experiments reported in the paper, use the `./run_experiments.sh` script. Note that running all the experiments
-can take a very long time.
+`ExactMatchingIndex` work only for single query columns. As such,
+each case `queryt_table-query_column` must be defined independently:
 
-## Studying the results
-Results are stored in the `results/logs` folder.
+```toml
+[["exact_matching"]]
+data_dir="data/metadata/wordnet_full"
+base_table_path="data/source_tables/yadl/company_employees-yadl.parquet"
+query_column="col_to_embed"
+n_jobs=-1
 
-`main_log.log` keeps track of each "high level execution" (as invoked
-from the command line), mainly logging run-level parameters and timers.
+[["exact_matching"]]
+data_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/housing_prices-open_data.parquet"
+query_column="County"
+n_jobs=-1
+```
 
-`runs_log.log` keeps track of each singular fold (i.e. train/test split over the base table), and the main steps in the
-training: results using only the base table, best result when joining a single candidate, join over all candidates and
-join over the top `k` candidates.
+The configuration parser will prepare the data structures (specifically, the counts) for each case provided in the configuration file.
 
-Each outer fold will run the sequence "base table", "candidates", "full join", "sampled full join" on the same train/test
-split.
+Configuration files whose name start with `prepare` in `config/retrieval/prepare` are example configuration files for the index preparation step.
 
-Results are available in [this spreadsheet](https://docs.google.com/spreadsheets/d/1a8YcpMxhr5MXkOLGepAZyDWcikySoL0zvqgWv1-Uv4c/edit?usp=sharing).
+## Querying the retrieval methods
+Because of how some methods are implemented, the querying operation can incur in significant costs because of the need to load the index structures in memory.
+
+For conveniences, queries are executed offline and persisted on disk so that they can be loaded at runtime during the execution of the pipeline.
+
+Configuration files stored in `config/retrieval/query` are example configuration files for the index query step.
+
+# Executing the pipeline

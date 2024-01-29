@@ -42,13 +42,13 @@ def prepare_dirtree():
     os.makedirs("data/metadata/queries", exist_ok=True)
 
 
-def convert_to_list(thing):
-    if isinstance(thing, dict):
-        return {k: convert_to_list(v) for k, v in thing.items()}
-    elif isinstance(thing, list):
-        return thing
+def convert_to_list(item):
+    if isinstance(item, dict):
+        return {k: convert_to_list(v) for k, v in item.items()}
+    elif isinstance(item, list):
+        return item
     else:
-        return [thing]
+        return [item]
 
 
 def get_comb(config_dict):
@@ -130,14 +130,6 @@ def single_run(run_config, run_name=None):
 
     tab_name = query_tab_path.stem
 
-    query_result = load_query_result(
-        query_info["data_lake"],
-        query_info["join_discovery_method"],
-        tab_name,
-        query_info["query_column"],
-        top_k=run_parameters["top_k"],
-    )
-
     scl = ScenarioLogger(
         base_table_name=tab_name,
         git_hash=repo_sha,
@@ -145,11 +137,20 @@ def single_run(run_config, run_name=None):
         exp_name=run_name,
         debug=debug,
     )
+
+    # try:
+    query_result = load_query_result(
+        query_info["data_lake"],
+        query_info["join_discovery_method"],
+        tab_name,
+        query_info["query_column"],
+        top_k=query_info["top_k"],
+    )
+
     df_source = pl.read_parquet(query_tab_path).unique()
 
     scl.add_timestamp("start_evaluation")
     logger.info("Starting evaluation.")
-
     em.evaluate_joins(
         scl,
         df_source,
@@ -162,9 +163,13 @@ def single_run(run_config, run_name=None):
         model_parameters=model_parameters,
         run_parameters=run_parameters,
     )
+    scl.set_status("SUCCESS")
+    # except Exception as exception:
+    #     exception_name = exception.__class__.__name__
+    #     scl.set_status("FAILURE", exception_name)
+
     logger.info("End evaluation.")
     scl.add_timestamp("end_evaluation")
-    scl.set_status("SUCCESS")
     scl.add_timestamp("end_process")
     scl.add_process_time()
 

@@ -1,13 +1,10 @@
 import argparse
-import itertools
 import logging
 import os
 import pprint
 from datetime import datetime as dt
-from types import SimpleNamespace
 
 import toml
-from sklearn.model_selection import ParameterGrid
 
 from src.pipeline import prepare_config_dict, single_run
 from src.utils.logging import (
@@ -76,7 +73,13 @@ if __name__ == "__main__":
         archive_experiment(exp_name)
     end_run = dt.now()
     if not args.debug:
-        wrap_up_plot(exp_name, base_config["run_parameters"]["task"])
+        pass
+        # var_int = base_config["run_parameters"].get("variable_of_interest", None)
+        # wrap_up_plot(
+        #     exp_name,
+        #     base_config["run_parameters"]["task"],
+        #     variable_of_interest=var_int,
+        # )
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
     # finish_run()

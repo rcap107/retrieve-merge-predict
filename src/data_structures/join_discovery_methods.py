@@ -78,6 +78,7 @@ class MinHashIndex:
         oneshot=True,
         index_file=None,
         n_jobs=1,
+        compute_exact=False,
     ) -> None:
         """
         If `index_file` is provided, the data structures required for the index are loaded from the given
@@ -105,6 +106,7 @@ class MinHashIndex:
         self.initialized = False
         self.ensembles = {}
         self.n_jobs = n_jobs
+        self.compute_exact = compute_exact
 
         if index_file is not None:
             self.load_index(index_file)
@@ -250,6 +252,9 @@ class MinHashIndex:
                 for k, v in query_dict.items():
                     query_results.append((k[0], k[1], v))
 
+            if self.compute_exact:
+                query_results = self.measure_exact_overlap(query_results)
+
             return query_results
         else:
             raise RuntimeError("Ensembles are not initialized.")
@@ -293,6 +298,7 @@ class MinHashIndex:
                     self.num_part = index_dict["num_part"]
                     self.thresholds = index_dict["thresholds"]
                     self.ensembles = index_dict["ensembles"]
+                    self.compute_exact = index_dict["compute_exact"]
                     self.initialized = True
             else:
                 raise FileNotFoundError(f"File `{index_file}` not found.")
@@ -302,6 +308,7 @@ class MinHashIndex:
             self.num_part = index_dict["num_part"]
             self.thresholds = index_dict["thresholds"]
             self.ensembles = index_dict["ensembles"]
+            # self.compute_exact = index_dict["compute_exact"]
             self.initialized = True
         else:
             raise ValueError("Either `index_file` or `index_dict` must be provided.")
@@ -688,7 +695,6 @@ class ExactMatchingIndex:
         return overlap_dict
 
     def _build_count_matrix(self, mdata_path):
-
         # Building the pairwise distance with joblib
         r = Parallel(n_jobs=self.n_jobs, verbose=0)(
             delayed(self._prepare_single_table)(
@@ -715,7 +721,7 @@ class ExactMatchingIndex:
             )
             .unnest("key")
             .sort("containment", descending=True)
-        ).filter(pl.col("containment") > 0)
+        )
         return df_overlap
 
     def query_index(
@@ -723,12 +729,18 @@ class ExactMatchingIndex:
         query_column=None,
         top_k=200,
     ):
-        return self.counts.top_k(top_k, by="containment").rows()
+        query_results = self.counts.filter(pl.col("containment") > 0).sort(
+            "containment", descending=True
+        )
+        if top_k > 0:
+            return query_results.top_k(top_k, by="containment").rows()
+        else:
+            return query_results.rows()
 
     def save_index(self, output_dir):
         path_mdata = Path(
             output_dir,
-            f"cv_index_{self.base_table_path.stem}_{self.query_column}.pickle",
+            f"em_index_{self.base_table_path.stem}_{self.query_column}.pickle",
         )
         dd = {
             "index_name": self.index_name,

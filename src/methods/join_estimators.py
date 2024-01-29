@@ -1,7 +1,6 @@
+import datetime as dt
 import random
-import string
 from collections import deque
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -10,10 +9,10 @@ import polars.selectors as cs
 from catboost import CatBoostClassifier, CatBoostRegressor
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression, SGDClassifier
-from sklearn.metrics import auc, f1_score, mean_squared_error, r2_score, roc_curve
+from sklearn.metrics import f1_score, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
-from tqdm import tqdm, trange
+from tqdm import tqdm
 
 import src.utils.indexing as iu
 import src.utils.joining as ju
@@ -49,8 +48,19 @@ def build_containment_ranking(X, candidate_joins):
         containment = measure_containment(
             pl.from_pandas(X), cnd_table, left_on, right_on
         )
-        containment_list.append({"candidate": hash_, "containment": containment})
-    return pl.from_dicts(containment_list).sort(by="containment", descending=True)
+        containment_list.append(
+            {
+                "candidate": hash_,
+                "table_hash": mdata.candidate_table,
+                "containment": containment,
+            }
+        )
+    ranking_df = pl.from_dicts(containment_list).sort(by="containment", descending=True)
+
+    # If a table is present multiple times, drop the candidates with lower containment
+    # ranking_df = ranking_df.unique("table_hash", keep="first", maintain_order=True)
+
+    return ranking_df
 
 
 class BaseJoinEstimator(BaseEstimator):
@@ -99,8 +109,11 @@ class BaseJoinEstimator(BaseEstimator):
 
         self.target_column = target_column
         self.task = task
-        self.joined_columns = None
+        self.n_joined_columns = None
         self.with_validation = True
+
+        self.timestamps = {}
+        self.durations = {}
 
         self.model = None
         self.cat_features = None
@@ -269,12 +282,35 @@ class BaseJoinEstimator(BaseEstimator):
     def retrain_cat_encoder(self):
         self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
 
-    def fit_cat_enc(self, table):
+    def fit_cat_encoder(self, table):
         if self.chosen_model == "linear":
             self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
             self.cat_encoder.fit(table)
         else:
             return None
+
+    def _start_time(self, label: str):
+        self.timestamps[label] = [dt.datetime.now(), None]
+        if "time_" + label not in self.durations:
+            self.durations["time_" + label] = 0
+
+    def _end_time(self, label: str):
+        self.timestamps[label][1] = dt.datetime.now()
+        this_segment = self.timestamps[label]
+        self.durations["time_" + label] += (
+            this_segment[1] - this_segment[0]
+        ).total_seconds()
+
+    def clean_timers(self):
+        self.timestamps = {}
+        self.durations = {}
+
+    def get_durations(self):
+        return self.durations
+
+    def update_durations(self, new_durations):
+        for k, v in new_durations.items():
+            self.durations[k] += v
 
     def prepare_table(self, table):
         if type(table) == pd.DataFrame:
@@ -356,6 +392,7 @@ class NoJoin(BaseJoinEstimator):
         # TODO: ADD ERROR CHECKING HERE
 
         if self.with_validation:
+            self._start_time("prepare")
             if X is not None and y is not None:
                 if X.shape[0] != y.shape[0]:
                     raise ValueError
@@ -364,16 +401,29 @@ class NoJoin(BaseJoinEstimator):
                 )
             self.build_model(X_train)
 
-            self.joined_columns = len(X_train.columns)
-            self.fit_model(X_train, y_train, X_valid, y_valid)
+            self.n_joined_columns = len(X_train.columns)
+            self._end_time("prepare")
 
+            self._start_time("model_train")
+            self.fit_model(X_train, y_train, X_valid, y_valid)
+            _end = dt.datetime.now()
+            self._end_time("model_train")
         else:
+            self._start_time("prepare")
             self.build_model(X)
-            self.joined_columns = len(X.columns)
+            _end = dt.datetime.now()
+            self.n_joined_columns = len(X.columns)
+            self._end_time("prepare")
+
+            self._start_time("model_train")
             self.fit_model(X, y)
+            self._end_time("model_train")
 
     def predict(self, X):
-        return self.predict_model(X)
+        self._start_time("model_predict")
+        pred = self.predict_model(X)
+        self._end_time("model_predict")
+        return pred
 
     def transform(self, X):
         return X
@@ -383,98 +433,7 @@ class NoJoin(BaseJoinEstimator):
             "best_candidate_hash": "nojoin",
             "left_on": "",
             "right_on": "",
-            "joined_columns": self.joined_columns,
-        }
-
-
-class SingleJoin(BaseJoinEstimator):
-    def __init__(
-        self,
-        scenario_logger=None,
-        cand_join_mdata: CandidateJoin = None,
-        target_column=None,
-        chosen_model=None,
-        model_parameters=None,
-        join_parameters=None,
-        task="regression",
-    ) -> None:
-        raise NotImplementedError
-        super().__init__(
-            scenario_logger, target_column, chosen_model, model_parameters, task
-        )
-        self.name = "single_join"
-        _join_params = {"aggregation": "first"}
-        _join_params.update(join_parameters)
-        self.join_parameters = _join_params
-        self.candidate_join_mdata = cand_join_mdata
-        (
-            _,
-            cnd_md,
-            self.left_on,
-            self.right_on,
-        ) = cand_join_mdata.get_join_information()
-        self.candidate_table = pl.read_parquet(cnd_md["full_path"])
-        self.best_candidate_hash = cnd_md["hash"]
-
-    def fit(self, X, y):
-        if self.with_validation:
-            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
-        else:
-            X_train = X
-            y_train = y
-        merged_train = ju.execute_join_with_aggregation(
-            pl.from_pandas(X_train),
-            self.candidate_table,
-            left_on=self.left_on,
-            right_on=self.right_on,
-            aggregation=self.join_parameters["aggregation"],
-            suffix="_right",
-        )
-        merged_train = self.prepare_table(merged_train)
-        self.joined_columns = len(merged_train.columns)
-        self.cat_features = self.get_cat_features(merged_train)
-
-        if self.with_validation:
-            merged_valid = ju.execute_join_with_aggregation(
-                pl.from_pandas(X_valid),
-                self.candidate_table,
-                left_on=self.left_on,
-                right_on=self.right_on,
-                aggregation=self.join_parameters["aggregation"],
-                suffix="_right",
-            )
-            merged_valid = self.prepare_table(merged_valid)
-
-        self.build_model(merged_train)
-
-        self.fit_model(X_train, y_train, X_valid, y_valid)
-
-        if self.with_validation:
-            self.model.fit(merged_train, y_train, eval_set=(merged_valid, y_valid))
-        else:
-            self.model.fit(merged_train, y_train)
-
-    def predict(self, X):
-        merged_test = ju.execute_join_with_aggregation(
-            pl.from_pandas(X),
-            self.candidate_table,
-            left_on=self.left_on,
-            right_on=self.right_on,
-            aggregation=self.join_parameters["aggregation"],
-            suffix="_right",
-        )
-        merged_test = self.prepare_table(merged_test)
-        return self.model.predict(merged_test)
-
-    def get_estimator_parameters(self):
-        return {"estimator": self.name, **self.join_parameters}
-
-    def get_additional_info(self):
-        return {
-            "best_candidate_hash": self.best_candidate_hash,
-            "left_on": self.left_on,
-            "right_on": self.right_on,
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
 
@@ -504,6 +463,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         self.left_on = self.right_on = None
 
     def fit(self, X, y):
+        self._start_time("prepare")
         # Find the exact containment ranking
         self.candidate_ranking = build_containment_ranking(X, self.candidate_joins)
         # Select the top-1 candidate
@@ -518,6 +478,8 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
         if self.with_validation:
             X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+            self._end_time("prepare")
+            self._start_time("join_train")
             merged_train, merged_valid = self._execute_joins(
                 X_train=X_train,
                 X_valid=X_valid,
@@ -525,21 +487,30 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
                 left_on=self.left_on,
                 right_on=self.right_on,
             )
-            self.joined_columns = len(merged_train.columns)
+            self.n_joined_columns = len(merged_train.columns)
+            self._end_time("join_train")
+            self._start_time("model_train")
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
+            self._end_time("model_train")
         else:
+            self._end_time("prepare")
+            self._start_time("join_train")
             merged_train = self._execute_joins(
                 X_train=X,
                 cnd_table=self.best_cnd_table,
                 left_on=self.left_on,
                 right_on=self.right_on,
             )
-            self.joined_columns = len(merged_train.columns)
+            self.n_joined_columns = len(merged_train.columns)
+            self._end_time("join_train")
+            self._start_time("model_train")
             self.build_model(merged_train)
             self.fit_model(merged_train, y)
+            self._end_time("model_train")
 
     def predict(self, X):
+        self._start_time("join_predict")
         merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
             self.best_cnd_table,
@@ -548,7 +519,11 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
-        return self.predict_model(merged_test)
+        self._end_time("join_predict")
+        self._start_time("model_predict")
+        pred = self.predict_model(merged_test)
+        self._end_time("model_predict")
+        return pred
 
     def get_estimator_parameters(self):
         d = super().get_estimator_parameters()
@@ -560,7 +535,7 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             "best_candidate_hash": self.best_cnd_hash,
             "left_on": self.left_on,
             "right_on": self.right_on,
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
 
@@ -601,6 +576,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         self.candidate_ranking = None
 
         self.best_cnd_hash = None
+        self.best_cjoin = None
         self.best_cnd_metric = -np.inf
         self.best_cnd_table = None
         self.left_on = self.right_on = None
@@ -613,39 +589,48 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             return self.candidate_ranking.limit(top_k)
 
     def fit(self, X, y):
+        self._start_time("prepare")
         X_train, X_valid, y_train, y_valid = train_test_split(
             X, y, test_size=self.valid_size
         )
-
+        self._end_time("prepare")
         ranking = []
 
-        for hash_, mdata in tqdm(
+        for hash_, cjoin in tqdm(
             self.candidate_joins.items(),
             total=self.n_candidates,
             leave=False,
             desc="BestSingleJoin",
             position=0,
         ):
-            _, cnd_md, left_on, right_on = mdata.get_join_information()
+            self._start_time("join_train")
+            _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
 
             merged_train, merged_valid = self._execute_joins(
                 X_train, X_valid, cnd_table, left_on, right_on
             )
+            self._end_time("join_train")
 
+            self._start_time("model_train")
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
 
             y_pred = self.predict_model(merged_valid)
             metric = self._evaluate_candidate(y_valid, y_pred)
+            self._end_time("model_train")
 
+            self._start_time("prepare")
             ranking.append({"candidate": hash_, "metric": metric})
 
             if metric > self.best_cnd_metric:
                 self.best_cnd_metric = metric
                 self.best_cnd_hash = hash_
+                self.best_cjoin = cjoin.candidate_id
+            self._end_time("prepare")
 
         # RETRAINING THE MODEL
+        self._start_time("prepare")
         best_join_mdata = self.candidate_joins[self.best_cnd_hash]
         (
             _,
@@ -654,16 +639,22 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             self.right_on,
         ) = best_join_mdata.get_join_information()
         self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
+        self._end_time("prepare")
+        self._start_time("join_train")
         best_train, best_valid = self._execute_joins(
             X_train, X_valid, self.best_cnd_table, self.left_on, self.right_on
         )
-        self.joined_columns = len(best_train.columns)
+        self.n_joined_columns = len(best_train.columns)
+        self._end_time("join_train")
 
+        self._start_time("model_train")
         self.build_model(best_train)
         self.fit_model(best_train, y_train, best_valid, y_valid)
         self.candidate_ranking = pl.from_dicts(ranking).sort("metric", descending=True)
+        self._end_time("model_train")
 
     def predict(self, X):
+        self._start_time("join_predict")
         merged_test = ju.execute_join_with_aggregation(
             pl.from_pandas(X),
             self.best_cnd_table,
@@ -672,7 +663,13 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             aggregation=self.join_parameters["aggregation"],
             suffix="_right",
         )
-        return self.predict_model(merged_test)
+        self._end_time("join_predict")
+
+        self._start_time("model_predict")
+        pred = self.predict_model(merged_test)
+        self._end_time("model_predict")
+
+        return pred
 
     def transform(self, X):
         pass
@@ -684,10 +681,10 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
     def get_additional_info(self):
         return {
-            "best_candidate_hash": self.best_cnd_hash,
+            "best_candidate_hash": self.best_cjoin,
             "left_on": self.left_on,
             "right_on": self.right_on,
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
     def _execute_joins(
@@ -745,11 +742,14 @@ class FullJoin(BaseJoinWithCandidatesMethod):
         self, X=None, y=None, X_train=None, y_train=None, X_valid=None, y_valid=None
     ):
         if self.with_validation:
+            self._start_time("prepare")
             if X is not None and y is not None:
                 X_train, X_valid, y_train, y_valid = train_test_split(
                     X, y, test_size=0.2
                 )
             merged_train = pl.from_pandas(X_train).clone().lazy()
+            self._end_time("prepare")
+            self._start_time("join_train")
             merged_train = ju.execute_join_all_candidates(
                 merged_train, self.candidate_joins, self.join_parameters["aggregation"]
             )
@@ -757,26 +757,43 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             merged_valid = ju.execute_join_all_candidates(
                 merged_valid, self.candidate_joins, self.join_parameters["aggregation"]
             )
+            self._end_time("join_train")
+            self._start_time("model_train")
             self.build_model(merged_train)
             self.fit_model(merged_train, y_train, merged_valid, y_valid)
+            self._end_time("model_train")
+
         else:
+            self._start_time("prepare")
             if X is None and y is None:
                 X = X_train
                 y = y_train
             merged_train = pl.from_pandas(X).clone().lazy()
+            self._end_time("prepare")
+            self._start_time("join_train")
             merged_train = ju.execute_join_all_candidates(
                 merged_train, self.candidate_joins, self.join_parameters["aggregation"]
             )
+            self._end_time("join_train")
+            self._start_time("model_train")
             self.build_model(merged_train)
             self.fit_model(merged_train, y)
-        self.joined_columns = len(merged_train.columns)
+            self._end_time("model_train")
+        self.n_joined_columns = len(merged_train.columns)
 
     def predict(self, X):
+        self._start_time("join_predict")
         merged_test = pl.from_pandas(X).clone().lazy()
         merged_test = ju.execute_join_all_candidates(
             merged_test, self.candidate_joins, self.join_parameters["aggregation"]
         )
-        return self.predict_model(merged_test)
+        self._end_time("join_predict")
+
+        self._start_time("model_predict")
+        pred = self.predict_model(merged_test)
+        self._end_time("model_predict")
+
+        return pred
 
     def transform(self, X):
         pass
@@ -792,7 +809,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             "best_candidate_hash": "full_join",
             "left_on": "",
             "right_on": "",
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
         }
 
 
@@ -832,14 +849,14 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         # Calling this "current_metric" to be more generic
         self.current_metric = -np.inf
-        self.current_X_train = None
-        self.current_X_valid = None
+        self.current_X_train = self.current_X_valid = None
         self.selected_candidates = {}
         self.valid_size = valid_size
         self.blacklist = deque([], maxlen=max_candidates)
         self.candidate_ranking = None
         self.max_candidates = max_candidates
         self.with_validation = True
+        self.already_joined_tables = []
         # TODO: account for multiple candidate joins on the same table
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
         self.base_epsilon = epsilon
@@ -849,18 +866,22 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.wrap_up_joiner_params = model_parameters
 
     def fit(self, X: pd.DataFrame, y):
+        self._start_time("prepare")
         X_train, X_valid, y_train, y_valid = train_test_split(
             X, y, test_size=self.valid_size
         )
 
         self.candidate_ranking = self._build_ranking(X)
-
         # BASE TABLE
+        self._start_time("model_train")
         self.build_model(X_train)
         self.fit_model(X_train, y_train, X_valid, y_valid)
+        self._end_time("model_train")
+        self._start_time("model_predict")
         y_pred = self.predict_model(X_valid)
-
+        self._end_time("model_predict")
         metric = self._evaluate_candidate(y_valid, y_pred)
+        self._end_time("prepare")
         self.current_metric = metric
 
         self.current_X_train = X_train
@@ -873,32 +894,48 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             desc="StepwiseGreedyJoin - Iterating: ",
             leave=False,
         ):
+            self._start_time("prepare")
             cjoin = self._get_candidate()
             if cjoin is None:
                 # No more candidates:
                 break
+            cjoin_id = cjoin.candidate_id
             _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
             cnd_hash = cnd_md["hash"]
+            self._end_time("prepare")
+            if cjoin_id not in self.already_joined_tables:
+                self._start_time("join_train")
+                temp_X_train, temp_X_valid = self._execute_joins(
+                    self.current_X_train,
+                    self.current_X_valid,
+                    cnd_table,
+                    left_on,
+                    right_on,
+                    suffix=cjoin.candidate_id[:10],
+                )
+                self._end_time("join_train")
 
-            temp_X_train, temp_X_valid = self._execute_joins(
-                self.current_X_train,
-                self.current_X_valid,
-                cnd_table,
-                left_on,
-                right_on,
-                suffix=cjoin.candidate_id[:10],
-            )
+                self._start_time("model_train")
+                self.build_model(temp_X_train)
+                self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
+                self._end_time("model_train")
 
-            self.build_model(temp_X_train)
-            self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
-
-            y_pred = self.predict_model(temp_X_valid)
-            metric = self._evaluate_candidate(y_valid, y_pred)
-
+                self._start_time("prepare")
+                y_pred = self.predict_model(temp_X_valid)
+                metric = self._evaluate_candidate(y_valid, y_pred)
+                self._end_time("prepare")
+            else:
+                self._start_time("prepare")
+                metric = -np.inf
+                temp_X_train = temp_X_valid = None
+                self._end_time("prepare")
+            self._start_time("prepare")
             self._update_ranking(cjoin, metric, temp_X_train, temp_X_valid)
+            self._end_time("prepare")
 
         if len(self.selected_candidates) > 0:
+            self._start_time("prepare")
             self.wrap_up_joiner = FullJoin(
                 scenario_logger=self.scenario_logger,
                 candidate_joins=self.selected_candidates,
@@ -907,6 +944,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 join_parameters=self.join_parameters,
                 task=self.task,
             )
+            self._end_time("prepare")
             self.wrap_up_joiner.fit(
                 X_train=X_train,
                 y_train=y_train,
@@ -915,12 +953,14 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             )
 
         else:
+            self._start_time("prepare")
             self.wrap_up_joiner = NoJoin(
                 scenario_logger=self.scenario_logger,
                 target_column=self.target_column,
                 model_parameters=self.wrap_up_joiner_params,
                 task=self.task,
             )
+            self._end_time("prepare")
             if self.chosen_model == "catboost":
                 self.wrap_up_joiner.fit(
                     X_train=X_train,
@@ -931,7 +971,8 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             else:
                 self.wrap_up_joiner.fit(X, y)
 
-        self.joined_columns = self.wrap_up_joiner.joined_columns
+        self.n_joined_columns = self.wrap_up_joiner.n_joined_columns
+        self.update_durations(self.wrap_up_joiner.get_durations())
 
     def _build_ranking(self, X):
         if self.ranking_metric == "containment":
@@ -971,13 +1012,21 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             self.current_X_valid = temp_X_valid
             n_cnd = len(self.selected_candidates)
             self.epsilon = self._get_curr_eps(n_cnd)
+            self.already_joined_tables.append(cjoin_hash)
         else:
             # self.candidate_ranking.append(cnd_hash)
             if self.already_evaluated[cjoin_hash] < 2:
                 self.blacklist.append(cjoin_hash)
 
     def predict(self, X):
-        return self.wrap_up_joiner.predict(X)
+        pred = self.wrap_up_joiner.predict(X)
+        self.durations["time_join_predict"] = self.wrap_up_joiner.durations.get(
+            "time_join_predict", 0
+        )
+        self.durations["time_model_predict"] = self.wrap_up_joiner.durations.get(
+            "time_model_predict", 0
+        )
+        return pred
 
     def _check_ranking_method(self, ranking_method):
         if ranking_method not in SUPPORTED_RANKING_METHODS:
@@ -1042,10 +1091,13 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
     def get_additional_info(self):
         # TODO: add the list of all left_on, right_on
         return {
-            "joined_columns": self.joined_columns,
+            "n_joined_columns": self.n_joined_columns,
             "budget_type": self.budget_type,
             "budget_amount": self.budget_amount,
             "epsilon": self.base_epsilon,
+            "chosen_candidates": [
+                cjoin.candidate_id for cjoin in self.selected_candidates.values()
+            ],
         }
 
 

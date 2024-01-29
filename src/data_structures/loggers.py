@@ -1,6 +1,5 @@
 import copy
 import csv
-import datetime
 import datetime as dt
 import json
 import logging
@@ -11,14 +10,6 @@ import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
 from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
-
-# TODO remove dependency
-try:
-    import telegram
-
-    telegram_on = True
-except ImportError:
-    telegram_on = False
 
 import src.utils.logging as log
 from src.utils.logging import HEADER_RUN_LOGFILE
@@ -75,19 +66,13 @@ class ScenarioLogger:
         self.aggregation = self.join_parameters["aggregation"]
         self.target_dl = self.query_info["data_lake"]
         self.n_splits = self.run_parameters["n_splits"]
-        self.top_k = self.run_parameters["top_k"]
+        self.top_k = self.query_info["top_k"]
         self.results = None
         self.process_time = 0
         self.status = None
         self.exception_name = None
+        self.additional_info = None
         self.debug = debug
-        if False:
-            with open("telegram_credentials.txt", "r") as fp:
-                line = fp.readline()
-                self.telegram_token = line.split(":", maxsplit=1)[1]
-                line = fp.readline()
-                self.telegram_chat_id = int(line.split(":", maxsplit=1)[1])
-            self.bot = telegram.Bot(token=self.telegram_token)
 
     def prepare_logger(self, run_name=None):
         self.path_run_logs = f"results/logs/{run_name}/run_logs/{self.scenario_id}.log"
@@ -146,16 +131,6 @@ class ScenarioLogger:
         print(f"Base table: {self.base_table_name}")
         print(f"DL Variant: {self.target_dl}")
 
-    async def send_message(self):
-        s = ""
-        s += f"Run name: {self.exp_name}"
-        s += f"Scenario ID: {self.scenario_id}"
-        s += f"Base table: {self.base_table_name}"
-        s += f"DL Variant: {self.target_dl}"
-
-        async with self.bot:
-            await self.bot.send_message(text=s, chat_id=self.telegram_chat_id)
-
     def write_to_log(self, out_path):
         if Path(out_path).parent.exists():
             with open(out_path, "a") as fp:
@@ -186,12 +161,16 @@ class ScenarioLogger:
         res_dict["timestamps"] = {
             k: v.isoformat()
             for k, v in res_dict["timestamps"].items()
-            if isinstance(v, datetime.datetime)
+            if isinstance(v, dt.datetime)
         }
         if Path(root_path).exists():
-            with open(
-                Path(root_path, self.exp_name, "json", f"{self.scenario_id}.json"), "w"
-            ) as fp:
+            dest_path = Path(root_path, self.exp_name, "json")
+            if self.status == "SUCCESS":
+                dest_path = Path(dest_path, f"{self.scenario_id}.json")
+            elif self.status == "FAILURE":
+                dest_path = Path(dest_path, "failed", f"{self.scenario_id}.json")
+
+            with open(dest_path, "w") as fp:
                 json.dump(res_dict, fp, indent=2)
         else:
             raise IOError(f"Invalid path {root_path}")
@@ -229,8 +208,11 @@ class ScenarioLogger:
         fig.savefig(fig_path)
 
     def finish_run(self, root_path="results/logs/"):
-        if not self.debug:
-            self.write_summary_plot(root_path)
+        if not self.debug and self.status == "SUCCESS":
+            # self.write_summary_plot(root_path)
+            self.write_to_json(root_path)
+        elif self.status == "FAILURE":
+            print("Run failed.")
             self.write_to_json(root_path)
         else:
             print("ScenarioLogger is in debugging mode. No files will be created.")
@@ -241,6 +223,7 @@ class RunLogger:
         self,
         scenario_logger: ScenarioLogger,
         additional_parameters: dict,
+        fold_id: int = None,
     ):
         # TODO: rewrite with __getitem__ instead
         self.scenario_id = scenario_logger.scenario_id
@@ -258,12 +241,22 @@ class RunLogger:
         }
 
         self.parameters = self.get_parameters(scenario_logger, additional_parameters)
+        self.parameters["fold_id"] = fold_id
         self.results = {}
         self.additional_info = {
             "best_candidate_hash": None,
             "left_on": None,
             "right_on": None,
             "joined_columns": None,
+        }
+
+        self.memory_usage = {
+            "fit": None,
+            "predict": None,
+            "test": None,
+            "peak_fit": None,
+            "peak_predict": None,
+            "peak_test": None,
         }
 
         self.mark_time("run")
@@ -278,6 +271,7 @@ class RunLogger:
             "iterations": scenario_logger.iterations,
             "aggregation": scenario_logger.aggregation,
             "target_dl": scenario_logger.target_dl,
+            "jd_method": scenario_logger.jd_method,
             "fold_id": "",
             "query_column": scenario_logger.query_info["query_column"],
         }
@@ -293,7 +287,11 @@ class RunLogger:
         if additional_timestamps is not None:
             self.timestamps.update(additional_timestamps)
 
-    def set_run_status(self, status):
+    def update_durations(self, additional_durations=None):
+        if additional_durations is not None:
+            self.durations.update(additional_durations)
+
+    def set_run_status(self, status: str):
         """Set run status for logging.
 
         Args:
@@ -301,7 +299,7 @@ class RunLogger:
         """
         self.status = status
 
-    def start_time(self, label, cumulative=False):
+    def start_time(self, label: str, cumulative: bool = False):
         """Wrapper around the `mark_time` function for better clarity.
 
         Args:
@@ -311,12 +309,12 @@ class RunLogger:
         """
         return self.mark_time(label, cumulative)
 
-    def end_time(self, label, cumulative=False):
+    def end_time(self, label: str, cumulative: bool = False):
         if label not in self.timestamps:
             raise KeyError(f"Label {label} was not found.")
         return self.mark_time(label, cumulative)
 
-    def mark_time(self, label, cumulative=False):
+    def mark_time(self, label: str, cumulative: bool = False):
         """Given a `label`, add a new timestamp if `label` isn't found, otherwise
         mark the end of the timestamp and add a new duration.
 
@@ -341,7 +339,7 @@ class RunLogger:
                     this_segment[1] - this_segment[0]
                 ).total_seconds()
 
-    def get_time(self, label):
+    def get_time(self, label: str):
         """Retrieve a time according to the given label.
 
         Args:
@@ -354,7 +352,7 @@ class RunLogger:
         else:
             raise KeyError(f"Label {label} not found in timestamps.")
 
-    def get_duration(self, label):
+    def get_duration(self, label: str):
         """Retrieve a duration according to the given label.
 
         Args:
@@ -369,6 +367,24 @@ class RunLogger:
             return self.durations[label]
         else:
             raise KeyError(f"Label {label} not found in durations.")
+
+    def mark_memory(self, mem_usage: list, label: str):
+        """Record the memory usage for a given section of the code.
+
+        Args:
+            mem_usage (list): List containing the memory usage and timestamps.
+            label (str): One of "fit", "predict", "test".
+
+        Raises:
+            KeyError: Raise KeyError if the label is not correct.
+        """
+        if label in self.memory_usage:
+            self.memory_usage[label] = mem_usage
+            self.memory_usage[f"peak_{label}"] = max(
+                _[0] for _ in self.memory_usage[label]
+            )
+        else:
+            raise KeyError(f"Label {label} not found in mem_usage.")
 
     def measure_results(self, y_true, y_pred):
         if y_true.shape[0] != y_pred.shape[0]:
@@ -392,6 +408,7 @@ class RunLogger:
             self.scenario_id,
             self.status,
             self.parameters["target_dl"],
+            self.parameters["jd_method"],
             self.parameters["base_table"],
             self.parameters["query_column"],
             self.parameters["estimator"],
@@ -401,6 +418,14 @@ class RunLogger:
             self.durations.get("time_fit", ""),
             self.durations.get("time_predict", ""),
             self.durations.get("time_run", ""),
+            self.durations.get("time_prepare", ""),
+            self.durations.get("time_model_train", ""),
+            self.durations.get("time_join_train", ""),
+            self.durations.get("time_model_predict", ""),
+            self.durations.get("time_join_predict", ""),
+            self.memory_usage.get("peak_fit", ""),
+            self.memory_usage.get("peak_predict", ""),
+            self.memory_usage.get("peak_test", ""),
             self.results.get("r2", ""),
             self.results.get("rmse", ""),
             self.results.get("f1", ""),
@@ -441,3 +466,106 @@ class RunLogger:
                     writer.writerow(self.to_dict())
         else:
             print(json.dumps(self.to_dict(), indent=2))
+
+
+class SimpleIndexLogger:
+    def __init__(
+        self,
+        index_name: str,
+        step: str,
+        data_lake_version: str,
+        index_parameters: dict = None,
+        query_parameters: dict = None,
+        log_path: str | Path = "results/index_logging.txt",
+    ) -> None:
+        self.log_path = log_path
+        self.index_name = index_name
+        self.data_lake_version = data_lake_version
+        self.step = step
+        self.index_parameters = index_parameters if index_parameters is not None else {}
+        self.query_parameters = query_parameters if query_parameters is not None else {}
+
+        self.timestamps = {}
+        self.durations = {}
+
+        self.header = [
+            "data_lake_version",
+            "index_name",
+            "base_table",
+            "query_column",
+            "step",
+            "time_create",
+            "time_save",
+            "time_load",
+            "time_query",
+        ]
+
+    def update_query_parameters(self, query_table, query_column):
+        self.query_parameters["base_table"] = query_table
+        self.query_parameters["query_column"] = query_column
+
+    def start_time(self, label: str, cumulative: bool = False):
+        """Wrapper around the `mark_time` function for better clarity.
+
+        Args:
+            label (str): Label of the operation to mark.
+            cumulative (bool, optional): If set to true, all operations performed with the same label
+            will add up to a total duration rather than being marked independently. Defaults to False.
+        """
+        return self.mark_time(label, cumulative)
+
+    def end_time(self, label: str, cumulative: bool = False):
+        if label not in self.timestamps:
+            raise KeyError(f"Label {label} was not found.")
+        return self.mark_time(label, cumulative)
+
+    def mark_time(self, label: str, cumulative: bool = False):
+        """Given a `label`, add a new timestamp if `label` isn't found, otherwise
+        mark the end of the timestamp and add a new duration.
+
+        Args:
+            label (str): Label of the operation to mark.
+            cumulative (bool, optional): If set to true, all operations performed with the same label
+            will add up to a total duration rather than being marked independently. Defaults to False.
+
+        """
+        if label not in self.timestamps:
+            self.timestamps[label] = [dt.datetime.now(), None]
+            self.durations["time_" + label] = 0
+        else:
+            self.timestamps[label][1] = dt.datetime.now()
+            this_segment = self.timestamps[label]
+            if cumulative:
+                self.durations["time_" + label] += (
+                    this_segment[1] - this_segment[0]
+                ).total_seconds()
+            else:
+                self.durations["time_" + label] = (
+                    this_segment[1] - this_segment[0]
+                ).total_seconds()
+
+    def to_dict(self):
+        values = [
+            self.data_lake_version,
+            self.index_name,
+            self.query_parameters.get("base_table", ""),
+            self.query_parameters.get("query_column", ""),
+            self.step,
+            self.durations.get("time_create", 0),
+            self.durations.get("time_save", 0),
+            self.durations.get("time_load", 0),
+            self.durations.get("time_query", 0),
+        ]
+
+        return dict(zip(self.header, values))
+
+    def to_logfile(self):
+        if Path(self.log_path).exists():
+            with open(self.log_path, "a") as fp:
+                writer = csv.DictWriter(fp, fieldnames=self.header)
+                writer.writerow(self.to_dict())
+        else:
+            with open(self.log_path, "w") as fp:
+                writer = csv.DictWriter(fp, fieldnames=self.header)
+                writer.writeheader()
+                writer.writerow(self.to_dict())
