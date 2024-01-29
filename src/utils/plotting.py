@@ -115,7 +115,9 @@ def prepare_scatterplot_mapping_case(df: pl.DataFrame):
         return cmap
 
     maps = []
-    for gdx, group in df.group_by(["target_dl"]):
+    for gdx, group in df.sort("target_dl", "case").group_by(
+        ["target_dl"], maintain_order=True
+    ):
         cases = group.select(pl.col("case").unique()).sort("case")["case"].to_numpy()
         cmap = get_cmap(constants.COLORMAP_DATALAKE_MAPPING[gdx[0]], len(cases))
         maps += list(zip(cases, cmap.colors))
@@ -154,12 +156,12 @@ def format_xaxis(ax, case, limits, xmax=1):
         if max(np.abs(limits)) < 0.10:
             major_locator = ticker.MultipleLocator(0.05)
             minor_locator = ticker.MultipleLocator(0.01)
-        elif 0.10 <= max(np.abs(limits)) < 0.20:
+        elif 0.10 <= max(np.abs(limits)) < 0.30:
             major_locator = ticker.MultipleLocator(0.10)
             minor_locator = ticker.MultipleLocator(0.05)
-        elif 0.20 <= max(np.abs(limits)):
+        elif 0.30 <= max(np.abs(limits)):
             major_locator = ticker.MultipleLocator(0.20)
-            minor_locator = ticker.MultipleLocator(0.10)
+            minor_locator = ticker.MultipleLocator(0.05)
 
         ax.xaxis.set_major_locator(major_locator)
         ax.xaxis.set_minor_locator(minor_locator)
@@ -167,13 +169,26 @@ def format_xaxis(ax, case, limits, xmax=1):
         # ax.xaxis.set_minor_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
         # ax.set_xlim((-0.4, 0.4))
     elif case == "log":
-        ax.set_xscale("log", base=10)
-        ax.xaxis.set_major_locator(
-            ticker.LogLocator(
-                base=2,
-            )
-        )
+        ax.set_xscale("log", base=2)
+        # major_locator = ticker.LogLocator(
+        #     base=2,
+        # )
+        
+        # major_locator = 
+        
+        ax.xaxis.set_major_locator(major_locator)
         minor_locator = ticker.LogLocator(base=2)
+        major_formatter = ticker.FixedFormatter(
+            [
+                r"$0.5x$",
+                r"$1x$",
+                r"$1.5x$",
+                r"$2x$",
+                r"$3x$",
+            ]
+        )
+        ax.xaxis.set_major_formatter(major_formatter)
+        # ax.xaxis.set_major_formatter(ticker.LogFormatterSciNotation(base=2, labelOnlyBase=False))
         ax.xaxis.set_minor_locator(minor_locator)
         ax.xaxis.set_minor_formatter(ticker.ScalarFormatter())
 
@@ -187,11 +202,11 @@ def format_xaxis(ax, case, limits, xmax=1):
         ax.set_xscale("symlog", base=2)
         major_locator = ticker.SymmetricalLogLocator(
             base=2,
-            linthresh=2,
-            subs=[
-                0.5,
-                1,
-            ],
+            linthresh=.25,
+            # subs=[
+            #     0.5,
+            #     1,
+            # ],
         )
         major_locator = ticker.FixedLocator([0.5, 1, 1.5, 2, 3])
         major_formatter = ticker.FixedFormatter(
@@ -306,7 +321,6 @@ def prepare_case_subplot(
     scatterplot_mapping=None,
     colormap_name="viridis",
     scatterplot_marker_size=3,
-    average_folds="none",
     box_width=0.9,
     xmax=1,
     sorting_variable="r2score",
@@ -365,7 +379,7 @@ def prepare_case_subplot(
             pc.set_linewidth(2)
             pc.set_zorder(2)
     elif kind == "box":
-        medianprops = dict(linewidth=2, color="red")
+        medianprops = dict(linewidth=2, color="red", zorder=3)
         whiskerprops = dict(linewidth=2)
         capprops = dict(linewidth=2)
         boxprops = dict(facecolor="white", linewidth=2)
@@ -411,7 +425,6 @@ def prepare_case_subplot(
         elif scatter_mode == "overlapping":
             offset = np.zeros(len(scatterplot_mapping))
 
-        # TODO fixed scatterplot mapping when the scatterplot dimension is base table
         for _, label in enumerate(scatterplot_mapping):
             this_label = constants.LABEL_MAPPING[scatterplot_dimension][label]
             if _i > 0:
@@ -711,6 +724,7 @@ def draw_pair_comparison(
     case: str = "dep",
     jitter_factor: float = 0.03,
     qle: float = 0.05,
+    add_titles: bool=True,
 ):
     df_rel_r2 = get_difference_from_mean(
         df, column_to_average=grouping_dimension, result_column="r2score"
@@ -723,7 +737,7 @@ def draw_pair_comparison(
     )
 
     if scatterplot_dimension == "case":
-       scatterplot_mapping =  prepare_scatterplot_mapping_case(df)
+        scatterplot_mapping = prepare_scatterplot_mapping_case(df)
     else:
         scatterplot_mapping = prepare_scatterplot_mapping_general(
             df, scatterplot_dimension, "scaled_diff", colormap_name
@@ -789,38 +803,14 @@ def draw_pair_comparison(
             xtick_format=formatting_dict[var]["xtick_format"],
             kind="box",
             jitter_factor=jitter_factor,
-            qle=qle
+            qle=qle,
         )
-        axes[idx].set_title(subplot_titles[idx])
+        if add_titles:
+            axes[idx].set_title(subplot_titles[idx])
 
-    fig.legend(
-        h,
-        l,
-        loc="outside right",
-        ncols=1,
-        markerscale=5,
-        # borderaxespad=-0.2,
-        # bbox_to_anchor=(0, -0.1, 1, 0.5),
-        scatterpoints=1,
-    )
-    # fig.legend(
-    #     h,
-    #     l,
-    #     # loc="outside right",
-    #     loc="lower left",
-    #     mode="expand",
-    #     ncols=len(l),
-    #     markerscale=5,
-    #     # borderaxespad=-0.2,
-    #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
-    #     scatterpoints=1,
-    # )
     fig.set_constrained_layout_pads(
         w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=5.0 / 72.0
     )
-    # fig.suptitle(
-    #     f"{LABEL_MAPPING['variables'][grouping_dimension]} - {LABEL_MAPPING['variables'][scatterplot_dimension]}"
-    # )
 
     if savefig:
         if isinstance(savefig_type, str):
