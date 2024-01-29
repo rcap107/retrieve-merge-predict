@@ -42,11 +42,11 @@ if __name__ == "__main__":
     jd_methods = config["join_discovery_method"]
     data_lake_version = config["data_lake"]
     rerank = config.get("hybrid", False)
+    iterations = config.get("iterations", 1)
     query_cases = config["query_cases"]
 
     mdata_index = get_metadata_index(data_lake_version)
 
-    iterations = 1
     for it in tqdm(range(iterations), position=1):
         if "minhash" in jd_methods:
             index_name = "minhash_hybrid" if rerank else "minhash"
