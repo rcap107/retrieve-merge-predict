@@ -1,7 +1,7 @@
 Benchmarking Join Suggestions
 ===
-This repository contains the code for implementing and running the pipeline described in the paper "A Benchmarking Data
-Lake for Join Discovery and Learning with Relational Data".
+This repository contains the code for implementing and running the pipeline described in the paper "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes
+(Experiment, Analysis & Benchmark Paper).
 
 The objective is modeling a situation where an user is trying to execute ML tasks on some base data, enriching it by
 using new tables found in a data lake through Join Discovery methods.
@@ -11,9 +11,9 @@ joined tables is compared to that of the base table by training a regressor with
 measured before and after joining.
 
 We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
-are available on Zenodo: https://zenodo.org/record/8015298
+are available [on Zenodo](https://zenodo.org/record/8015298).
 
-The code for preparing the YADL variants can be found in this repo: https://github.com/rcap107/prepare-data-lakes
+The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/prepare-data-lakes)
 
 # Installing the requirements
 We strongly recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the
@@ -49,54 +49,58 @@ where `DATA_FOLDER` is the root path of the data lake.
 The script will recursively scan all folders found in `DATA_FOLDER` and generate a json file for each parquet file
 encountered.
 
-## Preparing the Join Discovery methods
-This step is an offline operation during which the join discovery methods are prepared by building the data structures they rely on to function. The preparation of these data structures can require a substantial amount of
+## Preparing the Retrieval methods
+This step is an offline operation during which the retrieval methods are prepared by building the data structures they rely on to function. The preparation of these data structures can require a substantial amount of
 time and disk space and is not required for the querying step, as such it can be executed only once for each data lake.
 
-Different JD methods require different data structures and different starting configurations, which should be stored in `config/join_discovery`.
+Different retrieval methods require different data structures and different starting configurations, which should be stored in `config/retrieval/prepare`. In all configurations,
+`n_jobs` is the number of parallel jobs that will be executed; if it set to -1, all available
+CPU cores will be used.
 
-Here are some sample configurations for the supported join discovery methods:
-
+### Execution
 ```
-[["lazo"]]
-data_lake_variant="wordnet_big"
-host="localhost"
-port=15449
+python prepare_retrieval_methods.py [--repeats REPEATS] config_file
+```
+`config_file` is the path to the configuration file. `repeats` is a parameter that can be
+added to re-run the current configuration `repeats` times to track the time.
 
+### Config files
+Here is a sample configuration for MinHash.
+```toml
 [["minhash"]]
-data_lake_variant="wordnet_big"
+data_lake_variant="wordnet_full"
 thresholds=20
 oneshot=true
 num_perm=128
 n_jobs=-1
 ```
 
-The JD methods `CountVectorizerIndex` and `ExactMatchingIndex` work only for single query columns. As such,
+`ExactMatchingIndex` work only for single query columns. As such,
 each case `queryt_table-query_column` must be defined independently:
 
-```
-[["count_vectorizer"]]
-data_dir="data/metadata/wordnet_big"
-base_table_path="data/source_tables/us-presidential-results-yadl.parquet"
+```toml
+[["exact_matching"]]
+data_dir="data/metadata/wordnet_full"
+base_table_path="data/source_tables/yadl/company_employees-yadl.parquet"
 query_column="col_to_embed"
 n_jobs=-1
 
-[["count_vectorizer"]]
+[["exact_matching"]]
 data_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/us-presidential-results-yadl.parquet"
-query_column="county_name"
+base_table_path="data/source_tables/housing_prices-open_data.parquet"
+query_column="County"
 n_jobs=-1
 ```
 
 The configuration parser will prepare the data structures (specifically, the counts) for each case provided in the configuration file.
 
-Configuration files whose name start with `prepare` in `config/join_discovery` are example configuration files for the index preparation step.
+Configuration files whose name start with `prepare` in `config/retrieval/prepare` are example configuration files for the index preparation step.
 
-## Querying the JD methods
+## Querying the retrieval methods
 Because of how some methods are implemented, the querying operation can incur in significant costs because of the need to load the index structures in memory.
 
-For this work we are not directly interested in the querying performance (i.e., the time required to query the index), so for convenience all queries are executed offline and persisted on disk so that they can be loaded at runtime during the execution of the pipeline.
+For conveniences, queries are executed offline and persisted on disk so that they can be loaded at runtime during the execution of the pipeline.
 
+Configuration files stored in `config/retrieval/query` are example configuration files for the index query step.
 
-
-Configuration files whose name start with `query` in `config/join_discovery` are example configuration files for the index query step.
+# Executing the pipeline

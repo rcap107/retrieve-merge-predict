@@ -1,10 +1,10 @@
 #%%
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
+from matplotlib import ticker
 plt.style.use("seaborn-v0_8-talk")
 # %%
 dd = {
@@ -27,15 +27,30 @@ for _n in range(10):
 res = pl.DataFrame(rows)
 _r = res.group_by(pl.col("column_0")).agg(pl.all())
 # %%
-plt.style.use("seaborn-v0_8-talk")
-with plt.style.context("seaborn-v0_8-talk"):
-    fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(4,3))
-    for c in _r.iter_rows():
-        ax.plot(c[1], c[2], label=c[0], marker="o", markersize=5)
-        ax.fill_between(c[1], c[2], y2=0, alpha=0.2)
-    ax.legend()
-    ax.set_xlabel("Number of query columns")
-    ax.set_ylabel("Overall retrieval time (s)")
-    # fig.savefig("images/tradeoff-retrieval.png")
+fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(4,3))
+for c in _r.iter_rows():
+    ax.plot(c[1], c[2], label=c[0], marker="o", markersize=5)
+    ax.fill_between(c[1], c[2], y2=0, alpha=0.2)
+ax.legend()
+ax.set_xlabel("Number of query columns")
+ax.set_ylabel("Overall retrieval time (s)")
+major_locator = ticker.FixedLocator(np.arange(0, 6000, 900))
+major_formatter = ticker.FixedFormatter(
+    [
+        "0",
+        "15m",
+        "30m",
+        "45m",
+        "1h",
+        "1h15m",
+        "1h30m",
+        "1h45m",
+    ]
+)
+ax.yaxis.set_major_locator(major_locator)
+ax.yaxis.set_major_formatter(major_formatter)
+
+fig.savefig("images/tradeoff-retrieval.pdf")
+fig.savefig("images/tradeoff-retrieval.png")
 plt.show()
 # %%
