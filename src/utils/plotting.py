@@ -119,7 +119,7 @@ def prepare_scatterplot_mapping_case(df: pl.DataFrame):
         ["target_dl"], maintain_order=True
     ):
         cases = group.select(pl.col("case").unique()).sort("case")["case"].to_numpy()
-        cmap = get_cmap(constants.COLORMAP_DATALAKE_MAPPING[gdx[0]], len(cases))
+        cmap = get_cmap(constants.COLORMAP_DATALAKE_MAPPING[gdx[0]], len(cases) + 1)
         maps += list(zip(cases, cmap.colors))
     scatterplot_mapping = dict(maps)
     return scatterplot_mapping
@@ -173,9 +173,9 @@ def format_xaxis(ax, case, limits, xmax=1):
         # major_locator = ticker.LogLocator(
         #     base=2,
         # )
-        
-        # major_locator = 
-        
+
+        # major_locator =
+
         ax.xaxis.set_major_locator(major_locator)
         minor_locator = ticker.LogLocator(base=2)
         major_formatter = ticker.FixedFormatter(
@@ -202,7 +202,7 @@ def format_xaxis(ax, case, limits, xmax=1):
         ax.set_xscale("symlog", base=2)
         major_locator = ticker.SymmetricalLogLocator(
             base=2,
-            linthresh=.25,
+            linthresh=0.25,
             # subs=[
             #     0.5,
             #     1,
@@ -724,7 +724,8 @@ def draw_pair_comparison(
     case: str = "dep",
     jitter_factor: float = 0.03,
     qle: float = 0.05,
-    add_titles: bool=True,
+    add_titles: bool = True,
+    sorting_variable="r2score",
 ):
     df_rel_r2 = get_difference_from_mean(
         df, column_to_average=grouping_dimension, result_column="r2score"
@@ -804,6 +805,7 @@ def draw_pair_comparison(
             kind="box",
             jitter_factor=jitter_factor,
             qle=qle,
+            sorting_variable=sorting_variable,
         )
         if add_titles:
             axes[idx].set_title(subplot_titles[idx])
