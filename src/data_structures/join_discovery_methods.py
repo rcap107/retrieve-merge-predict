@@ -636,7 +636,9 @@ class ExactMatchingIndex:
                 [base_table_path is None, query_column is None, metadata_dir is None]
             ):
                 raise ValueError
-            if not Path(metadata_dir).exists() or not (Path(base_table_path).exists()):
+            if not Path(metadata_dir).exists():
+                raise FileNotFoundError
+            if not (Path(base_table_path).exists()):
                 raise FileNotFoundError
 
             self.metadata_dir = Path(metadata_dir)
