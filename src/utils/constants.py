@@ -8,7 +8,6 @@ GROUPING_KEYS = [
     "fold_id",
 ]
 
-
 COLORMAP_DATALAKE_MAPPING = {
     "wordnet_full": "spring",
     "open_data_us": "winter",
@@ -17,15 +16,26 @@ COLORMAP_DATALAKE_MAPPING = {
 
 
 LEGEND_LABELS = {
-    "company_employees": "Company\nEmployees",
-    "housing_prices": "Housing\nPrices",
-    "movies": "Movie\nRevenue",
-    "movies_vote": "Movie\nRatings",
+    "company_employees": "Company Employees",
+    "housing_prices": "Housing Prices",
+    "movies": "Movie Revenue",
+    "movies_vote": "Movie Ratings",
     "us_accidents": "US Accidents",
-    "us_county_population": "US County\nPopulation",
+    "us_county_population": "US County Population",
     "us_elections": "US Elections",
     "schools": "Schools",
 }
+
+ORDER_MAPPING = {
+    "estimator": [
+        "nojoin",
+        "highest_containment",
+        "best_single_join",
+        "full_join",
+        "stepwise_greedy_join",
+    ],
+}
+
 
 LABEL_MAPPING = {
     "base_table": {
@@ -87,14 +97,14 @@ LABEL_MAPPING = {
     "jd_method": {
         "exact_matching": "Exact",
         "minhash": "MinHash",
-        "minhash_hybrid": "Hybrid MinHash",
+        "minhash_hybrid": "Hybrid\nMinHash",
     },
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
         "full_join": "Full Join",
         "best_single_join": "Best Single Join",
-        "stepwise_greedy_join": "Stepwise Greedy Join",
-        "highest_containment": "Highest Cont. Join",
+        "stepwise_greedy_join": "Stepwise Greedy\nJoin",
+        "highest_containment": "Highest Cont.\nJoin",
         "nojoin": "No Join",
     },
     "variables": {
