@@ -25,7 +25,7 @@ def prepare_metadata_from_case(data_folder, flat=False):
     case = data_folder.stem
     if flat:
         case += "_flat"
-    if data_folder.exists():
+    if data_folder.exists() and data_folder.is_dir():
         os.makedirs(f"data/metadata/{case}", exist_ok=True)
         os.makedirs("data/metadata/_mdi", exist_ok=True)
 
