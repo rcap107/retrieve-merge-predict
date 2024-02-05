@@ -22,7 +22,7 @@ cfg = pl.Config()
 cfg.set_fmt_str_lengths(150)
 
 # %%
-result_path = "results/overall/wordnet_aggr.parquet"
+result_path = "results/overall/overall_first.parquet"
 
 df_results = pl.read_parquet(result_path)
 
@@ -40,8 +40,8 @@ elif case == "full":
     current_results = results_full.clone()
 
 # %%
-var = "estimator"
-scatter_d = "base_table"
+var = "jd_method"
+scatter_d = "case"
 plotting.draw_pair_comparison(
     current_results,
     var,
