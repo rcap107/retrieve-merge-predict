@@ -396,6 +396,9 @@ def prepare_case_subplot(
             patch_artist=True,
         )
 
+    df_medians = df.group_by(grouping_dimension).agg(pl.col(plotting_variable).median())
+    median_d = dict(zip(*df_medians.to_dict().values()))
+
     facecolors = ["grey", "white"]
     for _i, _d in enumerate(data[plotting_variable]):
         # Add an horizontal span to split the different cases by color
@@ -457,8 +460,23 @@ def prepare_case_subplot(
             range(1, len(data[grouping_dimension]) + 1),
             [
                 constants.LABEL_MAPPING[grouping_dimension][_l]
-                for _l in data[grouping_dimension]
+                for e, _l in enumerate(data[grouping_dimension])
             ],
+        )
+    for _i, _l in enumerate(data[grouping_dimension], start=1):
+        annot_value = median_d[_l]
+        if xtick_format == "percentage":
+            annot_value *= 100
+            annot_string = f"{annot_value:.2f}%"
+        else:
+            annot_string = f"{annot_value:.2f}"
+        ax.annotate(
+            annot_string,
+            xy=(limits[1], _i),
+            xytext=(limits[1] + 0.03 * limits[1], _i),
+            xycoords="data",
+            textcoords="data",
+            fontsize=12,
         )
 
     ax.set_xlim(limits)
@@ -790,7 +808,7 @@ def draw_pair_comparison(
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
     plot_df = [df_rel_r2, df_time]
-    for idx, var in enumerate(plotting_variables, start=0):
+    for idx, var in enumerate(plotting_variables[::], start=0):
         ax = axes[idx]
         # ax.grid(which="both", axis="x", alpha=0.3)
         h, l = prepare_case_subplot(
