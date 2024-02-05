@@ -27,7 +27,7 @@ df_mem = df_raw.select(
 
 #%%
 mapping = {"peak_fit": "Fit", "peak_predict": "Predict"}
-fig, ax = plt.subplots(figsize=(5, 2), layout="constrained")
+fig, ax = plt.subplots(figsize=(6, 1.5), layout="constrained")
 sns.boxplot(
     data=df_mem.to_pandas(),
     x="value",
@@ -47,3 +47,5 @@ ax.set_yticklabels(
 )
 # fig.legend(h, [mapping[x] for x in l], title="Operation", loc="upper right")
 fig.savefig("images/memory_usage.pdf")
+
+# %%

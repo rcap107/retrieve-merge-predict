@@ -1,4 +1,4 @@
-# #%%
+#%%
 # %cd ~/bench
 #%%
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ from src.utils.constants import LABEL_MAPPING
 
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
-plt.rc("font", family="serif")
+plt.rc("font", family="sans-serif")
 #%%
 df_raw = pl.read_parquet("results/overall/wordnet_general_first.parquet")
 
@@ -92,42 +92,47 @@ fres = (
     .melt(id_vars=["jd_method"])
 )
 #%%
-fig, ax = plt.subplots(
-    squeeze=True,
-    figsize=(10, 3)
-    #    , layout="constrained"
-)
+fig, ax = plt.subplots(squeeze=True, figsize=(5, 2.5), layout="constrained")
 
 sns.barplot(data=fres.to_pandas(), x="value", y="jd_method", hue="variable", ax=ax)
 ax.set_ylabel("")
 ax.set_xlabel("")
-ax.bar_label(ax.containers[0], fontsize=15, fmt="{:.0f}", padding=10)
-ax.bar_label(ax.containers[1], fontsize=15, fmt="{:.0f}", padding=10)
-ax.bar_label(ax.containers[2], fontsize=15, fmt="{:.0f}", padding=10)
+ax.bar_label(ax.containers[0], fontsize=10, fmt="{:.0f}", padding=5)
+ax.bar_label(ax.containers[1], fontsize=10, fmt="{:.0f}", padding=5)
+ax.bar_label(ax.containers[2], fontsize=10, fmt="{:.0f}", padding=5)
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 
-major_locator = ticker.FixedLocator(np.arange(0, 18000, 1800))
+major_locator = ticker.FixedLocator(np.arange(0, 18000, 3600))
 major_formatter = ticker.FixedFormatter(
     [
         "0",
-        "30m",
+        # "30m",
         "1h",
-        "1h30m",
+        # "1h30m",
         "2h",
-        "2h30m",
+        # "2h30m",
         "3h",
-        "3h30m",
+        # "3h30m",
         "4h",
-        "4h30m",
+        # "4h30m",
     ]
 )
 ax.xaxis.set_major_locator(major_locator)
 ax.xaxis.set_major_formatter(major_formatter)
 
-ax.set_yticklabels(
-    [LABEL_MAPPING["jd_method"][x.get_text()] for x in ax.get_yticklabels()]
-)
+y_axis_mapping = {
+    "minhash_hybrid": "Hybrid\nMinhash",
+    "exact_matching": "Exact",
+    "minhash": "Minhash",
+}
+
+
+# ax.set_yticklabels(
+#     [LABEL_MAPPING["jd_method"][x.get_text()] for x in ax.get_yticklabels()]
+# )
+ax.set_yticklabels([y_axis_mapping[x.get_text()] for x in ax.get_yticklabels()])
+
 h, l = ax.get_legend_handles_labels()
 ax.get_legend().remove()
 

@@ -62,10 +62,10 @@ df_timings = df_query.join(
     df_index, on=["data_lake_version", "index_name", "base_table", "query_column"]
 )
 # %%
-df_raw = pl.read_parquet("results/overall/wordnet_general_first.parquet")
+df_raw = pl.read_parquet("results/overall/open_data_general_first.parquet")
 df_raw = df_raw.filter(pl.col("estimator") != "nojoin")
 # %%
-df = pl.read_csv("analysis_query_results.csv")
+df = pl.read_csv("analysis_query_results_open_data_us-fixed.csv")
 df = df.with_columns(
     (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
 )
@@ -150,8 +150,8 @@ ax.plot(X, model.predict(X), color="k")
 ax.set_ylabel("R2 score")
 ax.set_xlabel("Containment")
 
-fig.savefig("images/regplot.pdf")
-fig.savefig("images/regplot.png")
+# fig.savefig("images/regplot.pdf")
+# fig.savefig("images/regplot.png")
 
 # %%
 cmap = mpl.colormaps["Set1"](range(2))
@@ -193,6 +193,6 @@ ax.set_ylabel(None)
 ax.set_yticklabels(
     [LABEL_MAPPING["base_table"][x.get_text()] for x in ax.get_yticklabels()]
 )
-fig.savefig("images/r2score_containment_boxplot.pdf")
-fig.savefig("images/r2score_containment_boxplot.png")
+# fig.savefig("images/r2score_containment_boxplot.pdf")
+# fig.savefig("images/r2score_containment_boxplot.png")
 # %%
