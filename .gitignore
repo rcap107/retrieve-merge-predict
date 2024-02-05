@@ -12,6 +12,7 @@ results/
 notebooks/*
 wandb/
 telegram_*
+.nfs*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

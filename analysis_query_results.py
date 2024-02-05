@@ -20,7 +20,9 @@ def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
         query_column,
     )
 
-    with open(Path(DEFAULT_QUERY_RESULT_DIR, query_result_path), "rb") as fp:
+    with open(
+        Path(DEFAULT_QUERY_RESULT_DIR, yadl_version, query_result_path), "rb"
+    ) as fp:
         query_result = pickle.load(fp)
 
     query_result.select_top_k(top_k)
@@ -42,7 +44,9 @@ def test_joining(
     query_result = load_query_result(
         data_lake_version, index_name, table_name, query_column, 0
     )
-    base_table = pl.read_parquet(f"data/source_tables/yadl/{table_name}.parquet")
+    base_table = pl.read_parquet(
+        f"data/source_tables/open_data_us/{table_name}.parquet"
+    )
     df_counts = load_exact_matching(
         data_lake_version=data_lake_version,
         table_name=table_name,
@@ -105,36 +109,50 @@ def test_joining(
 
 
 if __name__ == "__main__":
-    data_lake_version = "wordnet_full"
+    data_lake_version = "open_data_us"
     query_column = "col_to_embed"
     top_k = 0
-    index_names = ["exact_matching", "minhash", "minhash_hybrid"]
+    index_names = [
+        "minhash_hybrid",
+    ]
+    #    "minhash_hybrid"]
     keys = ["index_name", "tab_name", "top_k", "join_time", "avg_cont"]
     results = []
-    tabs = [
-        "company_employees",
-        "housing_prices",
-        "movies_vote",
-        "movies",
-        "us_accidents",
-        "us_county_population",
-        "us_elections",
+
+    # queries = [
+    #     ("company_employees", "col_to_embed"),
+    #     ("housing_prices", "col_to_embed"),
+    #     ("us_elections", "col_to_embed"),
+    #     ("movies", "col_to_embed"),
+    #     ("movies_vote", "col_to_embed"),
+    #     ("us_accidents", "col_to_embed"),
+    # ]
+    queries = [
+        ("company_employees", "name"),
+        ("housing_prices", "County"),
+        ("us_elections", "county_name"),
+        ("movies", "title"),
+        ("movies_vote", "title"),
+        ("us_accidents", "County"),
+        ("schools", "col_to_embed"),
     ]
 
-    for tab in tabs:
-        tab_name = f"{tab}-yadl-depleted"
+    for query in queries:
         for i in index_names:
             print(i)
-            for k in [30, 200]:
-                for aggr in ["first", "mean"]:
-                    this_res = test_joining(
-                        data_lake_version,
-                        i,
-                        tab_name,
-                        query_column,
-                        k,
-                        aggregation=aggr,
-                    )
-                    results += this_res
+            for k in [200]:
+                aggr = "first"
+                tab, query_column = query
+                tab_name = f"{tab}-open_data"
+                # for aggr in ["first", "mean"]:
+                this_res = test_joining(
+                    data_lake_version,
+                    i,
+                    tab_name,
+                    query_column,
+                    k,
+                    aggregation=aggr,
+                )
+                results += this_res
     df = pl.from_dicts(results)
-    df.write_csv("analysis_query_results.csv")
+    df.write_csv(open(f"analysis_query_results_{data_lake_version}_hybrid.csv", "a"))

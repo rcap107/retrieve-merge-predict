@@ -1,14 +1,18 @@
-#%%
+# # %%
+# %cd ..
+# # %%
 # %load_ext autoreload
 # %autoreload 2
+
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 plt.style.use("seaborn-v0_8-talk")
 # %%
+methods = ["Exact", "Minhash" ,"Hybrid"]
 dd = {
-    "method" : ["exact", "minhash" ,"hybrid"],
+    "method" : methods,
     "fixed_cost" : [0, 3000, 3000],
     "column_cost": [600, 10, 200]
 }
@@ -19,7 +23,7 @@ df = pl.from_dict(dd)
 # %%
 rows = []
 for _n in range(10):
-    for m in ["exact", "minhash" ,"hybrid"]:
+    for m in methods:
         fc = df.filter(pl.col("method") == m).select("fixed_cost").item()
         cc = df.filter(pl.col("method") == m).select("column_cost").item()
         r = [m, _n, fc+ cc*_n]
@@ -27,13 +31,13 @@ for _n in range(10):
 res = pl.DataFrame(rows)
 _r = res.group_by(pl.col("column_0")).agg(pl.all())
 # %%
-fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(4,3))
+fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(5,2.5))
 for c in _r.iter_rows():
     ax.plot(c[1], c[2], label=c[0], marker="o", markersize=5)
     ax.fill_between(c[1], c[2], y2=0, alpha=0.2)
 ax.legend()
 ax.set_xlabel("Number of query columns")
-ax.set_ylabel("Overall retrieval time (s)")
+ax.set_ylabel("Retrieval time")
 major_locator = ticker.FixedLocator(np.arange(0, 6000, 900))
 major_formatter = ticker.FixedFormatter(
     [

@@ -24,7 +24,7 @@ def get_cases(df: pl.DataFrame, keep_nojoin: bool = False) -> dict:
 
 
 if __name__ == "__main__":
-    result_path = "results/overall_first.parquet"
+    result_path = "results/overall/overall_first.parquet"
     df_results = pl.read_parquet(result_path)
     results_full, results_depleted = read_and_process(df_results)
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         colormap_name="Set1",
         jitter_factor=0.01,
         qle=0.05,
-        add_titles=True
+        add_titles=True,
     )
 
     # Plot estimator
@@ -97,9 +97,8 @@ if __name__ == "__main__":
         colormap_name="Set1",
         jitter_factor=0.01,
         qle=0.005,
-        add_titles=False
+        add_titles=False,
     )
-
 
     # Plot ML model
     var = "chosen_model"
@@ -117,16 +116,5 @@ if __name__ == "__main__":
         colormap_name="Set1",
         jitter_factor=0.01,
         qle=0.05,
-        add_titles=False
+        add_titles=False,
     )
-
-    result_path = "results/overall_first.parquet"
-    df_results = pl.read_parquet(result_path)
-    results_full, results_depleted = read_and_process(df_results)
-
-    case = "dep"
-    if case == "dep":
-        current_results = results_depleted.clone()
-        current_results = current_results.filter(pl.col("estimator") != "nojoin")
-    elif case == "full":
-        current_results = results_full.clone()
