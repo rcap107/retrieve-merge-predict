@@ -7,7 +7,7 @@ split_kind="group_shuffle"
 
 ["join_parameters"]
 join_strategy="left"
-aggregation=["dfs"]
+aggregation=["first"]
 
 ["evaluation_models"]
 chosen_model=["linear"]
@@ -39,12 +39,6 @@ table_path=[
 # "data/source_tables/yadl/movies_vote-yadl-depleted.parquet",
 # "data/source_tables/yadl/us_accidents-yadl-depleted.parquet",
 # "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
-# "data/source_tables/yadl/us_elections-yadl.parquet",
-# "data/source_tables/yadl/housing_prices-yadl.parquet",
-# "data/source_tables/yadl/company_employees-yadl.parquet",
-# "data/source_tables/yadl/movies-yadl.parquet",
-# "data/source_tables/yadl/movies_vote-yadl.parquet",
-# "data/source_tables/yadl/us_accidents-yadl.parquet",
 ]
 query_column="col_to_embed"
 top_k=[30]

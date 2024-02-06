@@ -57,24 +57,9 @@ query_column="County"
 top_k=30
 join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
 data_lake="open_data_us"
-table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
-query_column="Metro"
-
-[["query_cases"]]
-top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
-data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
 query_column="County"
-
-[["query_cases"]]
-top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
-data_lake="open_data_us"
-
-table_path="data/source_tables/open_data/housing_prices-depleted_Metro-open_data.parquet"
-query_column="Metro"
 
 # US elections
 [["query_cases"]]
