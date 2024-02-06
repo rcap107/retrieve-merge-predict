@@ -99,7 +99,7 @@ def pack(dict_to_pack):
     return packed
 
 
-def prepare_config_dict(base_config):
+def prepare_config_dict(base_config: dict):
     converted_ = convert_to_list(base_config)
 
     flattened_ = flatten("", converted_)
@@ -107,7 +107,85 @@ def prepare_config_dict(base_config):
 
     config_list = [pack(comb) for comb in config_combinations]
 
+    for rv in config_list:
+        validate_configuration(rv)
+
     return config_list
+
+
+def validate_configuration(run_config: dict):
+    run_parameters = run_config["run_parameters"]
+    estim_parameters = run_config["estimators"]
+    model_parameters = run_config["evaluation_models"]
+    join_parameters = run_config["join_parameters"]
+    query_info = run_config["query_cases"]
+
+    # Check run parameters
+    assert run_parameters["task"] in ["regression", "classification"]
+    assert run_parameters["debug"] in [True, False]
+    assert (
+        isinstance(run_parameters["n_splits"], int) and run_parameters["n_splits"] > 0
+    )
+    assert (
+        isinstance(run_parameters["test_size"], float)
+        and 0 < run_parameters["test_size"] < 1
+    )
+    assert run_parameters["split_kind"] in ["group_shuffle"]
+
+    # Check estimator parameters
+    for estim, par in estim_parameters.items():
+        if estim == "stepwise_greedy_join":
+            assert par["budget_type"] in ["iterations"]
+            assert isinstance(par["budget_amount"], int)
+            assert isinstance(par["epsilon"], float) and 0 <= par["epsilon"] <= 1
+            assert par["ranking_metric"] in ["containment"]
+        assert par["active"] in [True, False]
+
+    # Check model parameters
+    for model, par in model_parameters.items():
+        assert model in ["linear", "catboost"]
+        if model == "catboost":
+            assert isinstance(par["iterations"], int) and par["iterations"] > 0
+            assert par["od_type"] in ["Iter"]
+            assert isinstance(par["od_wait"], int) and par["od_wait"] >= 0
+            assert isinstance(par["l2_leaf_reg"], float) and par["l2_leaf_reg"] >= 0
+
+    # Check join parameters
+    assert join_parameters["join_strategy"] == "left"
+    assert join_parameters["aggregation"] in ["dfs", "mean", "first"]
+
+    # Check query parameters
+    assert query_info["data_lake"] in ["open_data_us", "binary_update", "wordnet_full"]
+    assert query_info["join_discovery_method"] in [
+        "exact_matching",
+        "minhash_hybrid",
+        "minhash",
+    ]
+
+    # Check base table
+    path_bt = Path(query_info["table_path"])
+    tab_name = path_bt.stem
+    assert path_bt.exists()
+    suffix = path_bt.suffix
+    assert suffix in [".parquet", ".csv"]
+
+    if suffix == ".parquet":
+        df = pl.read_parquet(path_bt)
+    elif suffix == ".csv":
+        df = pl.read_csv(path_bt)
+    else:
+        raise ValueError(f"Base table type {suffix} not supported.")
+
+    assert query_info["query_column"] in df.columns
+
+    # Check query existence
+    load_query_result(
+        query_info["data_lake"],
+        query_info["join_discovery_method"],
+        tab_name,
+        query_info["query_column"],
+        validate=True,
+    )
 
 
 def single_run(run_config, run_name=None):

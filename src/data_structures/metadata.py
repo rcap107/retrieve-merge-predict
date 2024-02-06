@@ -381,13 +381,15 @@ class QueryResult:
             resort.sort(key=lambda x: x[1], reverse=True)
             return dict(resort)
 
-    def select_top_k(self, top_k):
+    def select_top_k(self, top_k=0):
         if top_k > 0:
             self.candidates = {
                 k: v
                 for idx, (k, v) in enumerate(self.candidates.items())
                 if idx < top_k
             }
+        else:
+            pass
 
     def save_to_pickle(self):
         output_name = "{}__{}__{}__{}.pickle".format(

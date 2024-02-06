@@ -263,20 +263,33 @@ def query_index(
     return query_result, index_logger
 
 
-def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
-    query_result_path = "{}__{}__{}__{}.pickle".format(
-        yadl_version,
-        index_name,
-        tab_name,
-        query_column,
+def load_query_result(
+    data_lake_version: str,
+    index_name: str,
+    tab_name: str,
+    query_column: str,
+    top_k: int = 0,
+    validate: bool = False,
+):
+    query_result_path = Path(
+        "{}__{}__{}__{}.pickle".format(
+            data_lake_version,
+            index_name,
+            tab_name,
+            query_column,
+        )
     )
+    if not validate:
+        with open(
+            Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path),
+            # Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
+            "rb",
+        ) as fp:
+            query_result = pickle.load(fp)
 
-    with open(
-        Path(DEFAULT_QUERY_RESULT_DIR, yadl_version, query_result_path),
-        # Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
-        "rb",
-    ) as fp:
-        query_result = pickle.load(fp)
-
-    query_result.select_top_k(top_k)
-    return query_result
+        if top_k > 0:
+            query_result.select_top_k(top_k)
+        return query_result
+    else:
+        assert query_result_path.exists()
+        assert isinstance(top_k, int) and top_k >= 0
