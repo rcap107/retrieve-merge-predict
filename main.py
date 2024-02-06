@@ -59,6 +59,7 @@ if __name__ == "__main__":
     start_run = dt.now()
     base_config = toml.load(args.input_path)
     run_variants = prepare_config_dict(base_config)
+
     if not args.debug:
         exp_name = setup_run_logging(base_config)
     else:
@@ -72,14 +73,5 @@ if __name__ == "__main__":
     if args.archive:
         archive_experiment(exp_name)
     end_run = dt.now()
-    if not args.debug:
-        pass
-        # var_int = base_config["run_parameters"].get("variable_of_interest", None)
-        # wrap_up_plot(
-        #     exp_name,
-        #     base_config["run_parameters"]["task"],
-        #     variable_of_interest=var_int,
-        # )
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
-    # finish_run()
