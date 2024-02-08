@@ -4,8 +4,7 @@ import pickle
 from pathlib import Path
 from pprint import pprint
 
-import polars as pl
-from joblib import dump, load
+from joblib import load
 
 from src.data_structures.join_discovery_methods import (
     CountVectorizerIndex,

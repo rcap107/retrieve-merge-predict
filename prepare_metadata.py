@@ -1,13 +1,9 @@
 import argparse
 import os
 from pathlib import Path
-from types import SimpleNamespace
 
 from joblib import Parallel, delayed
 from tqdm import tqdm
-
-from src.data_structures.metadata import MetadataIndex
-from src.utils.indexing import save_single_table
 
 
 def parse_args():
@@ -26,6 +22,10 @@ def prepare_metadata_from_case(data_folder, flat=False):
     if flat:
         case += "_flat"
     if data_folder.exists() and data_folder.is_dir():
+
+        from src.data_structures.metadata import MetadataIndex
+        from src.utils.indexing import save_single_table
+
         os.makedirs(f"data/metadata/{case}", exist_ok=True)
         os.makedirs("data/metadata/_mdi", exist_ok=True)
 

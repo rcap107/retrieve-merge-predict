@@ -1,6 +1,5 @@
 import json
 import logging
-import pickle
 from pathlib import Path
 from sys import getsizeof
 
