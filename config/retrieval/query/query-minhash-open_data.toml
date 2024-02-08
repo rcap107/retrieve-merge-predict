@@ -1,4 +1,5 @@
-join_discovery_method=["exact_matching"]
+join_discovery_method=["minhash"]
+hybrid=false
 data_lake="open_data_us"
 
 # Company employees

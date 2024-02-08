@@ -1,6 +1,5 @@
-join_discovery_method=["exact_matching"]
+join_discovery_method=["minhash"]
 data_lake="wordnet_full"
-hybrid=false
 iterations=1
 
 [["query_cases"]]

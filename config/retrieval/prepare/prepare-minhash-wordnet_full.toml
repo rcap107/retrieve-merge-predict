@@ -1,5 +1,4 @@
 [["minhash"]]
 metadata_dir="data/metadata/wordnet_full"
-oneshot=true
 num_perm=128
 n_jobs=-1

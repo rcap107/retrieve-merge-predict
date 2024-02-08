@@ -11,12 +11,12 @@ join_strategy = "left"
 aggregation = ["first"]
 
 ["evaluation_models"]
-chosen_model = ["linear", "catboost"]
+chosen_model = ["linear",]
 catboost.iterations = 300
 catboost.od_type = "Iter"
 catboost.od_wait = 10
 catboost.l2_leaf_reg = 0.01
-catboost.thread_count = 32
+catboost.thread_count = 2
 
 
 ["estimators"]
@@ -41,12 +41,6 @@ table_path = [
     "data/source_tables/yadl/movies_vote-yadl-depleted.parquet",
     "data/source_tables/yadl/us_accidents-yadl-depleted.parquet",
     "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
-    # "data/source_tables/yadl/us_elections-yadl.parquet",
-    # "data/source_tables/yadl/housing_prices-yadl.parquet",
-    # "data/source_tables/yadl/company_employees-yadl.parquet",
-    # "data/source_tables/yadl/movies-yadl.parquet",
-    # "data/source_tables/yadl/movies_vote-yadl.parquet",
-    # "data/source_tables/yadl/us_accidents-yadl.parquet",
 ]
 query_column = "col_to_embed"
 top_k = [30]

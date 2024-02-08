@@ -1,7 +1,5 @@
 join_discovery_method=["exact_matching"]
-data_lake="wordnet_full"
-hybrid=false
-iterations=1
+data_lake="binary_update"
 
 [["query_cases"]]
 table_path="data/source_tables/yadl/us_elections-yadl-depleted.parquet"
