@@ -8,8 +8,7 @@ The work described here was created by the following authors:
     - riccardo.cappuzzo[at]inria.fr
     - riccardo.cappuzzo[at]dataiku.com
 - Gael VAROQUAUX (SODA Team)
-- Du PHAN (Dataiku)
-- Léo DREYFUS-SCHMIDT (Dataiku)
+- Aimee COELHO (Dataiku)
 - Paolo PAPOTTI (Eurecom)
 
 This project was a collaboration between the [SODA Team][soda-team] at 

@@ -18,11 +18,11 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 
-title: Benchmarking learning on data lakes with YADL
+title: "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes"
 # email: riccardo.cappuzzo[at]inria.fr
 description: >- # this means to ignore newlines until "baseurl:"
   This is the website of YADL, a reproducible data lake based on the YAGO 3 
-  knowledge base. In this website we describe the data lake and provide useful 
+  knowledge base. We describe the data lake and provide useful 
   information on how to use it.
 # baseurl: "" # the subpath of your site, e.g. /blog
 # url: "" # the base hostname & protocol for your site, e.g. http://example.com
