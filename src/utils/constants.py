@@ -1,0 +1,128 @@
+GROUPING_KEYS = [
+    "jd_method",
+    "estimator",
+    "chosen_model",
+    "target_dl",
+    "base_table",
+    "aggregation",
+    "fold_id",
+]
+
+COLORMAP_DATALAKE_MAPPING = {
+    "wordnet_full": "spring",
+    "open_data_us": "winter",
+    "binary_update": "gray",
+}
+
+
+LEGEND_LABELS = {
+    "company_employees": "Company Employees",
+    "housing_prices": "Housing Prices",
+    "movies": "Movie Revenue",
+    "movies_vote": "Movie Ratings",
+    "us_accidents": "US Accidents",
+    "us_county_population": "US County Population",
+    "us_elections": "US Elections",
+    "schools": "Schools",
+}
+
+ORDER_MAPPING = {
+    "estimator": [
+        "nojoin",
+        "highest_containment",
+        "best_single_join",
+        "full_join",
+        "stepwise_greedy_join",
+    ],
+}
+
+
+LABEL_MAPPING = {
+    "base_table": {
+        "movies_vote-depleted_title-open_data": "Movie Vote",
+        "us_elections-depleted_county_name-open_data": "US Elections",
+        "us_accidents-depleted_County-open_data": "US Accidents",
+        "movies-depleted_title-open_data": "Movie Revenue",
+        "company_employees-depleted_name-open_data": "Employees",
+        "company-employees-yadl-depleted": "Employees",
+        "company_employees-yadl-depleted": "Employees",
+        "movies-yadl-depleted": "Movie Revenue",
+        "movies-vote-yadl-depleted": "Movie Vote",
+        "movies_vote-yadl-depleted": "Movie Vote",
+        "housing-prices-yadl-depleted": "Housing Prices",
+        "housing_prices-yadl-depleted": "Housing Prices",
+        "housing_prices-depleted_County-open_data": "Housing Prices",
+        "us-accidents-yadl-depleted": "US Accidents",
+        "us_accidents-yadl-depleted": "US Accidents",
+        "us-elections-yadl-depleted": "US Elections",
+        "us_elections-yadl-depleted": "US Elections",
+        "us_county_population-depleted-yadl": "US County Population",
+        "us_county_population-yadl-depleted": "US County Population",
+        "company-employees-yadl": "Employees",
+        "company_employees-yadl": "Employees",
+        "movies-yadl": "Movie Revenue",
+        "movies-vote-yadl": "Movie Vote",
+        "movies_vote-yadl": "Movie Vote",
+        "housing-prices-yadl": "Housing Prices",
+        "housing_prices-yadl": "Housing Prices",
+        "us-accidents-yadl": "US Accidents",
+        "us_accidents-yadl": "US Accidents",
+        "us-elections-yadl": "US Elections",
+        "us_elections-yadl": "US Elections",
+        "schools-open_data_us": "Schools",
+    },
+    "case": {
+        "company_employees-binary_update": "Employees",
+        "housing_prices-binary_update": "Housing Prices",
+        "movies-binary_update": "Movie Revenue",
+        "movies_vote-binary_update": "Movie Vote",
+        "us_accidents-binary_update": "US Accidents",
+        "us_county_population-binary_update": "US County Population",
+        "us_elections-binary_update": "US Elections",
+        "company_employees-open_data_us": "Employees",
+        "housing_prices-open_data_us": "Housing Prices",
+        "movies-open_data_us": "Movie Revenue",
+        "movies_vote-open_data_us": "Movie Vote",
+        "us_accidents-open_data_us": "US Accidents",
+        "us_elections-open_data_us": "US Elections",
+        "company_employees-wordnet_full": "Employees",
+        "housing_prices-wordnet_full": "Housing Prices",
+        "movies-wordnet_full": "Movie Revenue",
+        "movies_vote-wordnet_full": "Movie Vote",
+        "us_accidents-wordnet_full": "US Accidents",
+        "us_county_population-wordnet_full": "US Elections",
+        "us_elections-wordnet_full": "Employees",
+        "schools-open_data_us": "Schools",
+    },
+    "jd_method": {
+        "exact_matching": "Exact",
+        "minhash": "MinHash",
+        "minhash_hybrid": "Hybrid\nMinHash",
+    },
+    "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
+    "estimator": {
+        "full_join": "Full Join",
+        "best_single_join": "Best Single Join",
+        "stepwise_greedy_join": "Stepwise Greedy\nJoin",
+        "highest_containment": "Highest Cont.\nJoin",
+        "nojoin": "No Join",
+    },
+    "variables": {
+        "estimator": "Estimator",
+        "jd_method": "Retrieval method",
+        "chosen_model": "ML model",
+        "base_table": "Base table",
+    },
+    "aggregation": {"first": "First", "mean": "Mean", "dfs": "DFS"},
+    "budget_amount": {10: 10, 30: 30, 100: 100},
+    "target_dl": {
+        "binary_update": "Binary",
+        "wordnet_full": "Wordnet",
+        "open_data_us": "Open Data",
+    },
+    "top_k": {
+        10: "10",
+        30: "30",
+        100: "100",
+    },
+}

@@ -1,0 +1,1775 @@
+DBN,School Name,School Type,Total Parent Response Rate (%),Total Teacher Response Rate (%),Total Student Response Rate (%),class
+01M015,P.S. 015 Roberto Clemente,ES,66,100,,False
+01M019,P.S. 019 Asher Levy,ES,96,97,,False
+01M020,P.S. 020 Anna Silver,ES,71,79,,True
+01M034,P.S. 034 Franklin D. Roosevelt,ES/MS,40,88,94.0,True
+01M063,The STAR Academy – P.S.63,ES,70,100,,False
+01M064,P.S. 064 Robert Simon,ES,78,85,,False
+01M110,P.S. 110 Florence Nightingale,ES,86,94,,True
+01M134,P.S. 134 Henrietta Szold,ES,29,74,,True
+01M137,P.S. 137 John L. Bernstein,ES,74,79,,True
+01M140,P.S. 140 Nathan Straus,ES/MS,41,85,96.0,True
+01M142,P.S. 142 Amalia Castro,ES,90,100,,False
+01M184,P.S. 184m Shuang Wen,ES/MS,65,68,100.0,True
+01M188,P.S. 188 The Island School,ES/MS,59,61,81.0,False
+01M292,Henry Street School for International Studies,MS/HS,48,94,74.0,False
+01M301,"Technology, Arts, and Sciences Studio",MS,39,100,92.0,False
+01M315,The East Village Community School,ES,64,86,,False
+01M332,University Neighborhood Middle School,MS,91,100,99.0,False
+01M345,"Collaborative Academy of Science, Technology, & Language-Arts Education",MS,53,71,97.0,True
+01M361,The Children's Workshop School,ES,31,36,,False
+01M363,Neighborhood School,ES,62,96,,False
+01M364,Earth School,ES,58,87,,False
+01M378,School for Global Leaders,MS,71,96,93.0,False
+01M448,University Neighborhood High School,HS,26,86,79.0,True
+01M450,East Side Community School,MS/HS,33,92,75.0,False
+01M458,Forsyth Satellite Academy,HST,20,92,70.0,True
+01M509,Marta Valle High School,HS,10,75,46.0,True
+01M515,Lower East Side Preparatory High School,HST,64,100,96.0,False
+01M539,"New Explorations into Science, Technology and Math High School",ES/MS/HS,46,57,96.0,True
+01M650,Cascades High School,HST,30,100,87.0,False
+01M696,Bard High School Early College,HS,50,57,91.0,False
+01M839,Tompkins Square Middle School,MS,40,69,98.0,False
+02M001,P.S. 001 Alfred E. Smith,ES,57,78,,True
+02M002,P.S. 002 Meyer London,ES,95,80,,False
+02M003,P.S. 003 Charrette School,ES,74,94,,False
+02M006,P.S. 006 Lillie D. Blake,ES,65,88,,False
+02M011,P.S. 011 William T. Harris,ES,55,89,,False
+02M033,P.S. 033 Chelsea Prep,ES,83,92,,False
+02M040,P.S. 040 Augustus Saint-Gaudens,ES,41,63,,False
+02M041,P.S. 041 Greenwich Village,ES,73,96,,False
+02M042,P.S. 042 Benjamin Altman,ES,91,93,,False
+02M047,47 The American Sign Language and English Secondary School,HS,40,90,95.0,False
+02M051,P.S. 051 Elias Howe,ES,81,96,,False
+02M059,P.S. 059 Beekman Hill International,ES,63,76,,False
+02M077,P.S. 77 Lower Lab School,ES,86,95,,False
+02M089,P.S. 89,ES,68,73,,False
+02M104,J.H.S. 104 Simon Baruch,MS,86,100,97.0,True
+02M111,P.S. 111 Adolph S. Ochs,ES/MS,22,33,93.0,True
+02M114,East Side Middle School,MS,64,100,100.0,False
+02M116,P.S. 116 Mary Lindley Murray,ES,52,89,,False
+02M124,P.S. 124 Yung Wing,ES,100,77,,True
+02M126,P.S. 126 Jacob August Riis,ES/MS,45,85,96.0,False
+02M130,P.S. 130 Hernando De Soto,ES,81,96,,False
+02M131,M.S. 131,MS,64,34,94.0,True
+02M150,P.S. 150,ES,53,92,,False
+02M151,Yorkville Community School,ECC,56,92,,False
+02M158,P.S. 158 Bayard Taylor,ES,54,71,,True
+02M167,J.H.S. 167 Robert F. Wagner,MS,64,62,94.0,True
+02M183,P.S. 183 Robert L. Stevenson,ES,61,90,,False
+02M198,P.S. 198 Isador E. Ida Straus,ES,92,67,,True
+02M212,P.S. 212 Midtown West,ES,94,82,,False
+02M217,P.S./I.S. 217 Roosevelt Island,ES/MS,56,86,98.0,False
+02M225,Ella Baker School,ES/MS,41,82,83.0,False
+02M234,P.S. 234 Independence School,ES,71,84,,False
+02M255,M.S. 255 Salk School of Science,MS,53,92,99.0,False
+02M260,M.S. 260 Clinton School Writers & Artists,MS,40,100,94.0,False
+02M267,"East Side Elementary School, PS 267",ECC,73,100,,False
+02M276,BATTERY PARK CITY SCHOOL,ES/MS,64,100,96.0,False
+02M288,Food and Finance High School,HS,27,97,79.0,True
+02M289,I.S. 289,MS,63,74,98.0,False
+02M290,P.S. 290 Manhattan New School,ES,62,83,,False
+02M294,Essex Street Academy,HS,15,93,74.0,False
+02M296,High School of Hospitality Management,HS,37,100,72.0,True
+02M298,Pace High School,HS,83,100,100.0,True
+02M300,"Urban Assembly School of Design and Construction, The",HS,21,96,79.0,True
+02M303,"Facing History School, The",HS,49,89,81.0,False
+02M305,"Urban Assembly Academy of Government and Law, The",HS,13,100,92.0,True
+02M308,Lower Manhattan Arts Academy,HS,16,91,70.0,True
+02M312,New York City Lab Middle School for Collaborative Studies,MS,64,94,99.0,False
+02M313,"James Baldwin School, The: A School for Expeditionary Learning",HST,35,100,82.0,False
+02M316,"Urban Assembly School of Business for Young Women, the",HS,62,72,80.0,True
+02M343,The Peck Slip School,ECC,90,100,,False
+02M347,The 47 American Sign Language & English Lower School,ES/MS,30,84,94.0,True
+02M374,Gramercy Arts High School,HS,70,82,95.0,True
+02M376,NYC iSchool,HS,41,100,70.0,False
+02M392,MANHATTAN BUSINESS ACADEMY,HS,43,97,82.0,True
+02M393,BUSINESS OF SPORTS SCHOOL,HS,34,100,65.0,True
+02M394,EMMA LAZARUS HIGH SCHOOL,HST,95,100,96.0,False
+02M397,SPRUCE STREET SCHOOL,ECC,68,83,,False
+02M399,THE HIGH SCHOOL FOR LANGUAGE AND DIPLOMACY,HS,6,61,47.0,True
+02M400,High School for Environmental Studies,HS,10,99,74.0,True
+02M407,Institute for Collaborative Education,MS/HS,26,88,89.0,False
+02M408,Professional Performing Arts High School,MS/HS,32,96,88.0,True
+02M411,Baruch College Campus High School,HS,25,36,94.0,True
+02M412,N.Y.C. Lab School for Collaborative Studies,HS,33,68,91.0,False
+02M413,School of the Future High School,MS/HS,65,63,94.0,True
+02M414,N.Y.C. Museum School,HS,19,52,99.0,True
+02M416,Eleanor Roosevelt High School,HS,53,93,97.0,False
+02M418,Millennium High School,HS,37,100,98.0,False
+02M419,Landmark High School,HS,46,100,69.0,True
+02M420,High School for Health Professions and Human Services,HS,42,99,91.0,True
+02M422,Quest to Learn,MS/HS,69,96,93.0,True
+02M425,Leadership and Public Service High School,HS,12,68,50.0,True
+02M427,MANHATTAN ACADEMY FOR ARTS & LANGUAGE,HS,28,96,87.0,False
+02M429,Legacy School for Integrated Studies,HS,5,73,57.0,True
+02M432,MURRAY HILL ACADEMY,HST,62,100,97.0,True
+02M437,HUDSON HIGH SCHOOL OF LEARNING TECHNOLOGIES,HS,47,88,77.0,True
+02M438,INTERNATIONAL HIGH SCHOOL AT UNION SQUARE,HS,13,74,88.0,False
+02M439,Manhattan Village Academy,HS,53,78,99.0,False
+02M442,"Ballet Tech, NYC Public School for Dance",ES/MS,61,89,100.0,False
+02M449,Vanguard High School,HS,34,94,84.0,False
+02M459,Manhattan International High School,HS,70,90,93.0,False
+02M460,Washington Irving High School,HS,14,62,74.0,True
+02M473,Washington Irving Yabc,YABC,12,76,63.0,False
+02M475,Stuyvesant High School,HS,49,94,96.0,True
+02M489,High School of Economics and Finance,HS,42,96,89.0,False
+02M500,Unity Center for Urban Technologies,HS,65,100,67.0,True
+02M507,Urban Assembly Gateway School for Technology,HS,40,100,92.0,False
+02M519,Talent Unlimited High School,HS,49,96,94.0,True
+02M520,Murry Bergtraum High School for Business Careers,HS,9,95,49.0,True
+02M527,PS 527 - East Side School for Social Action,ECC,95,100,,False
+02M529,Jacqueline Kennedy Onassis High School,HS,13,58,77.0,True
+02M531,Repertory Company High School for Theatre Arts,HS,48,92,85.0,True
+02M533,Union Square Academy for Health Sciences,HS,57,100,87.0,False
+02M534,Harvest Collegiate High School,HS,62,90,95.0,False
+02M542,Manhattan Bridges High School,HS,52,95,77.0,False
+02M543,New Design High School,HS,3,88,31.0,True
+02M544,Independence High School,HST,19,91,31.0,False
+02M545,High School for Dual Language and Asian Studies,HS,47,54,93.0,False
+02M546,Academy for Software Engineering,HS,54,100,94.0,False
+02M550,Liberty High School Academy for Newcomers,HST,59,79,93.0,True
+02M551,Urban Assembly New York Harbor School,HS,20,89,87.0,True
+02M560,High School M560 - City As School,HST,17,92,56.0,False
+02M565,Urban Academy Laboratory High School,HST,18,100,68.0,False
+02M570,Satellite Academy High School,HST,14,100,75.0,False
+02M575,Manhattan Comprehensive Night and Day High School,HST,19,86,78.0,False
+02M580,Richard R. Green High School of Teaching,HS,26,95,76.0,True
+02M586,Harvey Milk High School,HST,32,100,92.0,False
+02M600,The High School of Fashion Industries,HS,27,76,92.0,True
+02M605,Humanities Preparatory Academy,HST,42,100,81.0,False
+02M615,Chelsea Career and Technical Education High School,HS,29,82,95.0,True
+02M620,Norman Thomas High School,HS,20,100,64.0,True
+02M625,High School of Graphic Communication Arts,HS,10,68,54.0,True
+02M630,Art and Design High School,HS,22,41,54.0,True
+02M655,Life Sciences Secondary School,MS/HS,15,62,48.0,True
+02M896,Lower Manhattan Community Middle School,MS,36,83,95.0,False
+03M009,P.S. 009 Sarah Anderson,ES,79,100,,False
+03M054,J.H.S. 054 Booker T. Washington,MS,68,84,97.0,False
+03M075,P.S. 075 Emily Dickinson,ES,47,93,,False
+03M076,P.S. 076 A. Philip Randolph,ES/MS,61,92,93.0,False
+03M084,P.S. 084 Lillian Weber,ES,55,78,,False
+03M087,P.S. 087 William Sherman,ES,40,45,,True
+03M145,"P.S. 145, The Bloomingdale School",ES,53,78,,True
+03M149,P.S. 149 Sojourner Truth,ES/MS,53,73,90.0,True
+03M163,P.S. 163 Alfred E. Smith,ES,38,82,,False
+03M165,P.S. 165 Robert E. Simon,ES/MS,67,85,90.0,True
+03M166,P.S. 166 The Richard Rodgers School of The Arts and Technology,ES,74,90,,False
+03M180,P.S. 180 Hugo Newman,ES/MS,65,98,100.0,False
+03M185,P.S. 185 - The Early Childhood Discovery and Design Magnet School,ECC,100,100,,False
+03M191,P.S. 191 Amsterdam,ES/MS,91,95,98.0,True
+03M199,P.S. 199 Jessie Isador Straus,ES,37,34,,False
+03M208,P.S. 208 Alain L. Locke,ES,88,100,,True
+03M241,STEM Institute of Manhattan,ES,66,82,,True
+03M242,P.S. 242 - The Young Diplomats Magnet Academy,ES,43,86,,True
+03M243,M.S. 243 Center School,MS,92,100,99.0,False
+03M245,M.S. M245 The Computer School,MS,43,96,95.0,False
+03M247,M.S. M247 Dual Language Middle School,MS,68,70,99.0,False
+03M250,M.S. 250 West Side Collaborative Middle School,MS,64,94,94.0,False
+03M256,M.S. 256 Academic & Athletic Excellence,MS,95,94,94.0,True
+03M258,Community Action School - MS 258,MS,40,95,96.0,False
+03M283,Manhattan Theatre Lab High School,HS,8,71,53.0,True
+03M299,"High School for Arts, Imagination and Inquiry",HS,24,100,77.0,True
+03M307,"Urban Assembly School for Media Studies, The",HS,23,96,90.0,True
+03M333,P.S. 333 Manhattan School for Children,ES/MS,66,69,93.0,False
+03M334,The Anderson School,ES/MS,83,93,98.0,False
+03M402,THE URBAN ASSEMBLY SCHOOL FOR GREEN CAREERS,HS,21,94,57.0,True
+03M403,THE GLOBAL LEARNING COLLABORATIVE,HS,18,74,77.0,False
+03M404,INNOVATION DIPLOMA PLUS,HST,49,100,47.0,False
+03M415,Wadleigh Secondary School for the Performing & Visual Arts,MS/HS,45,85,60.0,True
+03M417,FRANK McCOURT HIGH SCHOOL,HS,43,96,96.0,True
+03M421,WEST PREP ACADEMY,MS,92,93,96.0,False
+03M452,P.S. 452,ECC,76,100,,False
+03M479,Beacon High School,HS,34,84,83.0,False
+03M485,Fiorello H. LaGuardia High School of Music & Art and Performing Arts,HS,36,50,89.0,True
+07X030,P.S. 030 Wilton,ES,97,81,,False
+03M492,"High School for Law, Advocacy and Community Justice",HS,68,93,79.0,True
+03M494,High School of Arts and Technology,HS,31,68,69.0,True
+03M505,Edward A. Reynolds West Side High School,HST,12,93,46.0,False
+03M541,Manhattan / Hunter Science High School,HS,30,93,87.0,False
+03M859,Special Music School,ES/MS,76,100,100.0,False
+03M860,Frederick Douglass Academy II Secondary School,MS/HS,20,86,80.0,True
+03M862,Mott Hall II,MS,87,68,98.0,False
+04M007,P.S. 007 Samuel Stern,ES/MS,50,77,95.0,True
+04M012,Tag Young Scholars,ES/MS,88,100,99.0,False
+04M013,J.H.S. 013 Jackie Robinson,MS,10,91,1.0,True
+04M037,River East Elementary,ES,85,96,,False
+04M038,P.S. 38 Roberto Clemente,ES,39,93,,True
+04M045,M.S. 45/S.T.A.R.S. Prep Academy,MS,47,94,99.0,False
+04M050,P.S. 050 Vito Marcantonio,ES/MS,34,89,92.0,True
+04M057,James Weldon Johnson,ES/MS,45,90,93.0,False
+04M072,The Lexington Academy,ES,68,92,,False
+04M083,P.S. 083 Luis Munoz Rivera,ES,73,100,,False
+04M096,P.S. 096 Joseph Lanzetta,ES/MS,57,80,92.0,True
+04M102,P.S. 102 Jacques Cartier,ES,87,97,,False
+04M108,P.S. 108 Assemblyman Angelo Del Toro Educational Complex,ES/MS,66,90,94.0,False
+04M112,P.S. 112 Jose Celso Barbosa,ECC,89,98,,False
+04M146,P.S. 146 Ann M. Short,ES,45,87,,False
+04M155,P.S. 155 William Paca,ES,79,97,,True
+04M171,P.S. 171 Patrick Henry,ES/MS,100,96,98.0,False
+04M182,The Bilingual Bicultural School,ES,83,80,,False
+04M206,P.S. 206 Jose Celso Barbosa,ES/MS,86,100,100.0,False
+04M224,M.S. 224 Manhattan East School for Arts & Academics,MS,46,81,96.0,False
+04M372,ESPERANZA PREPARATORY ACADEMY,MS/HS,79,100,98.0,False
+04M375,Mosaic Preparatory Academy,ES,80,96,,False
+04M377,Renaissance School of the Arts,MS,92,80,98.0,False
+04M381,Global Neighborhood Secondary School,MS,61,100,97.0,False
+04M406,GLOBAL TECHNOLOGY PREPARATORY,MS,37,100,95.0,False
+04M409,Coalition School for Social Change,HS,16,93,73.0,True
+04M435,Manhattan Center for Science and Mathematics,HS,43,91,90.0,True
+04M495,Park East High School,HS,81,100,90.0,False
+04M497,Central Park East I,ES,70,93,,False
+04M555,Central Park East High School,HS,20,100,92.0,False
+04M610,Young Women's Leadership School,MS/HS,63,100,93.0,False
+04M635,Academy of Environmental Science Secondary High School,HS,87,100,94.0,True
+04M680,"Heritage School, The",HS,68,100,91.0,True
+04M825,Isaac Newton Middle School for Math & Science,MS,22,96,97.0,False
+04M964,Central Park East II,ES,72,90,,False
+05M030,P.S. 030 Hernandez/Hughes,ES,83,100,,False
+05M036,P.S. 036 Margaret Douglas,ES,79,78,,False
+05M046,P.S. 046 Arthur Tappan,ES/MS,72,88,87.0,True
+05M092,P.S. 092 Mary McLeod Bethune,ES,100,100,,False
+05M123,P.S. 123 Mahalia Jackson,ES/MS,32,62,74.0,True
+05M125,P.S. 125 Ralph Bunche,ES,67,96,,False
+05M129,P.S. 129 John H. Finley,ES/MS,22,50,78.0,True
+05M133,P.S. 133 Fred R Moore,ES,69,85,,False
+05M154,P.S. 154 Harriet Tubman,ES,73,82,,True
+05M161,P.S. 161 Pedro Albizu Campos,ES/MS,48,81,90.0,True
+05M175,P.S. 175 Henry H Garnet,ES,66,85,,True
+05M194,P.S. 194 Countee Cullen,ES,69,79,,True
+05M195,I.S. 195 Roberto Clemente,MS,70,59,77.0,True
+05M197,P.S. 197 John B. Russwurm,ES,58,66,,False
+05M200,P.S. 200- The James Mccune Smith School,ES,68,82,,True
+05M285,Harlem Renaissance High School,HST,21,100,69.0,False
+05M286,I.S. M286 Renaissance Leadership Academy,MS,64,64,94.0,False
+05M302,KAPPA IV,MS,49,57,98.0,True
+05M304,Mott Hall High School,HS,82,100,97.0,True
+05M318,Thurgood Marshall Academy Lower School,ES,74,80,,False
+05M362,Columbia Secondary School,MS/HS,26,57,76.0,True
+05M367,Academy for Social Action: A College Board School,MS/HS,18,63,50.0,True
+05M369,Urban Assembly School for the Performing Arts,HS,15,72,52.0,True
+05M410,THE URBAN ASSEMBLY INSTITUTE FOR NEW TECHNOLOGIES,MS,50,100,89.0,False
+05M469,Choir Academy of Harlem,MS/HS,27,96,81.0,True
+05M499,Frederick Douglass Academy,MS/HS,8,52,77.0,True
+05M514,New Design Middle School,MS,24,88,76.0,False
+05M517,Teachers College Community School,ECC,82,100,,False
+05M670,Thurgood Marshall Academy for Learning and Social Change,MS/HS,33,71,70.0,True
+05M685,Bread & Roses Integrated Arts High School,HS,27,89,79.0,True
+05M692,"High School for Mathematics, Science and Engineering at City College",HS,36,91,84.0,False
+06M004,P.S. 004 Duke Ellington,ES,32,85,,False
+06M005,P.S. 005 Ellen Lurie,ES,78,86,,False
+06M008,P.S. 008 Luis Belliard,ES,84,98,,False
+06M018,P.S. 018 Park Terrace,ES/MS,76,94,100.0,False
+06M028,P.S. 028 Wright Brothers,ES,80,100,,False
+06M048,P.S. 048 P.O. Michael J. Buczek,ES,62,77,,False
+06M052,J.H.S. 052 Inwood,MS,63,78,98.0,False
+06M098,P.S. 098 Shorac Kappock,ES,46,96,,True
+06M115,P.S. 115 Alexander Humboldt,ES,79,85,,False
+06M128,P.S. 128 Audubon,ES,57,86,,False
+06M132,P.S. 132 Juan Pablo Duarte,ES,62,89,,True
+06M143,J.H.S. 143 Eleanor Roosevelt,MS,86,95,98.0,True
+06M152,P.S. 152 Dyckman Valley,ES,80,67,,True
+06M153,P.S. 153 Adam Clayton Powell,ES,87,92,,False
+06M173,P.S. 173,ES,69,48,,True
+06M178,Professor Juan Bosch Public School,ECC,100,93,,False
+06M187,P.S./I.S. 187 Hudson Cliffs,ES/MS,79,88,99.0,True
+06M189,P.S. 189,ES,60,90,,False
+06M192,P.S. 192 Jacob H. Schiff,ES,55,82,,False
+06M210,P.S./I.S. 210 - Twenty-first Century Academy for Community Leadership,ES/MS,70,95,99.0,False
+06M218,I.S. 218 Salome Urena,MS,66,61,87.0,True
+06M223,The Mott Hall School,MS,75,95,99.0,True
+06M278,PS/MS 278-Paula Hedbavny School,ES/MS,93,100,100.0,False
+06M293,City College Academy of the Arts,MS/HS,44,66,90.0,False
+06M311,Amistad Dual Language School,ES/MS,65,94,100.0,False
+06M314,Muscota,ES,56,100,,False
+06M319,M.S. 319 - Maria Teresa,MS,97,89,98.0,False
+06M322,Middle School 322,MS,100,95,95.0,False
+06M324,M.S. 324 - Patria Mirabal,MS,95,97,99.0,False
+06M325,P.S. 325,ES,84,70,,True
+06M326,M.S. 326 - Writers Today & Leaders Tomorrow,MS,29,64,86.0,True
+06M328,M.S. 328 - Manhattan Middle School for Scientific Inquiry,MS,84,100,87.0,False
+06M346,Community Health Academy of the Heights,MS/HS,68,91,88.0,False
+06M348,Washington Heights Expeditionary Learning School,MS/HS,49,83,90.0,False
+06M349,Harbor Heights,MS,100,92,100.0,False
+06M366,Washington Heights Academy,ES,81,73,,False
+06M368,Hamilton Heights School,ES,77,76,,True
+06M423,High School for Excellence and Innovation,HST,61,100,77.0,False
+06M457,George Washington Yabc,YABC,23,50,78.0,False
+06M462,The College Academy,HS,52,97,78.0,True
+06M463,High School for Media and Communications,HS,45,83,72.0,True
+06M467,High School for Law and Public Service,HS,41,86,72.0,True
+06M468,High School for Health Careers and Sciences,HS,42,100,84.0,True
+06M513,Castle Bridge School,ECC,76,100,,False
+06M528,I.S. 528 Bea Fuller Rodgers School,MS,80,89,98.0,False
+06M540,A. Philip Randolph Campus High School,HS,15,94,25.0,False
+06M552,Gregorio Luperon High School for Science and Mathematics,HS,51,74,94.0,False
+07X001,P.S. 001 Courtlandt School,ES,85,89,,False
+07X005,PS 5 Port Morris,ES,44,87,90.0,False
+07X018,P.S. 018 John Peter Zenger,ES,100,82,,True
+07X025,P.S. 025 Bilingual School,ES,45,82,,False
+07X029,P.S./M.S. 029 Melrose School,ES/MS,62,92,91.0,False
+07X031,P.S./M.S. 031 The William Lloyd Garrison,ES/MS,47,98,98.0,False
+07X043,P.S. 043 Jonas Bronck,ES,70,97,,False
+07X049,P.S. 049 Willis Avenue,ES,71,57,,True
+07X065,P.S. 065 Mother Hale Academy,ES,100,93,,False
+07X151,J.H.S. 151 Lou Gehrig,MS,55,100,94.0,True
+07X154,P.S. 154 Jonathan D. Hyatt,ES,50,96,,True
+07X157,P.S. 157 Grove Hill,ES,49,64,,False
+07X161,P.S. 161 Ponce De Leon,ES,42,91,,False
+07X162,J.H.S. 162 Lola Rodriguez De Tio,MS,51,95,91.0,True
+07X179,P.S. 179,ES,52,81,,False
+07X203,M.S. 203,MS,65,96,97.0,True
+07X221,South Bronx Preparatory: A College Board School,MS/HS,69,80,97.0,True
+07X223,M.S. 223 The Laboratory School of Finance and Technology,MS,61,97,98.0,False
+07X224,P.S. / I.S. 224,MS,70,96,80.0,True
+07X277,P.S. 277,ES,60,49,,False
+07X296,South Bronx Academy for Applied Media,MS,53,100,75.0,True
+07X298,Academy of Public Relations,MS,86,60,99.0,False
+07X321,Crotona Academy High School,HST,50,91,82.0,False
+07X334,International Community High School,HS,46,96,88.0,True
+07X343,Academy of Applied Mathematics and Technology,MS,47,90,97.0,False
+07X369,Young Leaders Elementary School,ES,66,73,,True
+07X379,Jill Chaifetz Transfer High School,HST,27,100,65.0,False
+07X381,Bronx Haven High School,HST,16,75,73.0,False
+07X385,Performance School,ES,73,98,,True
+07X427,Community School for Social Justice,HS,46,100,93.0,False
+07X456,Alfred E. Smith Campus YABC,YABC,23,65,42.0,False
+07X473,Mott Haven Village Preparatory High School,HS,31,100,84.0,True
+07X495,University Heights Secondary School,HS,63,90,84.0,False
+07X500,Hostos-Lincoln Academy of Science,MS/HS,14,69,88.0,True
+07X520,Foreign Language Academy of Global Studies,HS,33,90,89.0,True
+07X522,Bronx Design and Construction Academy,HS,37,48,51.0,False
+07X527,Bronx Leadership Academy II High School,HS,26,69,60.0,True
+07X547,New Explorers High School,HS,23,81,57.0,True
+07X548,Urban Assembly School for Careers in Sports,HS,24,100,77.0,False
+07X551,The Urban Assembly Bronx Academy of Letters,MS/HS,39,96,87.0,True
+07X557,Mott Haven Community High School,HST,5,100,68.0,True
+07X600,Alfred E. Smith Career and Technical Education High School,HS,42,72,87.0,True
+08X405,Herbert H. Lehman High School,HS,12,74,71.0,True
+07X655,Samuel Gompers Career and Technical Education High School,HS,15,71,54.0,True
+07X670,Health Opportunities High School,HS,84,100,72.0,True
+08X014,P.S. X014 Senator John Calandra,ES,87,93,,False
+08X036,P.S. 036 Unionport,ES,69,81,,False
+08X048,P.S. 048 Joseph R. Drake,ES,53,97,,True
+08X062,P.S. 062 Inocensio Casanova,ES,63,72,,False
+08X069,P.S. 069 Journey Prep School,ES,63,68,,False
+08X071,P.S. 071 Rose E. Scala,ES/MS,43,92,95.0,False
+08X072,P.S. 072 Dr. William Dorney,ES,58,100,,False
+08X075,P.S. 075,ES,77,96,,True
+08X093,P.S. 093 Albert G. Oliver,ES,100,74,,False
+08X100,P.S. 100 Isaac Clason,ES,42,78,,True
+08X101,M.S. X101 Edward R. Byrne,MS,79,91,100.0,False
+08X107,P.S. 107,ES,84,92,,True
+08X119,P.S. 119,ES,65,77,,False
+08X123,J.H.S. 123 James M. Kieran,MS,47,92,90.0,True
+08X125,J.H.S. 125 Henry Hudson,MS,36,88,87.0,True
+08X130,P.S. 130 Abram Stevens Hewitt,ES,89,100,,False
+08X131,J.H.S. 131 Albert Einstein,MS,49,90,90.0,False
+08X138,P.S. 138 Samuel Randall,ES,54,83,,False
+08X140,P.S. X140 The Eagle School,ES,51,98,,False
+08X146,P.S. 146 Edward Collins,ES,71,94,,False
+08X152,P.S. 152 Evergreen,ES,19,58,,False
+08X182,P.S. 182,ES,34,90,,True
+08X269,Bronx Studio School for Writers and Artists,MS/HS,29,65,76.0,True
+08X282,Women's Academy of Excellence,HS,13,68,87.0,True
+08X293,Renaissance High School for Musical Theater & Technology,HS,21,88,86.0,False
+08X295,Gateway School for Environmental Research and Technology,HS,30,73,67.0,True
+08X301,M.S. 301 Paul L. Dunbar,MS,9,87,36.0,True
+08X302,M.S. 302 Luisa Dessus Cruz,MS,50,81,97.0,True
+08X304,P.S. 304 Early Childhood School,ES,75,100,,False
+08X305,Pablo Neruda Academy for Architecture and World Studies,HS,44,97,86.0,True
+08X312,Millennium Art Academy,HS,21,85,71.0,True
+08X332,Holcombe L. Rucker School of Community Research,HS,78,92,74.0,True
+08X333,P.S. 333 - The Museum School,ES,43,88,,False
+08X335,The Academy of the Arts,ES,56,47,,False
+08X337,The School for Inquiry and Social Justice,MS,65,96,98.0,False
+08X366,Urban Assembly Academy of Civic Engagement,MS,39,64,87.0,False
+08X367,"Archimedes Academy for Math, Science and Technology Applications",MS/HS,19,39,74.0,True
+08X371,Urban Institute of Mathematics,MS,47,64,93.0,False
+08X375,The Bronx Mathematics Preparatory School,MS,66,81,94.0,True
+08X376,Antonia Pantoja Preparatory Academy: A College Board School,MS/HS,38,47,71.0,True
+08X377,Bronx Community High School,HST,15,76,54.0,False
+75M226,P.S. M226,D75,36,59,95.0,False
+08X408,Herbert H. Lehman Yabc,YABC,90,100,79.0,False
+08X424,The Hunts Point School,MS,55,85,89.0,True
+08X432,BRONX BRIDGES HIGH SCHOOL,HS,20,60,80.0,True
+08X448,SOUNDVIEW ACADEMY FOR CULTURE AND SCHOLARSHIP,MS,98,100,98.0,False
+08X452,Bronx Guild,HS,35,100,91.0,True
+08X467,MOTT HALL COMMUNITY SCHOOL,MS,49,86,97.0,True
+08X507,Stevenson Yabc,YABC,43,84,69.0,False
+08X519,"Felisa Rincon de Gautier Institute for Law and Public Policy, The",HS,28,92,67.0,True
+08X530,Banana Kelly High School,HS,60,65,82.0,True
+08X537,Bronx Arena High School,HST,4,81,38.0,False
+08X540,School for Community Research and Learning,HS,23,86,64.0,True
+08X558,Westchester Square Academy,HS,29,100,65.0,False
+08X559,School for Tourism and Hospitality,HS,71,80,88.0,True
+08X560,Bronx Academy High School,HST,13,100,92.0,False
+08X561,Bronx Compass High School,HS,27,78,60.0,False
+08X562,Blueprint Middle School,MS,49,71,95.0,False
+08X650,Jane Addams High School for Academic Careers,HS,6,58,60.0,True
+09X004,P.S./M.S. 004 Crotona Park West,ES/MS,100,95,97.0,True
+09X011,P.S. 011 Highbridge,ES,67,61,,False
+09X022,J.H.S. 022 Jordan L. Mott,MS,12,47,82.0,True
+09X028,P.S. 028 Mount Hope,ES,62,75,,False
+09X035,P.S. 035 Franz Siegel,ES,80,55,,False
+09X042,P.S. 042 Claremont,ES,62,48,,True
+09X053,P.S. 053 Basheer Quisim,ES,44,87,,True
+09X055,P.S. 055 Benjamin Franklin,ES,60,78,,False
+09X058,P.S. 058,ES,79,92,,True
+09X063,P.S. 063 Author's Academy,ES,67,100,,False
+09X064,P.S. 064 Pura Belpre,ES,42,63,,True
+09X070,P.S. 070 Max Schoenfeld,ES,51,79,,True
+09X073,P.S. 073 Bronx,ES,54,81,,True
+09X088,P.S. X088 - S. Silverstein Little Sparrow School,ECC,28,47,,False
+09X109,P.S. 109 Sedgwick,ES,87,91,,False
+09X110,P.S. 110 Theodore Schoenfeld,ES,49,86,,True
+09X114,P.S. X114 - Luis Llorens Torres Schools,ES,66,82,,True
+09X117,I.S. 117 Joseph H. Wade,MS,31,96,93.0,True
+09X126,P.S. 126 Dr Marjorie H Dunbar,ES,50,78,97.0,True
+09X128,Mott Hall III,MS,74,100,95.0,False
+09X132,P.S. 132 Garret A. Morgan,ES,64,75,,True
+09X145,J.H.S. 145 Arturo Toscanini,MS,76,80,95.0,False
+09X163,P.S. 163 Arthur A. Schomburg,ES,56,35,,True
+09X170,P.S. 170,ECC,98,96,,False
+09X199,P.S. 199X - The Shakespeare School,ES,66,90,,True
+09X204,P.S. 204 Morris Heights,ES,75,100,,False
+09X215,Kappa,MS,87,93,100.0,True
+09X218,P.S./I.S. 218 Rafael Hernandez Dual Language Magnet School,ES/MS,75,88,96.0,True
+09X219,I.S. 219 New Venture School,MS,40,56,94.0,True
+09X227,Bronx Collegiate Academy,HS,42,97,80.0,False
+09X229,I.S. 229 Roland Patterson,MS,82,90,82.0,True
+09X230,P.S. 230 Dr Roland N. Patterson,ES,32,93,,False
+09X231,Eagle Academy for Young Men,MS/HS,37,69,90.0,True
+09X232,I.S. 232,MS,90,94,97.0,False
+09X236,P.S. 236 Langston Hughes,ECC,63,89,,False
+09X239,"Urban Assembly Academy for History and Citizenship for Young Men, The",HS,25,67,72.0,False
+09X241,"Urban Assembly School for Applied Math and Science, The",MS/HS,58,98,75.0,True
+09X250,Eximius College Preparatory Academy: A College Board School,HS,57,100,92.0,False
+09X252,Mott Hall Bronx High School,HS,13,87,71.0,True
+09X260,Bronx Center for Science and Mathematics,HS,61,84,97.0,False
+09X263,Validus Preparatory Academy: An Expeditionary Learning School,HS,26,50,61.0,True
+09X276,Leadership Institute,HS,58,73,61.0,False
+09X297,Morris Academy for Collaborative Studies,HS,28,83,91.0,True
+09X303,I.S. X303 Leadership & Community Service,MS,77,100,93.0,False
+09X313,I.S. 313 School of Leadership Development,MS,34,60,86.0,True
+09X323,Bronx Writing Academy,MS,35,83,77.0,True
+09X324,Bronx Early College Academy for Teaching & Learning,MS/HS,41,82,89.0,True
+09X325,Urban Science Academy,MS,42,94,96.0,True
+09X327,Comprehensive Model School Project M.S. 327,MS/HS,71,86,84.0,False
+09X328,New Millennium Business Academy Middle School,MS,66,94,95.0,False
+09X329,DreamYard Preparatory School,HS,37,100,87.0,False
+09X339,I.S. 339,MS,61,98,93.0,True
+09X365,Academy for Language and Technology,HS,49,100,92.0,False
+09X403,Bronx International High School,HS,36,84,95.0,False
+09X404,School for Excellence,HS,90,94,87.0,True
+09X412,Bronx High School of Business,HS,5,100,91.0,True
+09X413,Bronx High School for Medical Science,MS/HS,36,100,89.0,True
+09X414,Jonathan Levin High School for Media and Communications,HS,7,55,65.0,True
+09X443,THE FAMILY SCHOOL,ES,55,70,,True
+09X449,GRANT AVENUE ELEMENTARY SCHOOL,ES,82,97,,False
+09X454,SCIENCE AND TECHNOLOGY ACADEMY: A MOTT HALL SCHOOL,MS,77,97,100.0,False
+09X457,SHERIDAN ACADEMY FOR YOUNG LEADERS,ES,84,78,,True
+09X505,"Bronx School for Law, Government and Justice",MS/HS,44,91,87.0,True
+09X517,Frederick Douglass Academy III Secondary School,MS/HS,83,82,62.0,True
+09X525,Bronx Leadership Academy High School,HS,32,86,79.0,True
+09X543,High School for Violin and Dance,HS,44,96,67.0,True
+09X555,Mount Eden Children's Academy,ECC,96,100,,False
+09X564,Claremont International HS,HS,67,100,100.0,False
+09X568,Young Women's Leadership School of the Bronx,MS,72,100,100.0,False
+10X003,P.S. 3 Raul Julia Micro Society,ES/MS,64,92,95.0,True
+10X007,P.S. 007 Kingsbridge,ES,91,98,,False
+10X008,P.S. 008 Issac Varian,ES,49,77,,False
+10X009,P.S. 9 Ryer Avenue Elementary School,ES,64,100,,True
+10X015,P.S. X015 Institute for Environmental Learning,ES/MS,71,100,99.0,False
+10X020,P.S. 20 P.O.George J. Werdan III,ES/MS,57,61,88.0,True
+10X023,P.S. 023 The New Children's School,ES,44,100,,True
+10X024,P.S. 024 Spuyten Duyvil,ES,45,54,,True
+10X032,P.S. 032 Belmont,ES,90,97,,False
+10X033,P.S. 033 Timothy Dwight,ES,97,95,,True
+10X037,P.S. X037 - Multiple Intelligence School,ES/MS,46,98,96.0,False
+10X045,Thomas C. Giordano Middle School 45,MS,21,36,94.0,True
+10X046,P.S. 046 Edgar Allan Poe,ES,63,92,,False
+10X051,P.S. 051 Bronx New School,ES,77,75,,False
+10X054,P.S. / I.S. 54,ES,67,100,,True
+10X056,P.S. 056 Norwood Heights,ES,88,100,,False
+10X059,P.S. 059 The Community School of Technology,ES,100,98,,False
+10X080,J.H.S. 080 The Mosholu Parkway,MS,48,93,77.0,True
+10X081,P.S. 081 Robert J. Christen,ES,100,100,,False
+10X085,P.S. 085 Great Expectations,ES,49,59,,True
+10X086,P.S. 086 Kingsbridge Heights,ES,62,97,98.0,False
+10X091,P.S. 091 Bronx,ES,87,73,,True
+10X094,P.S. 094 Kings College School,ES,57,81,,False
+10X095,P.S. 095 Sheila Mencher,ES/MS,81,46,97.0,True
+10X118,J.H.S. 118 William W. Niles,MS,77,83,98.0,True
+10X141,Riverdale / Kingsbridge Academy (Middle School / High School 141),MS/HS,37,87,87.0,True
+10X159,P.S. 159 Luis Munoz Marin Biling,ES,92,100,,False
+10X205,P.S. 205 Fiorello Laguardia,ES,98,100,,False
+10X206,I.S. 206 Ann Mersereau,MS,100,83,85.0,False
+10X207,P.S. 207,ECC,69,77,,False
+10X209,P.S. 209,ECC,98,100,,False
+10X213,Bronx Engineering and Technology Academy,HS,16,68,34.0,True
+10X225,Theatre Arts Production Company School,MS/HS,38,66,74.0,True
+10X226,P.S. 226,ES,53,72,,True
+10X228,Jonas Bronck Academy,MS,69,81,96.0,False
+10X237,"The Marie Curie School for Medicine, Nursing, and Health Professions",HS,14,88,66.0,True
+10X243,West Bronx Academy for the Future,MS/HS,20,92,75.0,True
+10X244,The New School for Leadership and Journalism,MS,33,46,83.0,False
+10X246,P.S. 246 Poe Center,ES,47,82,,False
+10X254,I.S. 254,MS,30,88,91.0,True
+10X268,Kingsbridge International High School,HS,66,96,93.0,False
+10X279,"P.S. 279 Captain Manuel Rivera, Jr.",ES/MS,62,97,96.0,False
+10X280,P.S./M.S. 280 Mosholu Parkway,ES/MS,58,78,78.0,False
+10X284,Bronx School of Law and Finance,HS,24,92,66.0,True
+10X291,P.S. 291,ES,100,95,,False
+10X306,P.S. 306,ES,67,60,,True
+10X307,Luisa Piñeiro Fuentes School of Science and Discovery,ES,100,96,,False
+10X308,Bronx Dance Academy School,MS,81,100,99.0,True
+10X310,P.S. 310 Marble Hill,ES,75,95,,False
+10X315,P.S. 315 Lab School,ES/MS,77,95,100.0,False
+10X319,Providing Urban Learners Success In Education High School,HST,4,85,69.0,False
+10X331,The Bronx School of Young Leaders,MS,68,100,99.0,False
+10X340,P.S. 340,ES,94,100,100.0,False
+10X342,International School for Liberal Arts,MS/HS,61,89,87.0,False
+10X344,Ampark Neighborhood,ES,76,100,,False
+10X360,P.S. 360,ES,84,95,100.0,False
+10X363,ACADEMY FOR PERSONAL LEADERSHIP AND EXCELLENCE,MS,70,92,92.0,False
+10X368,In-Tech Academy (M.S. / High School 368),MS/HS,34,93,85.0,True
+10X374,Knowledge and Power Preparatory Academy International High School (Kappa),HS,71,100,88.0,False
+10X382,"Elementary School for Math, Science, and Technology",ES,95,100,,False
+10X386,School for Environmental Citizenship,ES,88,98,,False
+10X390,M.S. 390,MS,91,82,98.0,True
+10X391,The Angelo Patri Middle School,MS,43,94,77.0,True
+10X396,P.S. 396,ES,64,97,,False
+10X397,English Language Learners and International Support Preparatory Academy (ELLIS),HS,19,90,72.0,False
+10X433,High School for Teaching and the Professions,HS,25,63,57.0,True
+10X434,Belmont Preparatory High School,HS,42,83,85.0,True
+10X437,Fordham High School for the Arts,HS,33,62,71.0,True
+10X438,Fordham Leadership Academy for Business and Technology,HS,28,94,65.0,False
+10X439,Bronx High School for Law and Community Service,HS,45,100,91.0,True
+10X440,DeWitt Clinton High School,HS,7,54,58.0,True
+10X442,"Celia Cruz Bronx High School of Music, The",HS,34,97,81.0,True
+10X445,Bronx High School of Science,HS,32,88,95.0,True
+10X447,CRESTON ACADEMY,MS,100,100,96.0,False
+10X459,EAST FORDHAM ACADEMY FOR THE ARTS,MS,43,87,97.0,True
+10X475,John F. Kennedy High School,HS,11,100,70.0,True
+10X477,Marble Hill High School for International Studies,HS,61,93,97.0,True
+10X503,Walton Yabc,YABC,13,95,53.0,False
+10X504,Kennedy Yabc,YABC,51,83,50.0,True
+10X524,Crotona International High School,HS,24,92,91.0,False
+10X546,Bronx Theatre High School,HS,98,93,90.0,False
+10X549,Discovery High School,HS,10,73,48.0,True
+10X565,High School for Energy and Technology,HS,70,100,95.0,False
+10X660,Grace Dodge Career and Technical Education High School,HS,14,70,72.0,True
+10X667,Grace Dodge Yabc,YABC,30,100,93.0,False
+10X696,High School of American Studies at Lehman College,HS,36,100,96.0,False
+11X016,P.S. 016 Wakefield,ES,34,100,,True
+11X019,P.S. 019 Judith K. Weiss,ES/MS,57,97,100.0,False
+11X021,P.S. 021 Philip H. Sheridan,ES,54,80,,False
+11X041,P.S. 041 Gun Hill Road,ES,88,90,,True
+11X068,P.S. 068 Bronx,ES,66,97,,True
+11X076,P.S. 076 The Bennington School,ES,75,86,,True
+11X078,P.S. 078 Anne Hutchinson,ES,71,93,,True
+11X083,P.S. 083 Donald Hertz,ES/MS,67,100,97.0,False
+11X087,P.S. 087 Bronx,ES,62,79,,True
+11X089,P.S. 089 Bronx,ES/MS,37,92,76.0,False
+11X096,P.S. 096 Richard Rodgers,ES,84,100,,False
+11X097,P.S. 097 Bronx,ES,49,71,,False
+11X103,P.S. 103 Hector Fontanez,ES,52,86,,False
+11X105,P.S. 105 Sen Abraham Bernstein,ES,51,57,,True
+11X106,P.S. 106 Parkchester,ES,77,100,,False
+11X108,P.S. 108 Philip J. Abinanti,ES,54,78,,True
+11X111,P.S. 111 Seton Falls,ES,19,59,,True
+11X112,P.S. 112 Bronxwood,ES,57,100,,False
+11X121,P.S. 121 Throop,ES,85,100,,False
+11X127,J.H.S. 127 The Castle Hill,MS,30,55,88.0,True
+11X142,MS 142 John Philip Sousa,MS,8,68,69.0,True
+11X144,J.H.S. 144 Michelangelo,MS,38,90,92.0,False
+11X153,P.S. 153 Helen Keller,ES,63,100,,False
+11X160,P.S. 160 Walt Disney,ES,27,100,,False
+11X169,BAYCHESTER ACADEMY,ES,70,90,,False
+11X175,P.S. 175 City Island,ES/MS,52,95,99.0,True
+11X178,P.S. 178 - Dr. Selman Waksman,ES,74,97,,True
+11X180,M.S. 180 Dr. Daniel Hale Williams,MS,80,74,99.0,False
+11X181,I.S. 181 Pablo Casals,MS,64,74,96.0,True
+11X189,Cornerstone Academy for Social Action,ES,65,87,,False
+11X194,PS/MS 194,ES/MS,72,91,97.0,True
+11X249,Bronx Health Sciences High School,HS,20,91,88.0,True
+11X253,Bronx High School for Writing and Communication Arts,HS,14,92,40.0,True
+11X265,Bronx Lab School,HS,38,88,90.0,True
+11X270,Academy for Scholarship and Entrepreneurship: A College Board School,MS/HS,29,77,74.0,True
+11X272,Globe School for Environmental Research,MS,37,88,89.0,True
+11X275,High School of Computers and Technology,HS,41,89,96.0,False
+11X287,The Forward School,MS,53,89,91.0,True
+11X288,Collegiate Institute for Math and Science,HS,57,88,91.0,False
+11X289,The Young Scholars Academy of The Bronx,MS,17,61,68.0,True
+11X290,Bronx Academy of Health Careers,HS,25,90,77.0,True
+11X299,Astor Collegiate Academy,HS,31,100,87.0,True
+11X322,Aspire Preparatory Middle School,MS,25,45,95.0,True
+11X326,Bronx Green Middle School,MS,66,100,89.0,False
+11X370,School of Diplomacy,MS,8,100,75.0,True
+11X415,Christopher Columbus High School,HS,5,78,76.0,True
+11X417,C Columbus Hs Yabc,YABC,87,85,69.0,False
+11X418,Bronx High School for the Visual Arts,HS,15,77,56.0,True
+11X455,Harry S Truman High School,HS,6,57,50.0,True
+11X462,CORNERSTONE ACADEMY FOR SOCIAL ACTION MIDDLE SCHOOL (CASA),MS,87,53,86.0,False
+11X468,PELHAM ACADEMY OF ACADEMICS AND COMMUNITY ENGAGEMENT,MS,45,89,97.0,False
+11X498,PS/MS 11X498 - VAN NEST ACADEMY,ES/MS,62,97,89.0,False
+11X508,Bronxdale High School,HS,44,95,80.0,True
+11X509,High School for Language and Innovation,HS,75,88,95.0,False
+11X513,New World High School,HS,60,70,94.0,False
+11X514,The Bronxwood Preparatory Academy,HS,26,64,76.0,True
+11X529,One World Middle School at Edenwald,MS,65,100,99.0,False
+11X532,Baychester Middle School,MS,20,88,79.0,True
+11X541,Global Enterprise High School,HS,17,42,77.0,True
+11X542,Pelham Preparatory Academy,HS,65,89,93.0,False
+11X544,High School for Contemporary Arts,HS,23,70,51.0,True
+11X545,Bronx Aerospace High School,HS,25,70,73.0,True
+11X556,Bronx Park Middle School,MS,77,100,98.0,False
+11X566,Pelham Gardens Middle School,MS,99,100,96.0,False
+11X567,Linden Tree Elementary School,ECC,95,88,,False
+12X006,P.S. 006 West Farms,ES,60,91,,True
+12X044,P.S. 044 David C. Farragut,ES,72,100,,True
+12X047,P.S. 047 John Randolph,ES,82,83,,False
+12X050,P.S. 050 Clara Barton,ES,65,81,,False
+12X057,P.S. 057 Crescent,ES,67,100,,False
+12X061,P.S. 061 Francisco Oller,ES,41,63,,False
+12X066,P.S. 066 School of Higher Expectations,ES,93,83,,True
+12X067,P.S. 067 Mohegan School,ES,47,55,,True
+12X092,P.S. 092 Bronx,ES,76,95,,True
+12X098,J.H.S. 098 Herman Ridder,MS,58,97,89.0,True
+12X102,P.S. 102 Joseph O. Loretan,ES,9,23,,True
+12X129,P.S. 129 Twin Parks Upper,MS,61,95,91.0,False
+12X134,P.S. 134 George F. Bristow,ES,67,98,,False
+12X150,P.S. 150 Charles James Fox,ES,70,91,,False
+12X190,E.S.M.T- I.S. 190,MS,83,61,97.0,True
+12X195,P.S. 195,ES,59,44,,True
+12X196,P.S. 196,ES,72,83,,False
+12X211,P.S. 211,ES/MS,86,88,98.0,False
+12X212,P.S. 212,ES/MS,39,70,91.0,True
+12X214,P.S. 214,ES/MS,67,94,100.0,True
+12X217,School of Performing Arts,MS,66,91,84.0,True
+12X242,Mott Hall V,MS/HS,81,100,85.0,False
+12X245,New Day Academy,MS/HS,67,100,86.0,True
+12X248,"Metropolitan High School, The",HS,27,89,71.0,False
+12X251,Explorations Academy,HS,27,60,75.0,True
+12X262,Performance Conservatory High School,HS,61,100,86.0,True
+12X267,Bronx Latin,MS/HS,51,100,97.0,False
+12X271,East Bronx Academy for the Future,MS/HS,15,51,49.0,True
+12X273,Frederick Douglass Academy V. Middle School,MS,78,100,97.0,False
+12X278,Peace and Diversity Academy,HS,99,95,98.0,False
+12X286,Fannie Lou Hamer Middle School,MS,19,100,84.0,False
+12X300,The School of Science and Applied Learning,ES,51,90,,False
+12X316,Kappa III,MS,63,96,89.0,False
+12X318,"I.S. X318 Math, Science & Technology Through Arts",MS,76,100,98.0,False
+12X341,Accion Academy,MS,65,100,91.0,False
+12X372,Urban Assembly School for Wildlife Conservation,MS/HS,30,84,95.0,False
+12X383,Emolior Academy,MS,93,79,91.0,True
+12X384,Entrada Academy,MS,36,45,91.0,True
+12X388,Pan American International High School at Monroe,HS,68,100,90.0,False
+12X428,Learning To Work Yabc At Monroe Academy,YABC,42,86,44.0,False
+12X446,Arturo A. Schomburg Satellite Academy Bronx,HST,53,100,55.0,True
+12X463,URBAN SCHOLARS COMMUNITY SCHOOL,ES,47,97,,False
+12X478,THE CINEMA SCHOOL,HS,35,89,86.0,False
+12X479,BRONX CAREER AND COLLEGE PREPARATORY HIGH SCHOOL,HS,11,92,59.0,True
+12X480,Bronx Regional High School,HST,25,82,68.0,False
+12X511,Bronx Envision Academy,HS,47,93,86.0,False
+12X521,The Metropolitan Soundview High School,HS,36,53,55.0,False
+12X531,Archer Elementary School,ECC,58,96,,False
+12X536,PS 536,ECC,63,86,,False
+12X550,High School of World Cultures,HS,89,89,75.0,False
+12X682,Fannie Lou Hamer Freedom High School,HS,62,91,68.0,False
+12X684,Wings Academy,HS,38,92,80.0,True
+12X690,Monroe Academy for Business/Law,HS,15,86,87.0,True
+12X691,Bronx Little School,ES,63,84,,False
+12X692,Monroe Academy for Visual Arts & Design,HS,14,71,81.0,True
+13K003,P.S. 003 The Bedford Village,ES,71,95,,False
+13K008,P.S. 008 Robert Fulton,ES,53,57,96.0,True
+13K009,P.S. 009 Teunis G. Bergen,ES,69,91,,False
+13K011,P.S. 011 Purvis J. Behan,ES,68,67,,False
+13K020,P.S. 020 Clinton Hill,ES,69,100,,False
+13K044,P.S. 044 Marcus Garvey,ES,49,76,,False
+13K046,P.S. 046 Edward C. Blum,ES,86,97,,False
+13K054,P.S. 054 Samuel C. Barnes,ES,39,96,,False
+13K056,P.S. 056 Lewis H. Latimer,ES,97,86,,False
+13K067,P.S. 067 Charles A. Dorsey,ES,75,83,,True
+13K093,P.S. 093 William H. Prescott,ES,68,88,,False
+13K103,Satellite Three,MS,70,92,99.0,False
+13K113,M.S. 113 Ronald Edmonds Learning Center,MS,29,100,87.0,True
+13K133,P.S. 133 William A. Butler,ES,77,93,,False
+13K256,P.S. 256 Benjamin Banneker,ES,79,81,,False
+13K265,Dr. Susan S. McKinney Secondary School of the Arts,MS/HS,24,62,70.0,True
+13K266,M.S. K266 - Park Place Community Middle School,MS,28,100,90.0,False
+13K270,P.S. 270 Johann DeKalb,ES,39,92,,True
+13K282,P.S. 282 Park Slope,ES/MS,35,39,97.0,True
+13K287,P.S. 287 Bailey K. Ashford,ES,88,75,,False
+13K301,Satellite East Middle School,MS,64,100,92.0,True
+13K305,P.S. 305 Dr. Peter Ray,ES,26,68,,True
+13K307,P.S. 307 Daniel Hale Williams,ES,52,72,,False
+13K313,Satellite West Middle School,MS,47,45,82.0,True
+13K350,Urban Assembly High School of Music and Art,HS,21,52,64.0,True
+13K351,The Urban Assembly Unison School,MS,60,100,100.0,True
+13K412,"Brooklyn Community High School of Communication, Arts and Media",HS,30,89,94.0,True
+13K419,"Science Skills Center High School for Science, Technology and the Creative Arts",HS,20,81,78.0,True
+13K430,Brooklyn Technical High School,HS,35,89,91.0,True
+13K439,Brooklyn International High School,HS,85,100,95.0,False
+13K483,The Urban Assembly School for Law and Justice,HS,53,100,93.0,False
+13K492,Academy of Arts and Letters,ES/MS,69,81,91.0,False
+13K499,ACORN Community High School,HS,21,91,59.0,True
+13K509,Freedom Academy High School,HS,16,90,78.0,True
+13K527,Urban Assembly Institute of Math and Science for Young Women,MS/HS,14,72,73.0,True
+13K553,Brooklyn Academy High School,HST,29,83,65.0,False
+13K571,M.S. 571,MS,45,33,93.0,True
+13K575,Bedford Stuyvesant Preparatory High School,HST,34,100,95.0,False
+13K595,Bedford Academy High School,HS,65,95,90.0,False
+13K596,MS 596 Peace Academy,MS,40,87,97.0,True
+13K605,George Westinghouse Career and Technical Education High School,HS,34,94,77.0,True
+13K616,Brooklyn High School for Leadership and Community Service,HST,14,88,62.0,False
+13K657,Downtown Brooklyn Yabc,YABC,11,100,58.0,False
+13K670,Benjamin Banneker Academy,HS,23,67,82.0,True
+13K674,"CITY POLYTECHNIC HIGH SCHOOL OF ENGINEERING, ARCHITECTURE, AND TECHNOLOGY",HS,26,82,85.0,True
+13K691,FORT GREENE PREPARATORY ACADEMY,MS,47,100,97.0,False
+14K016,P.S. 016 Leonard Dunkly,ES,95,96,,False
+14K017,P.S. 017 Henry D. Woodworth,ES,57,76,,False
+14K018,P.S. 018 Edward Bush,ES,96,89,,False
+14K019,P.S. 019 Roberto Clemente,ES,52,88,,False
+14K023,P.S. 023 Carter G. Woodson,ES,93,96,,False
+14K031,P.S. 031 Samuel F. Dupont,ES,83,85,,False
+14K034,P.S. 034 Oliver H. Perry,ES,87,84,,False
+14K050,J.H.S. 050 John D. Wells,MS,59,97,95.0,True
+14K059,P.S. 059 William Floyd,ES,85,36,,True
+14K071,Juan Morel Campos Secondary School,MS/HS,44,86,78.0,False
+14K084,P.S. 084 Jose De Diego,ES,55,74,,False
+14K110,P.S. 110 The Monitor,ES,93,100,,False
+14K120,P.S. 120 Carlos Tapia,ES,90,69,,False
+14K126,John Ericsson Middle School 126,MS,98,88,98.0,False
+14K132,P.S. 132 The Conselyea School,ES,75,44,,False
+14K147,P.S. 147 Isaac Remsen,ES,100,100,,False
+14K157,P.S. 157 Benjamin Franklin,ES/MS,79,79,96.0,False
+14K196,P.S. 196 Ten Eyck,ES,74,94,,False
+14K250,P.S. 250 George H. Lindsay,ES,91,63,,False
+14K257,P.S. 257 John F. Hylan,ES,69,100,,False
+14K297,P.S. 297 Abraham Stockton,ES,79,100,,True
+14K318,I.S. 318 Eugenio Maria De Hostos,MS,25,76,81.0,False
+14K319,P.S. 319,ECC,100,92,,False
+14K322,Foundations Academy,HS,17,46,59.0,True
+14K330,The Urban Assembly School for the Urban Environment,MS,21,89,61.0,False
+14K380,P.S. 380 John Wayne Elementary,ES,100,100,,False
+14K414,Brooklyn Arbor Elementary School,ECC,76,93,,False
+14K449,"Brooklyn Latin School, The",HS,24,86,94.0,False
+14K454,Green School: An Academy for Environmental Careers,HS,28,38,52.0,True
+14K474,PROGRESS High School for Professional Careers,HS,33,74,56.0,True
+14K477,School for Legal Studies,HS,21,97,54.0,True
+14K478,"The High School for Enterprise, Business and Technology",HS,14,76,39.0,True
+14K488,Brooklyn Preparatory High School,HS,27,85,71.0,True
+14K558,Williamsburg High School for Architecture and Design,HS,58,100,93.0,False
+14K561,Williamsburg Preparatory School,HS,32,96,83.0,False
+14K577,Conselyea Preparatory School,MS,88,97,99.0,False
+14K582,M.S. 582,MS,39,100,98.0,True
+14K586,Lyons Community School,MS/HS,26,98,75.0,True
+14K610,Automotive High School,HS,9,74,44.0,True
+14K614,Young Women's Leadership School of Brooklyn,MS/HS,73,100,91.0,False
+14K632,Frances Perkins Academy,HS,32,88,86.0,True
+14K685,El Puente Academy for Peace and Justice,HS,33,100,83.0,False
+14K923,Automotive High School Yabc,YABC,2,50,68.0,True
+15K001,P.S. 001 The Bergen,ES,38,64,,False
+15K010,"Magnet School of Math, Science and Design Technology",ES,51,78,,False
+15K015,P.S. 015 Patrick F. Daly,ES,87,90,,False
+15K024,P.S. 024,ES,66,95,,False
+15K029,P.S. 029 John M. Harrigan,ES,73,85,,False
+15K032,P.S. 032 Samuels Mills Sprole,ES,74,93,,False
+15K038,P.S. 038 The Pacific,ES,68,56,,True
+15K039,P.S. 039 Henry Bristow,ES,65,100,,False
+15K051,M.S. 51 William Alexander,MS,53,98,97.0,False
+15K058,P.S. 058 The Carroll,ES,58,90,,False
+15K088,J.H.S. 088 Peter Rouget,MS,41,53,91.0,False
+15K094,P.S. 094 The Henry Longfellow,ES,76,68,,True
+15K107,P.S. 107 John W. Kimball,ES,87,81,,False
+15K124,P.S. 124 Silas B. Dutcher,ES,46,54,,False
+15K130,P.S. 130 The Parkside,ES,83,62,,False
+15K131,P.S. 131 Brooklyn,ES,49,96,,False
+15K136,I.S. 136 Charles O. Dewey,MS,28,100,93.0,True
+15K146,P.S. 146,ES,58,100,,False
+15K154,Magnet School for Science & Technology,ES,56,94,,False
+15K169,P.S. 169 Sunset Park,ES,64,76,,False
+15K172,P.S. 172 Beacon School of Excellence,ES,92,98,,False
+15K230,P.S. 230 Doris L. Cohen,ES,69,94,,False
+15K261,P.S. 261 Philip Livingston,ES,46,72,,False
+15K295,P.S. 295,ES,82,97,,False
+15K321,P.S. 321 William Penn,ES,43,77,,False
+15K418,P.S. 372 -The Children's School,ES,36,61,,False
+15K423,Brooklyn Frontiers High School,HST,16,100,74.0,False
+15K429,Brooklyn School for Global Studies,MS/HS,14,90,75.0,True
+15K442,New Horizons School,MS,39,56,89.0,True
+15K443,New Voices School of Academic & Creative Arts,MS,48,79,95.0,False
+15K447,The Math & Science Exploratory School,MS,56,100,99.0,False
+15K448,Brooklyn Secondary School for Collaborative Studies,MS/HS,33,68,88.0,True
+15K462,Secondary School for Law,MS/HS,43,97,90.0,True
+15K463,Secondary School for Journalism,MS/HS,9,87,75.0,True
+15K464,Park Slope Collegiate,MS/HS,20,81,72.0,True
+15K497,School for International Studies,MS/HS,7,78,62.0,True
+15K519,Cobble Hill School of American Studies,HS,37,90,46.0,False
+15K529,West Brooklyn Community High School,HST,39,100,73.0,False
+15K530,Metropolitan Corporate Academy High School,HS,42,75,70.0,True
+15K592,Khalil Gibran International Academy,MS/HS,73,100,97.0,False
+15K656,Brooklyn High School of the Arts,HS,19,86,90.0,True
+15K667,SUNSET PARK HIGH SCHOOL,HS,22,94,85.0,False
+15K676,RED HOOK NEIGHBORHOOD SCHOOL,ES,36,77,,False
+15K684,Millennium Brooklyn HS,HS,39,100,96.0,False
+15K698,South Brooklyn Community High School,HST,14,82,65.0,False
+15K821,Sunset Park Prep,MS,32,87,92.0,True
+16K005,P.S. 005 Dr. Ronald Mcnair,ES,67,67,,True
+16K021,P.S. 021 Crispus Attucks,ES,91,95,,False
+16K025,P.S. 025 Eubie Blake School,ES,60,97,,True
+16K026,P.S. 026 Jesse Owens,ES,68,95,,False
+16K028,P.S. 028 The Warren Prep Academy,ES,65,91,,True
+16K035,M.S. 035 Stephen Decatur,MS,97,100,100.0,False
+16K040,P.S. 040 George W. Carver,ES,71,100,,False
+16K057,J.H.S. 057 Whitelaw Reid,MS,59,95,81.0,False
+16K081,P.S. 081 Thaddeus Stevens,ES,44,100,,False
+16K243,P.S. 243K- The Weeksville School,ES,28,88,,True
+16K262,P.S. 262 El Hajj Malik El Shabazz Elementary School,ES/MS,48,54,92.0,False
+16K267,"M.S. 267 Math, Science & Technology",MS,43,90,96.0,False
+16K308,P.S. 308 Clara Cardwell,ES/MS,37,95,98.0,True
+16K309,P.S. 309 The George E. Wibecan Preparatory Academy,ES,49,91,,False
+16K335,P.S. 335 Granville T. Woods,ES,60,92,,True
+16K385,"School of Business, Finance and Entrepreneurship",MS,86,88,96.0,True
+16K393,Frederick Douglass Academy IV Secondary School,MS/HS,17,96,77.0,True
+16K455,Boys and Girls High School,HS,14,71,35.0,False
+16K498,Brooklyn High School for Law and Technology,HS,37,56,58.0,True
+16K534,Upper School @ P.S. 25,MS,40,90,90.0,True
+16K584,M.S. 584,MS,36,95,91.0,False
+16K594,Gotham Professional Arts Academy,HS,23,87,88.0,False
+16K627,Brighter Choice Community School,ES,100,100,,False
+16K628,Brooklyn Brownstone School,ES,100,100,,False
+16K636,Young Scholars' Academy for Discovery and Exploration,ES,100,100,,False
+16K681,Madiba Prep Middle School,MS,69,100,96.0,False
+16K688,The Brooklyn Academy of Global Finance,HS,27,100,69.0,True
+16K959,BOYS AND GIRLS YABC,YABC,3,58,25.0,False
+17K002,Parkside Preparatory Academy,MS,17,61,92.0,True
+17K006,P.S. 006,ES,19,42,,False
+17K012,Dr. Jacqueline Peek-Davis School,ES,56,79,,True
+17K022,P.S. 022,ES,46,62,,True
+17K061,M.S. 061 Dr. Gladstone H. Atwell,MS,41,76,93.0,True
+17K091,P.S. 091 The Albany Avenue School,ES,80,98,,True
+17K092,P.S. 092 Adrian Hegeman,ES,36,93,,False
+17K122,Pathways in Technology Early College High School (P-Tech),HS,29,100,83.0,False
+17K138,P.S. 138 Brooklyn,ES/MS,56,69,90.0,False
+17K161,P.S. 161 The Crown,ES/MS,63,63,91.0,True
+17K167,P.S. 167 The Parkway,ES,36,38,,True
+17K181,P.S. 181 Brooklyn,ES/MS,37,61,88.0,True
+17K189,P.S. 189/ The Bilingual Center,ES/MS,63,94,97.0,True
+17K191,P.S. 191 Paul Robeson,ES,69,100,,True
+17K221,P.S. 221 Toussaint L'Ouverture,ES,63,87,,False
+17K241,P.S. 241 Emma L. Johnston,ES,66,74,,True
+17K246,M.S. 246 Walt Whitman,MS,41,82,97.0,True
+17K249,P.S. 249 The Caton,ES,93,98,,False
+17K289,P.S. 289 George V. Brower,ES,46,64,,True
+17K316,P.S. 316 Elijah Stroud,ES,75,96,,False
+17K334,Middle School for Academic and Social Excellence,MS,14,88,90.0,True
+17K340,I.S. 340,MS,48,71,99.0,True
+17K352,Ebbets Field Middle School,MS,73,97,93.0,True
+17K353,Elijah Stroud Middle School,MS,74,88,93.0,False
+17K354,The School of Integrated Learning,MS,84,100,97.0,False
+17K375,P.S. 375 Jackie Robinson School,ES,78,93,,False
+17K382,Academy for College Preparation and Career Exploration: A College Board School,MS/HS,8,79,87.0,True
+17K394,M.S. K394,ES/MS,59,82,96.0,False
+17K397,P.S. 397 Foster-Laurie,ES,72,97,,False
+17K398,P.S. 398 Walter Weaver,ES,77,88,,False
+17K399,P.S. 399 Stanley Eugene Clark,ES,35,76,,False
+17K408,Academy of Hospitality and Tourism,HS,26,72,84.0,True
+17K467,Erasmus Yabc,YABC,77,100,84.0,False
+17K484,Ronald Edmonds Learning Center II,MS,14,92,96.0,True
+17K489,W.E.B. Dubois Academic High School,HST,30,100,75.0,False
+17K524,International High School at Prospect Heights,HS,41,100,85.0,False
+17K528,The High School for Global Citizenship,HS,37,95,57.0,True
+17K531,"School for Human Rights, The",MS/HS,59,100,97.0,False
+17K533,School for Democracy and Leadership,MS/HS,61,100,93.0,True
+17K537,High School for Youth and Community Development at Erasmus,HS,48,91,85.0,True
+17K539,High School for Service & Learning at Erasmus,HS,26,96,76.0,True
+17K543,"Science, Technology and Research Early College High School at Erasmus",MS/HS,96,72,91.0,False
+17K544,International Arts Business School,HS,5,90,78.0,True
+17K546,High School for Public Service: Heroes of Tomorrow,HS,27,88,90.0,False
+17K547,Brooklyn Academy of Science and the Environment,HS,24,94,85.0,True
+17K548,Brooklyn School for Music & Theatre,HS,40,100,81.0,True
+17K568,Brownsville Academy High School,HST,50,79,76.0,False
+17K587,Middle School for the Arts,MS,12,95,82.0,True
+17K590,Medgar Evers College Preparatory School,MS/HS,67,48,81.0,False
+17K600,Clara Barton High School,HS,13,85,81.0,True
+17K625,Paul Robeson High School,HS,9,50,53.0,True
+17K705,Brooklyn Arts and Science Elementary School,ECC,74,82,,False
+17K722,New Heights Middle School,MS,74,86,95.0,False
+17K745,Brooklyn Institute for Liberal Arts,HS,84,86,96.0,True
+17K751,ACADEMY FOR HEALTH CAREERS,HS,25,100,81.0,True
+17K770,P.S. 770 New American Academy,ECC,65,100,,False
+18K066,P.S. 66,ES/MS,44,94,96.0,True
+18K068,I.S. 068 Isaac Bildersee,MS,28,72,86.0,True
+18K114,P.S. 114 Ryder Elementary,ES,82,100,,False
+18K115,P.S. 115 Daniel Mucatel School,ES,64,79,,True
+18K135,P.S. 135 Sheldon A. Brookner,ES,56,84,,True
+18K208,P.S. 208 Elsa Ebeling,ES,44,100,,False
+18K211,I.S. 211 John Wilson,MS,47,73,89.0,True
+18K219,P.S. 219 Kennedy-King,ES,42,52,,True
+18K233,P.S. 233 Langston Hughes,ES,46,93,,False
+18K235,P.S. 235 Lenox School,ES/MS,32,39,97.0,False
+18K244,P.S. 244 Richard R. Green,ES,15,52,,False
+18K268,P.S. 268 Emma Lazarus,ES,66,81,,False
+18K272,P.S. 272 Curtis Estabrook,ES,60,78,,True
+18K276,P.S. 276 Louis Marshall,ES,74,83,,True
+18K279,P.S. 279 Herman Schreiber,ES,54,79,,True
+18K285,I.S. 285 Meyer Levin,MS,43,68,88.0,True
+18K366,THE SCIENCE AND MEDICINE MIDDLE SCHOOL,MS,85,61,94.0,False
+18K563,It Takes a Village Academy,HS,61,100,93.0,False
+18K566,Brooklyn Generation School,HS,32,100,86.0,True
+18K567,Brooklyn Theatre Arts High School,HS,22,100,83.0,True
+18K569,Kurt Hahn Expeditionary Learning School,HS,16,100,86.0,False
+18K576,Victory Collegiate High School,HS,41,67,50.0,True
+18K578,Brooklyn Bridge Academy,HST,24,78,81.0,False
+18K581,East Flatbush Community Research School,MS,56,100,96.0,True
+18K588,Middle School for Art and Philosophy,MS,55,94,95.0,True
+18K589,Arts & Media Preparatory Academy,HS,20,64,67.0,False
+18K598,Middle School of Marketing and Legal Studies,MS,70,100,85.0,True
+18K617,High School for Innovation in Advertising and Media,HS,20,85,64.0,True
+18K629,Cultural Academy for the Arts and Sciences,HS,37,78,85.0,True
+18K633,High School for Medical Professions,HS,15,100,86.0,True
+18K635,Olympus Academy,HST,10,86,47.0,False
+18K637,Academy for Conservation and the Environment,HS,47,100,82.0,True
+18K642,Urban Action Academy,HS,55,71,93.0,True
+18K673,EAST BROOKLYN COMMUNITY HIGH SCHOOL,HST,40,82,65.0,False
+18K922,South Shore Educational Complex Yabc,YABC,41,62,49.0,False
+19K007,P.S. 007 Abraham Lincoln,ES,54,81,,True
+19K013,P.S. 013 Roberto Clemente,ES,44,94,,True
+19K065,P.S. 065,ES,89,100,,False
+19K089,P.S. 089 Cypress Hills,ES/MS,58,76,99.0,False
+19K108,P.S. 108 Sal Abbracciamento,ES,77,100,,True
+19K149,P.S. 149 Danny Kaye,ES,41,72,,True
+19K158,P.S. 158 Warwick,ES,77,84,,False
+19K159,P.S. 159 Isaac Pitkin,ES,53,95,,True
+19K166,J.H.S. 166 George Gershwin,MS,50,85,92.0,True
+19K171,I.S. 171 Abraham Lincoln,MS,66,88,91.0,True
+19K174,P.S. 174 Dumont,ES/MS,34,21,99.0,True
+19K190,P.S. 190 Sheffield,ES,65,68,,False
+19K202,P.S. 202 Ernest S. Jenkyns,ES/MS,71,50,86.0,True
+19K213,P.S. 213 New Lots,ES,39,38,,True
+19K214,P.S. 214 Michael Friedsam,ES,71,67,,False
+19K218,J.H.S. 218 James P. Sinnott,MS,28,78,87.0,True
+19K224,P.S. 224 Hale A. Woodruff,ES,89,87,,False
+19K260,P.S. 260 Breuckelen,ES,93,70,,False
+19K273,P.S. 273 Wortman,ES,71,100,,False
+19K290,P.S. 290 Juan Morel Campos,ES,31,70,,False
+19K292,J.H.S. 292 Margaret S. Douglas,MS,55,94,95.0,True
+19K302,J.H.S. 302 Rafael Cordero,MS,44,55,84.0,True
+19K306,P.S. 306 Ethan Allen,ES/MS,25,78,94.0,True
+19K311,Essence School,MS,36,83,96.0,True
+19K325,The Fresh Creek School,ECC,41,100,,False
+19K328,P.S. 328 Phyllis Wheatley,ES/MS,20,63,87.0,True
+19K345,P.S. 345 Patrolman Robert Bolden,ES,57,57,,True
+19K346,P.S. 346 Abe Stark,ES,60,93,,False
+19K364,I.S. 364 Gateway,MS,37,100,95.0,True
+19K404,Academy for Young Writers,HS,16,93,74.0,True
+19K409,East New York Family Academy,MS/HS,37,83,86.0,True
+19K422,Spring Creek Community School,MS,35,75,90.0,False
+19K431,Thomas Jefferson Yabc,YABC,6,88,55.0,False
+19K452,Frederick Douglass Academy VIII Middle School,MS,80,80,98.0,False
+19K501,Franklin K. Lane Campus YABC,YABC,65,69,79.0,False
+19K502,FDNY High School for Fire and Life Safety,HS,38,96,80.0,True
+19K504,High School for Civil Rights,HS,18,90,67.0,False
+19K507,Performing Arts and Technology High School,HS,42,61,68.0,False
+19K510,World Academy for Total Community Health High School,HS,27,85,74.0,True
+19K583,Multicultural High School,HS,11,93,74.0,True
+19K615,Transit Tech Career and Technical Education High School,HS,11,85,75.0,True
+19K618,Academy of Innovative Technology,HS,17,88,78.0,True
+19K639,Brooklyn Lab School,HS,20,96,62.0,True
+19K659,Cypress Hills Collegiate Preparatory School,HS,28,96,79.0,True
+19K660,W. H. Maxwell Career and Technical Education High School,HS,75,98,82.0,False
+19K677,EAST NEW YORK ELEMENTARY SCHOOL OF EXCELLENCE,ES,43,80,,False
+19K678,EAST NEW YORK MIDDLE SCHOOL OF EXCELLENCE,MS,78,91,87.0,True
+19K683,"THE SCHOOL FOR CLASSICS: AN ACADEMY OF THINKERS, WRITERS AND PERFORMERS",HS,56,88,87.0,True
+20K030,I.S. 30 Mary White Ovington,MS,67,96,98.0,True
+20K048,P.S. 048 Mapleton,ES,93,100,,False
+20K062,J.H.S. 062 Ditmas,MS,95,100,98.0,True
+20K069,P.S. 69 Vincent D. Grippo School,ES,100,93,,False
+20K102,P.S. 102 The Bayview,ES,90,87,,False
+20K104,P.S./I.S. 104 The Fort Hamilton School,ES/MS,98,89,92.0,False
+20K105,P.S. 105 The Blythebourne,ES,100,92,,False
+20K112,P.S. 112 Lefferts Park,ES,100,97,,False
+20K127,P.S. 127 Mckinley Park,ES,73,97,,False
+20K160,P.S. 160 William T. Sampson,ES,100,85,,False
+20K163,P.S. 163 Bath Beach,ES/MS,43,47,98.0,False
+20K164,P.S. 164 Caesar Rodney,ES,100,100,,False
+20K170,Ralph A. Fabrizio School,ES,93,98,,True
+20K176,P.S. 176 Ovington,ES,95,78,,False
+20K179,P.S. 179 Kensington,ES,60,80,,True
+20K180,The SEEALL Academy,ES/MS,57,74,99.0,False
+20K185,P.S. 185 Walter Kassenbrock,ES,88,96,,False
+20K186,P.S. 186 Dr. Irving A Gladstone,ES,95,97,,True
+20K187,The Christa McAuliffe School\I.S. 187,MS,64,81,100.0,False
+20K192,P.S. 192 - The Magnet School for Math and Science Inquiry,ES/MS,74,79,100.0,False
+20K200,P.S. 200 Benson School,ES,73,99,,True
+20K201,J.H.S. 201 The Dyker Heights,MS,55,88,98.0,True
+20K204,P.S. 204 Vince Lombardi,ES,68,99,,False
+20K205,P.S. 205 Clarion,ES,84,80,,True
+20K220,J.H.S. 220 John J. Pershing,MS,55,94,95.0,True
+20K223,J.H.S. 223 The Montauk,MS,56,90,97.0,True
+20K227,J.H.S. 227 Edward B. Shallow,MS,45,95,93.0,True
+20K229,P.S. 229 Dyker,ES/MS,72,87,97.0,False
+20K247,P.S. 247 Brooklyn,ES,64,77,,False
+20K259,J.H.S. 259 William Mckinley,MS,69,99,90.0,False
+20K264,P.S. 264 BAY RIDGE ELEMENTARY SCHOOL FOR THE ARTS,ECC,100,100,,False
+20K310,P.S. 310,ECC,88,89,,False
+20K445,New Utrecht High School,HS,49,86,75.0,True
+20K485,High School of Telecommunication Arts and Technology,HS,15,90,90.0,False
+20K490,Fort Hamilton High School,HS,43,66,72.0,True
+20K503,PS 503: The School of Discovery,ES,81,90,,False
+20K505,Franklin Delano Roosevelt High School,HS,42,98,79.0,True
+20K506,P.S. 506: The School of Journalism & Technology,ES,64,84,,False
+20K609,Urban Assembly School for Criminal Justice,MS/HS,15,81,87.0,False
+20K658,Franklin Delano Roosevelt YABC,YABC,14,59,46.0,False
+20K682,THE ACADEMY OF TALENTED SCHOLARS,ES,84,100,,False
+20K686,BROOKLYN SCHOOL OF INQUIRY,ES,84,85,,False
+20K748,P.S. 748 BROOKLYN SCHOOL FOR GLOBAL SCHOLARS,ECC,90,95,,False
+20K971,P.S. 971,ECC,91,76,,False
+21K090,P.S. 90 Edna Cohen School,ES,76,69,,True
+21K095,P.S. 095 The Gravesend,ES/MS,67,97,99.0,False
+21K096,I.S. 096 Seth Low,MS,80,84,98.0,True
+21K097,P.S. 97 The Highlawn,ES,86,84,,False
+21K098,I.S. 98 Bay Academy,MS,97,98,98.0,False
+21K099,P.S. 099 Isaac Asimov,ES/MS,68,98,92.0,False
+21K100,P.S. 100 The Coney Island School,ES,84,89,,False
+21K101,P.S. 101 The Verrazano,ES,95,85,,False
+21K121,P.S. 121 Nelson A. Rockefeller,ES/MS,82,88,99.0,False
+21K128,P.S. 128 Bensonhurst,ES,81,89,,False
+21K153,P.S. 153 Homecrest,ES,100,93,,False
+21K177,P.S. 177 The Marlboro,ES,92,96,,False
+21K188,P.S. 188 Michael E. Berdy,ES,72,96,,False
+21K199,P.S. 199 Frederick Wachtel,ES,71,79,,False
+21K209,P.S. 209 Margaret Mead,ES/MS,77,78,99.0,False
+21K212,P.S. 212 Lady Deborah Moody,ES,73,96,,False
+21K215,P.S. 215 Morris H. Weiss,ES,59,91,,False
+21K216,P.S. 216 Arturo Toscanini,ES,87,97,,False
+21K225,P.S. K225 - The Eileen E. Zaglin,ES/MS,85,95,98.0,False
+21K226,P.S. 226 Alfred De B.Mason,ES/MS,59,83,97.0,False
+21K228,I.S. 228 David A. Boody,MS,69,95,99.0,False
+21K238,P.S. 238 Anne Sullivan,ES/MS,82,89,99.0,False
+21K239,Mark Twain I.S. 239 for the Gifted & Talented,MS,86,97,99.0,False
+21K253,P.S. 253,ES,99,97,,False
+21K281,I.S. 281 Joseph B Cavallaro,MS,39,89,96.0,True
+21K288,P.S. 288 The Shirley Tanyhill,ES/MS,41,68,98.0,True
+21K303,I.S. 303 Herbert S. Eisenberg,MS,95,95,98.0,True
+21K329,P.S. 329 Surfside,ES,92,63,,True
+21K337,International High School at Lafayette,HS,52,96,91.0,False
+21K344,Rachel Carson High School for Coastal Studies,HS,51,70,93.0,True
+21K348,High School of Sports Management,HS,26,100,91.0,True
+21K410,Abraham Lincoln High School,HS,17,92,74.0,True
+21K411,Abraham Lincoln Yabc,YABC,9,100,42.0,False
+21K468,Kingsborough Early College School,MS/HS,52,100,89.0,False
+21K525,Edward R. Murrow High School,HS,27,89,90.0,True
+21K540,John Dewey High School,HS,17,85,40.0,True
+21K559,Life Academy High School for Film and Music,HS,50,94,77.0,False
+21K572,Expeditionary Learning School for Community Leaders,HS,50,95,84.0,False
+21K620,William E. Grady Career and Technical Education High School,HS,58,84,73.0,False
+21K690,Brooklyn Studio Secondary School,MS/HS,22,66,94.0,True
+21K728,Liberation Diploma Plus,HST,88,89,94.0,False
+22K014,J.H.S. 014 Shell Bank,MS,22,85,93.0,True
+22K052,P.S. 052 Sheepshead Bay,ES,64,98,,True
+22K078,J.H.S. 078 Roy H. Mann,MS,69,99,97.0,True
+22K109,P.S. 109,ES/MS,27,70,94.0,True
+22K119,P.S. 119 Amersfort,ES,54,94,,False
+22K134,P.S. K134,ES,84,84,,False
+22K139,P.S. 139 Alexine A. Fenty,ES,60,86,,True
+22K152,School of Science & Technology,ES,60,86,,False
+22K193,P.S. 193 Gil Hodges,ES,38,98,,False
+22K194,P.S. 194 Raoul Wallenberg,ES,75,97,,False
+22K195,P.S. 195 Manhattan Beach,ES,86,91,,False
+22K197,P.S. 197 - The Kings Highway Academy,ES,72,91,,False
+22K198,P.S. 198 Brooklyn,ES,33,81,,False
+22K203,P.S. 203 The School for Future Leaders,ES,57,48,,False
+22K206,P.S. 206 Joseph F Lamb,ES/MS,49,83,99.0,True
+22K207,P.S. 207 Elizabeth G. Leary,ES/MS,55,96,98.0,True
+22K217,P.S. 217 Colonel David Marcus School,ES,58,62,,False
+22K222,P.S. 222 Katherine R. Snyder,ES,83,95,,False
+22K234,J.H.S. 234 Arthur W. Cunningham,MS,75,97,98.0,False
+22K236,P.S. 236 Mill Basin,ES,67,93,,True
+22K240,Andries Hudde,MS,25,94,95.0,True
+22K245,P.S. 245,ES,37,65,,False
+22K251,P.S. 251 Paerdegat,ES,31,78,,True
+22K254,P.S. 254 Dag Hammarskjold,ES,95,98,,False
+22K255,P.S. 255 Barbara Reing School,ES,59,96,,False
+22K269,P.S. 269 Nostrand,ES,58,79,,True
+22K277,P.S. 277 Gerritsen Beach,ES,92,100,,False
+22K278,J.H.S. 278 Marine Park,MS,53,92,93.0,False
+22K312,P.S. 312 Bergen Beach,ES,81,94,,False
+22K315,P.S. K315,ES,59,98,,False
+22K326,P.S. 326,ECC,63,100,,False
+22K361,P.S. 361 East Flatbush Early Childhood School,ECC,58,78,,True
+22K381,I. S. 381,MS,40,85,99.0,True
+22K405,Midwood High School,HS,17,81,76.0,False
+22K425,James Madison High School,HS,25,54,82.0,False
+22K495,Sheepshead Bay High School,HS,5,73,72.0,True
+22K535,Leon M. Goldstein High School for the Sciences,HS,18,88,90.0,False
+22K555,Brooklyn College Academy,MS/HS,52,90,95.0,False
+23K041,P.S. 041 Francis White,ES/MS,24,63,97.0,True
+23K073,P.S. 073 Thomas S. Boyland,ES/MS,87,84,96.0,True
+23K137,P.S./I.S. 137 Rachel Jean Mitchell,ES/MS,65,82,99.0,False
+23K150,P.S. 150 Christopher,ES,76,100,,True
+23K155,P.S./ I.S. 155 Nicholas Herkimer,ES/MS,85,100,93.0,False
+23K156,P.S. 156 Waverly,ES,70,100,,False
+23K165,P.S. 165 Ida Posner,ES/MS,35,77,90.0,True
+23K178,P.S. 178 Saint Clair Mckelway,ES/MS,83,83,89.0,True
+23K184,P.S. 184 Newport,ES/MS,69,75,77.0,True
+23K284,P.S. 284 Lew Wallace,ES/MS,74,98,94.0,False
+23K298,P.S. 298 Dr. Betty Shabazz,ES/MS,52,65,90.0,True
+23K323,P.S./I.S. 323,ES/MS,81,97,98.0,False
+23K327,P.S. 327 Dr. Rose B. English,ES/MS,45,66,94.0,False
+23K332,P.S. 332 Charles H. Houston,ES/MS,55,100,82.0,True
+23K363,Brownsville Collaborative Middle School,MS,76,100,99.0,False
+23K392,I.S. 392,MS,77,100,98.0,False
+23K401,Christopher Avenue Community School,ECC,29,69,,True
+23K446,Riverdale Avenue Community School,ECC,47,53,,False
+23K493,Brooklyn Collegiate: A College Board School,MS/HS,25,39,67.0,True
+23K514,Frederick Douglass Academy VII High School,HS,46,100,88.0,True
+23K518,Kappa V,MS,100,84,100.0,True
+23K522,Mott Hall IV,MS,76,100,99.0,False
+23K631,General D. Chappie James Elementary School of Science,ES,43,92,,False
+23K634,General D. Chappie James Middle School of Science,MS,41,100,85.0,True
+23K643,Brooklyn Democracy Academy,HST,12,81,40.0,False
+23K644,Eagle Academy for Young Men II,MS/HS,20,68,75.0,False
+23K646,Aspirations Diploma Plus High School,HST,30,100,62.0,False
+23K671,MOTT HALL BRIDGES ACADEMY,MS,70,81,82.0,False
+23K697,Teachers Preparatory High School,MS/HS,40,71,81.0,True
+24Q005,I.S. 5 - The Walter Crowley Intermediate School,MS,73,88,96.0,True
+24Q007,P.S. 007 Louis F. Simeone,ECC,94,70,,True
+24Q012,P.S. 012 James B. Colgate,ES,85,100,,False
+24Q013,P.S. 013 Clement C. Moore,ES,91,90,,False
+24Q014,P.S. 014 Fairview,ES,22,59,,False
+24Q016,P.S. Q016 The Nancy DeBenedittis School,ES,82,98,,False
+24Q019,P.S. 019 Marino Jeantet,ES,82,86,,False
+24Q028,P.S. 28 - The Thomas Emanuel Early Childhood Center,ECC,90,98,,False
+24Q049,P.S. 049 Dorothy Bonawit Kole,ES/MS,82,67,98.0,True
+24Q058,P.S. 58 - School of Heroes,ES,81,91,91.0,True
+24Q061,I.S. 061 Leonardo Da Vinci,MS,69,59,96.0,True
+24Q068,P.S. 068 Cambridge,ES,68,90,,False
+24Q071,P.S. 071 Forest,ES,78,68,,True
+24Q073,I.S. 73 - The Frank Sansivieri Intermediate School,MS,59,59,95.0,True
+24Q077,I.S. 077,MS,81,97,95.0,True
+24Q081,P.S. 81Q Jean Paul Richter,ES,96,100,,False
+24Q087,P.S. 087 Middle Village,ES/MS,39,42,92.0,False
+24Q088,P.S. 088 Seneca,ES,73,76,,True
+24Q089,P.S. 089 Elmhurst,ES,97,95,,False
+24Q091,P.S. 091 Richard Arkwright,ES,51,61,,False
+24Q093,I.S. 093 Ridgewood,MS,57,100,95.0,True
+24Q102,P.S. 102 Bayview,ES/MS,40,100,98.0,False
+24Q110,PS 110,ECC,63,100,,False
+24Q113,P.S. 113 Isaac Chauncey,ES/MS,98,100,96.0,False
+24Q119,I.S. 119 The Glendale,ES/MS,57,92,97.0,True
+24Q125,I.S. 125 Thom J. McCann Woodside,MS,60,94,96.0,False
+24Q128,"P.S. 128 The Lorraine Tuzzo, Juniper Valley Elementary School",ES/MS,61,88,97.0,False
+24Q143,P.S. 143 Louis Armstrong,ES,27,91,,True
+24Q153,P.S. 153 Maspeth Elem,ES,82,94,99.0,False
+24Q199,P.S. 199 Maurice A. Fitzgerald,ES,81,99,,False
+24Q229,P.S. 229 Emanuel Kaplan,ES,70,98,97.0,False
+24Q239,P.S. 239,ES,67,96,,False
+24Q264,Academy of Finance and Enterprise,HS,71,100,98.0,False
+24Q267,High School of Applied Communication,HS,28,96,91.0,False
+24Q290,P.S. 290,ECC,89,100,,False
+24Q293,Civic Leadership Academy,HS,56,88,97.0,False
+24Q296,Pan American International High School,HS,38,93,79.0,True
+24Q299,Bard High School Early College Queens,HS,47,93,48.0,False
+24Q305,Learners and Leaders,ECC,87,69,,False
+24Q307,Pioneer Academy,ES,100,87,,False
+24Q330,P.S. 330,ECC,63,96,,False
+24Q455,Newtown High School,HS,17,67,74.0,False
+24Q457,HS Arts & Business Yabc,YABC,32,93,51.0,False
+24Q485,Grover Cleveland High School,HS,10,87,53.0,True
+24Q520,Middle College High School at LaGuardia Community College,HS,45,72,81.0,True
+24Q530,International High School at LaGuardia Community College,HS,76,94,90.0,False
+24Q550,High School for Arts and Business,HS,29,100,78.0,False
+24Q560,"Robert F. Wagner, Jr. Secondary School for Arts and Technology",MS/HS,28,100,83.0,False
+24Q585,Maspeth High School,HS,21,52,91.0,False
+24Q600,Queens Vocational and Technical High School,HS,18,89,92.0,True
+24Q610,Aviation Career & Technical Education High School,HS,17,100,94.0,False
+24Q744,VOYAGES Preparatory,HST,79,100,81.0,False
+24Q877,The 51 Avenue Academy (The Path To Academic Excellence),ES,81,97,,False
+25Q020,P.S. 020 John Bowne,ES,82,80,,False
+25Q021,P.S. 021 Edward Hart,ES,100,100,,False
+25Q022,P.S. 022 Thomas Jefferson,ES,93,84,,False
+25Q024,P.S. 024 Andrew Jackson,ES,72,90,,False
+25Q025,I.S. 025 Adrien Block,MS,70,98,98.0,True
+25Q029,P.S. 029 Queens,ES,66,81,,True
+25Q032,P.S. 032 State Street,ES,65,98,,False
+25Q079,P.S. 079 Francis Lewis,ES,46,58,,False
+25Q107,P.S. 107 Thomas A Dooley,ES,62,68,,False
+25Q120,P.S. 120 Queens,ES,76,98,,True
+25Q129,P.S. 129 Patricia Larkin,ES,71,76,,False
+25Q130,P.S. 130,ECC,58,80,,False
+25Q154,P.S. 154 Queens,ES,68,80,,False
+25Q163,P.S. 163 Flushing Heights,ES,75,89,,False
+25Q164,P.S. 164 Queens Valley,ES/MS,30,64,95.0,True
+25Q165,P.S. 165 Edith K. Bergtraum,ES,91,75,,True
+25Q169,P.S. 169 Bay Terrace,ES,67,100,,False
+25Q184,P.S. 184 Flushing Manor,ES,89,94,,False
+25Q185,J.H.S. 185 Edward Bleeker,MS,68,73,93.0,True
+25Q189,J.H.S. 189 Daniel Carter Beard,MS,96,94,99.0,False
+25Q193,P.S. 193 Alfred J. Kennedy,ES,71,78,,False
+25Q194,J.H.S. 194 William Carr,MS,55,71,95.0,True
+25Q200,PS/MS 200 - The Pomonok School & STAR Academy,ES/MS,38,80,94.0,True
+25Q201,P.S. 201 The Discovery School for Inquiry and Research,ES,40,98,,True
+25Q209,P.S. 209 Clearview Gardens,ES,82,84,,False
+25Q214,P.S. 214 Cadwallader Colden,ES,71,83,,True
+25Q219,P.S. 219 Paul Klapper,ES/MS,37,84,100.0,False
+25Q237,I.S. 237,MS,74,96,97.0,True
+25Q242,P.S. 242 Leonard P. Stavisky Early Childhood School,ECC,64,94,,False
+25Q244,The Active Learning Elementary School,ECC,73,100,,False
+25Q250,I.S. 250 The Robert F. Kennedy Community Middle School,MS,54,100,97.0,False
+25Q252,"Queens School of Inquiry, The",MS/HS,38,100,99.0,True
+25Q263,Flushing International High School,HS,66,97,93.0,False
+25Q281,East-West School of International Studies,MS/HS,33,67,97.0,True
+25Q285,World Journalism Preparatory: A College Board School,MS/HS,32,78,88.0,True
+25Q294,BELL Academy,MS,50,100,99.0,False
+25Q425,John Bowne High School,HS,14,74,76.0,True
+25Q460,Flushing High School,HS,18,68,69.0,True
+25Q467,Flushing Yabc,YABC,7,83,57.0,False
+25Q499,"The Queens College School for Math, Science and Technology",ES/MS,61,93,100.0,True
+25Q525,Townsend Harris High School,HS,33,96,94.0,False
+25Q670,Robert F. Kennedy Community High School,HS,28,93,37.0,False
+25Q792,North Queens Community High School,HST,61,100,84.0,False
+26Q018,P.S. 018 Winchester,ES,67,83,,False
+26Q026,P.S. 026 Rufus King,ES,62,81,,False
+26Q031,P.S. 031 Bayside,ES,52,52,,False
+26Q041,P.S. 041 Crocheron,ES,70,100,,False
+26Q046,P.S. 046 Alley Pond,ES,57,88,,False
+26Q067,J.H.S. 067 Louis Pasteur,MS,34,94,97.0,True
+26Q074,J.H.S. 074 Nathaniel Hawthorne,MS,87,98,99.0,True
+26Q094,P.S. 094 David D. Porter,ES,78,77,,False
+26Q098,P.S. 098 The Douglaston School,ES,53,100,,False
+26Q115,P.S. 115 Glen Oaks,ES,56,87,,False
+26Q133,P.S. 133 Queens,ES,57,88,,False
+26Q158,M.S. 158 Marie Curie,MS,36,42,96.0,True
+26Q159,P.S. 159,ES,76,88,,False
+26Q162,P.S. 162 John Golden,ES,71,83,,False
+26Q172,Irwin Altman Middle School 172,MS,75,49,98.0,True
+26Q173,P.S. 173 Fresh Meadows,ES,89,98,,False
+26Q178,PS/IS 178Q The Holliswood School,ES/MS,53,87,100.0,True
+26Q186,P.S. 186 Castlewood,ES,80,85,,False
+26Q188,P.S. 188 Kingsbury,ES,55,63,,False
+26Q191,P.S. 191 Mayflower,ES,67,96,,False
+26Q203,P.S. 203 Oakland Gardens,ES,72,88,,False
+26Q205,P.S. 205 Alexander Graham Bell,ES,56,81,,False
+26Q213,P.S. 213 The Carl Ullman School,ES,52,77,,False
+26Q216,J.H.S. 216 George J. Ryan,MS,41,86,98.0,True
+26Q221,P.S. 221 The North Hills School,ES,78,91,,False
+26Q266,P.S. / I.S. 266,ES/MS,87,61,99.0,False
+26Q415,Benjamin N. Cardozo High School,HS,21,85,81.0,True
+26Q430,Francis Lewis High School,HS,26,76,84.0,False
+26Q435,Martin Van Buren High School,HS,23,100,76.0,True
+26Q495,Bayside High School,HS,13,87,38.0,True
+26Q566,"Queens High School of Teaching, Liberal Arts and the Sciences",HS,23,92,80.0,True
+27Q042,P.S./M.S 042 R. Vernam,ES/MS,53,92,94.0,True
+27Q043,P.S. 043,ES/MS,48,45,83.0,True
+27Q045,P.S. 045 Clarence Witherspoon,ES,73,97,100.0,True
+27Q047,P.S. 047 Chris Galas,ES/MS,100,95,95.0,False
+27Q051,P.S. 051,ECC,73,95,,False
+27Q053,M.S. 053 Brian Piccolo,MS,64,65,90.0,True
+27Q056,P.S. 056 Harry Eichler,ES,74,97,,False
+27Q060,P.S. 060 Woodhaven,ES,92,96,,True
+27Q062,P.S. 062 Chester Park,ES,91,89,,False
+27Q063,P.S. 063 Old South,ES,61,68,,False
+27Q064,P.S. 064 Joseph P. Addabbo,ES,80,100,,False
+27Q065,P.S. 65 - The Raymond York Elementary School,ES,77,95,,False
+27Q066,P.S. 066 Jacqueline Kennedy Onassis,ES,96,78,,False
+27Q090,P.S. 090 Horace Mann,ES,68,56,,False
+27Q096,P.S. 096,ES,57,87,,False
+27Q097,P.S. 097 Forest Park,ES,61,78,,False
+27Q100,P.S. 100 Glen Morris,ES,88,82,,False
+27Q104,P.S. 104 The Bays Water,ES,57,78,,False
+27Q105,P.S. 105 The Bay School,ES/MS,44,90,97.0,False
+27Q106,P.S. 106,ES,31,68,,True
+27Q108,P.S. 108 Captain Vincent G. Fowler,ES,91,100,,False
+27Q114,P.S. / M.S. 114 Belle Harbor,ES/MS,65,85,97.0,False
+27Q123,P.S. 123,ES,59,94,,True
+27Q124,P.S. 124 Osmond A Church,ES/MS,59,88,100.0,False
+27Q137,M.S. 137 America's School of Heroes,MS,44,85,93.0,True
+27Q146,P.S. 146 Howard Beach,ES/MS,74,100,100.0,False
+27Q155,P.S. 155,ES,93,81,,False
+27Q183,P.S. 183 Dr. Richard R. Green,ES/MS,53,91,97.0,False
+27Q197,P.S. 197 The Ocean School,ES,60,83,,True
+27Q202,J.H.S. 202 Robert H. Goddard,MS,78,97,94.0,False
+27Q207,P.S. 207 Rockwood Park,ES/MS,89,80,99.0,False
+27Q210,J.H.S. 210 Elizabeth Blackwell,MS,53,62,94.0,True
+27Q215,P.S. 215 Lucretia Mott,ES,68,59,,True
+27Q223,P.S. 223 Lyndon B. Johnson,ES,76,63,,False
+27Q226,J.H.S. 226 Virgil I. Grissom,MS,55,83,86.0,True
+27Q232,P.S. 232 Lindenwood,ES/MS,69,95,99.0,False
+27Q253,P.S. 253,ES,82,94,,False
+27Q254,P.S. 254 - The Rosa Parks School,ES,94,98,,False
+27Q260,Frederick Douglass Academy VI High School,HS,29,78,74.0,True
+27Q262,Channel View School for Research,MS/HS,41,100,90.0,False
+27Q273,P.S. 273,ECC,77,100,,False
+27Q282,Knowledge and Power Preparatory Academy VI,MS,74,72,99.0,False
+27Q302,"Queens High School for Information, Research, and Technology",HS,51,90,79.0,True
+27Q306,New York City Academy for Discovery,ES,62,97,,False
+27Q308,Robert H. Goddard High School of Communication Arts and Technology,HS,52,86,88.0,False
+27Q309,Academy of Medical Technology: A College Board School,MS/HS,48,88,74.0,True
+27Q317,WATERSIDE CHILDREN'S STUDIO SCHOOL,ES,58,100,,False
+27Q318,WATERSIDE SCHOOL FOR LEADERSHIP,MS,62,100,90.0,False
+27Q319,VILLAGE ACADEMY,MS,71,97,89.0,False
+27Q323,Scholars' Academy,MS/HS,67,98,95.0,False
+27Q324,ROCKAWAY PARK HIGH SCHOOL FOR ENVIRONMENTAL SUSTAINABILITY,HS,18,91,71.0,True
+27Q333,Goldie Maple Academy,ES/MS,100,54,100.0,False
+27Q351,Rockaway Collegiate High School,HS,31,100,79.0,True
+27Q362,Wave Preparatory Elementary School,ECC,69,96,,False
+27Q400,August Martin High School,HS,14,70,58.0,True
+27Q410,Beach Channel High School,HS,3,68,60.0,True
+27Q475,Richmond Hill High School,HS,7,75,59.0,True
+27Q480,John Adams High School,HS,11,81,61.0,True
+27Q487,John Adams Yabc,YABC,71,100,88.0,False
+27Q650,"High School for Construction Trades, Engineering and Architecture",HS,24,95,93.0,True
+28Q008,J.H.S. 008 Richard S. Grossley,MS,43,78,90.0,True
+28Q030,P.S. 030 Queens,ES,56,79,,True
+28Q040,P.S. 040 Samuel Huntington,ES,80,95,,False
+28Q048,P.S. 048 William Wordsworth,ES,71,93,,True
+28Q050,P.S. 050 Talfourd Lawn Elementary School,ES,69,96,,True
+28Q054,P.S. 054 Hillside,ES,74,81,,False
+28Q055,P.S. 055 Maure,ES,91,100,,False
+28Q072,Catherine & Count Basie Middle School 72,MS,38,88,93.0,True
+28Q080,P.S. 080 Thurgood Marshall Magnet,ES,83,96,,True
+28Q082,P.S. 082 Hammond,ES,75,98,,False
+28Q086,P.S. Q086,ES,82,95,,False
+28Q099,P.S. 099 Kew Gardens,ES,69,96,100.0,False
+28Q101,P.S. 101 School in the Gardens,ES,90,100,100.0,True
+28Q117,P.S. 117 J. Keld / Briarwood School,ES,79,92,,False
+28Q121,P.S. 121 Queens,ES,74,100,,False
+28Q139,P.S. 139 Rego Park,ES,98,96,,True
+28Q140,P.S. 140 Edward K Ellington,ES,81,97,,False
+28Q144,P.S. 144 Col Jeromus Remsen,ES,62,93,,False
+28Q157,J.H.S. 157 Stephen A. Halsey,MS/HS,51,98,98.0,True
+28Q160,P.S. 160 Walter Francis Bishop,ES,47,88,,False
+28Q161,P.S. 161 Arthur Ashe School,ES,78,91,,False
+28Q167,METROPOLITAN EXPEDITIONARY LEARNING SCHOOL,MS/HS,63,100,89.0,False
+28Q174,P.S. 174 William Sidney Mount,ES,67,63,,True
+28Q175,P.S. 175 The Lynn Gross Discovery School,ES,83,100,,False
+28Q182,P.S. 182 Samantha Smith,ES,87,95,,True
+28Q190,J.H.S. 190 Russell Sage,MS,42,90,97.0,True
+28Q196,P.S. 196 Grand Central Parkway,ES,86,100,,False
+28Q206,P.S. 206 The Horace Harding School,ES,63,100,,False
+28Q217,J.H.S. 217 Robert A. Van Wyck,MS,41,96,96.0,False
+28Q220,P.S. 220 Edward Mandel,ES,58,89,,False
+28Q284,York Early College Academy,MS/HS,57,100,98.0,False
+28Q303,The Academy for Excellence through the Arts,ECC,85,93,,False
+28Q310,Queens Collegiate: A College Board School,MS/HS,39,96,86.0,True
+28Q325,HILLSIDE ARTS & LETTERS ACADEMY,HS,45,100,86.0,False
+28Q328,HIGH SCHOOL FOR COMMUNITY LEADERSHIP,HS,41,79,81.0,False
+28Q338,Queens Satellite High School for Opportunity,HST,20,86,55.0,False
+28Q350,Jamaica Gateway to the Sciences,HS,16,42,93.0,True
+28Q354,PS 354,ECC,55,100,,False
+28Q440,Forest Hills High School,HS,12,78,37.0,True
+28Q470,Jamaica High School,HS,23,64,66.0,True
+28Q505,Hillcrest High School,HS,36,86,40.0,False
+28Q620,Thomas A. Edison Career and Technical Education High School,HS,49,100,94.0,True
+28Q680,Queens Gateway to Health Sciences Secondary School,MS/HS,23,63,95.0,True
+28Q686,QUEENS METROPOLITAN HIGH SCHOOL,HS,23,81,89.0,True
+28Q687,Queens High School for the Sciences at York College,HS,27,83,98.0,False
+28Q690,High School for Law Enforcement and Public Safety,HS,18,97,73.0,True
+28Q896,"Young Women's Leadership School, Queens",MS/HS,78,91,100.0,True
+29Q015,P.S. 015 Jackie Robinson,ES,75,83,,False
+29Q033,P.S. 033 Edward M. Funk,ES,64,68,,False
+29Q034,P.S. 034 John Harvard,ES,25,84,,True
+29Q035,P.S. 035 Nathaniel Woodhull,ES,43,81,,True
+29Q036,P.S. 036 Saint Albans School,ES,86,97,,False
+29Q037,Cynthia Jenkins School,ES,69,83,,False
+29Q038,P.S. 038 Rosedale,ES,93,44,,True
+29Q052,P.S. 052 Queens,ES,48,95,,False
+29Q059,I.S. 059 Springfield Gardens,MS,44,95,95.0,True
+29Q095,P.S. 095 Eastwood,ES,100,99,,False
+29Q109,Jean Nuzzi Intermediate School,MS,27,93,88.0,True
+29Q116,PS/IS 116 William C. Hughley,ES/MS,49,100,94.0,False
+29Q118,P.S. 118 Lorraine Hansberry,ES,34,78,,True
+29Q131,P.S. 131 Abigail Adams,ES,66,100,,False
+29Q132,P.S. 132 Ralph Bunche,ES,57,92,,False
+29Q134,P.S. 134 Hollis,ES,51,79,,True
+29Q135,The Bellaire School,ES,42,77,,True
+29Q136,P.S. 136 Roy Wilkins,ES,94,100,,False
+29Q138,P.S./ M.S.138 Sunrise,ES/MS,78,91,98.0,False
+29Q147,PS/MS 147 Ronald McNair,ES/MS,48,61,95.0,False
+29Q156,P.S. 156 Laurelton,ES/MS,68,89,92.0,True
+29Q176,P.S. 176 Cambria Heights,ES,57,89,,False
+29Q181,P.S. 181 Brookfield,ES,63,96,,False
+29Q192,I.S. 192 The Linden,MS,80,63,65.0,False
+29Q195,P.S. 195 William Haberle,ES,100,93,,False
+29Q208,P.S. / I.S. 208,ES/MS,90,88,98.0,False
+29Q231,I.S. 231 Magnetech 2000,MS,27,81,92.0,True
+29Q238,I.S. 238 - Susan B. Anthony Academy,MS,27,52,61.0,True
+29Q248,Queens Preparatory Academy,HS,26,96,83.0,True
+29Q251,P.S. 251 Queens,ECC,61,96,,False
+29Q259,Pathways College Preparatory School: A College Board School,MS/HS,56,83,88.0,True
+29Q265,Excelsior Preparatory High School,HS,23,96,89.0,True
+29Q268,PS/IS 268,ES/MS,35,95,93.0,True
+29Q270,The Gordon Parks School,ES/MS,53,76,100.0,True
+29Q272,George Washington Carver High School for the Sciences,HS,30,100,90.0,True
+29Q283,Preparatory Academy for Writers: A College Board School,MS/HS,7,87,75.0,False
+29Q295,P.S./I.S. 295,ES/MS,89,83,98.0,True
+29Q326,CAMBRIA HEIGHTS ACADEMY,HS,72,100,95.0,False
+29Q327,EAGLE ACADEMY FOR YOUNG MEN III,MS,45,61,96.0,True
+29Q355,Collaborative Arts Middle School,MS,47,78,97.0,True
+29Q356,Community Voices Middle School,MS,34,83,85.0,True
+29Q492,"Mathematics, Science Research and Technology Magnet High School",HS,66,90,81.0,True
+29Q494,"Law, Government and Community Service High School",HS,4,85,62.0,True
+29Q496,"Business, Computer Applications & Entrepreneurship High School",HS,18,100,76.0,True
+29Q498,Humanities & Arts Magnet High School,HS,53,86,85.0,True
+30Q002,P.S. 002 Alfred Zimberg,ES,88,91,,False
+30Q010,I.S. 010 Horace Greeley,MS,85,100,97.0,False
+30Q011,P.S. 011 Kathryn Phelan,ES,54,93,91.0,False
+30Q017,P.S. 017 Henry David Thoreau,ES,81,93,,False
+30Q069,P.S. 069 Jackson Heights,ES,58,96,,False
+30Q070,P.S. 070 Queens,ES,56,41,,True
+30Q076,P.S. 076 William Hallet,ES,28,93,,True
+30Q078,P.S. 078,ES,51,67,,False
+30Q084,P.S. 084 Steinway,ES/MS,89,87,100.0,False
+30Q085,P.S. 085 Judge Charles Vallone,ES,58,95,,False
+30Q092,P.S. 092 Harry T. Stewart Sr.,ES,86,62,,False
+30Q111,P.S. 111 Jacob Blackwell,ES/MS,55,98,99.0,True
+30Q112,P.S. 112 Dutch Kills,ES,72,100,,False
+30Q122,P.S. 122 Mamie Fay,ES/MS,97,86,100.0,False
+30Q126,Albert Shanker School for Visual and Performing Arts,MS,12,74,89.0,False
+30Q127,P.S. 127 Aerospace Science Magne,ES/MS,60,49,97.0,True
+30Q141,I.S. 141 The Steinway,MS,95,97,96.0,False
+30Q145,I.S. 145 Joseph Pulitzer,MS,76,98,97.0,False
+30Q148,P.S. 148 Queens,ES,70,87,,False
+30Q149,P.S. 149 Christa Mcauliffe,ES,83,100,,False
+30Q150,P.S. 150 Queens,ES,67,53,100.0,False
+30Q151,P.S. 151 Mary D. Carter,ES,49,67,,True
+30Q152,P.S. 152 Gwendoline N. Alleyne School,ES,48,43,100.0,False
+30Q166,P.S. 166 Henry Gradstein,ES,53,68,,False
+30Q171,P.S. 171 Peter G. Van Alst,ES,48,67,,False
+30Q204,I.S. 204 Oliver W. Holmes,MS,60,100,97.0,True
+30Q212,P.S. 212,ES,85,83,,False
+31R061,I.S. 061 William A Morris,MS,50,96,96.0,True
+30Q222,P.S. Q222 - Fire Fighter Christopher A. Santora School,ECC,74,100,,False
+30Q227,I.S. 227 Louis Armstrong,MS,81,77,92.0,False
+30Q228,P.S. 228 Early Childhood Magnet School of the Arts,ECC,92,63,,False
+30Q230,I.S. 230,MS,76,87,95.0,True
+30Q234,P.S. 234,ES,95,71,,False
+30Q235,Academy for New Americans,MS,99,100,98.0,False
+30Q280,P.S. 280,ECC,82,83,,False
+30Q286,"Young Women's Leadership School, Astoria",MS/HS,83,68,99.0,False
+30Q301,Academy for Careers in Television and Film,HS,79,100,98.0,False
+30Q445,William Cullen Bryant High School,HS,21,64,58.0,True
+30Q450,Long Island City High School,HS,24,63,73.0,True
+30Q501,Frank Sinatra School of the Arts High School,HS,37,93,66.0,True
+30Q502,Information Technology High School,HS,32,96,84.0,True
+30Q555,Newcomers High School,HS,33,74,91.0,True
+30Q575,Academy of American Studies,HS,37,90,98.0,True
+30Q580,Baccalaureate School for Global Education,MS/HS,37,72,98.0,False
+31R001,P.S. 001 Tottenville,ES,55,100,,False
+31R002,I.S. R002 George L. Egbert,MS,60,65,96.0,True
+31R003,P.S. 003 The Margaret Gioiosa School,ES,89,100,,False
+31R004,P.S. 004 Maurice Wollin,ES,100,99,,False
+31R005,P.S. 005 Huguenot,ES,97,100,,False
+31R006,P.S. 6 Corporal Allan F. Kivlehan School,ES,89,83,,False
+31R007,I.S. 007 Elias Bernstein,MS,75,62,98.0,False
+31R008,P.S. 8 Shirlee Solomon,ES,100,97,,False
+31R011,P.S. 11 Thomas Dongan School,ES,56,91,,True
+31R013,P.S. 013 M. L. Lindemeyer,ES,33,88,,False
+31R014,P.S. 014 Cornelius Vanderbilt,ES,56,54,,True
+31R016,P.S. 016 John J. Driscoll,ES,44,73,,True
+31R018,P.S. 018 John G. Whittier,ES,77,87,,False
+31R019,P.S. 019 The Curtis School,ES,65,66,,False
+31R020,P.S. 020 Port Richmond,ES,69,81,,False
+31R021,P.S. 21 Margaret Emery-Elm Park,ES,79,95,,False
+31R022,P.S. 022 Graniteville,ES,37,58,,True
+31R023,P.S. 023 Richmondtown,ES,73,85,,False
+31R024,I.S. 024 Myra S. Barnes,MS,78,83,98.0,True
+31R026,P.S. 026 The Carteret School,ES,81,100,,False
+31R027,I.S. 027 Anning S. Prall,MS,56,100,98.0,True
+31R029,P.S. 029 Bardwell,ES,68,95,,False
+31R030,P.S. 030 Westerleigh,ES,46,71,,False
+31R031,P.S. 031 William T. Davis,ES,69,80,,False
+31R032,P.S. 032 The Gifford School,ES,87,95,,False
+31R034,I.S. 034 Tottenville,MS,99,100,100.0,False
+31R035,P.S. 35 The Clove Valley School,ES,91,76,,False
+31R036,P.S. 036 J. C. Drumgoole,ES,77,78,,True
+31R038,P.S. 038 George Cromwell,ES,100,73,,False
+31R039,P.S. 39 Francis J. Murphy Jr.,ES,55,87,,False
+31R041,P.S. 041 New Dorp,ES,71,80,,True
+31R042,P.S. 042 Eltingville,ES,74,95,,False
+31R044,P.S. 044 Thomas C. Brown,ES,58,75,,False
+31R045,P.S. 045 John Tyler,ES,59,79,,True
+31R046,P.S. 046 Albert V. Maniscalco,ES,81,92,,False
+31R047,CSI High School for International Studies,HS,61,91,95.0,False
+31R048,P.S. 048 William C. Wilcox,ES,73,100,,False
+31R049,I.S. 49 Berta A. Dreyfus,MS,25,63,90.0,True
+31R050,P.S. 050 Frank Hankinson,ES,57,69,,False
+31R051,I.S. 051 Edwin Markham,MS,37,88,95.0,True
+31R052,P.S. 052 John C. Thompson,ES,82,69,,False
+31R053,P.S. 053 Bay Terrace,ES,91,100,,False
+31R054,P.S. 054 Charles W. Leng,ES,59,77,,True
+31R055,P.S. 055 Henry M. Boehm,ES,87,91,,True
+31R056,P.S. 56 The Louis Desario School,ES,94,70,,False
+31R057,P.S. 057 Hubert H. Humphrey,ES,49,58,,True
+31R058,Space Shuttle Columbia School,ES,100,98,,False
+31R060,P.S. 060 Alice Austen,ES,78,89,,False
+31R063,Marsh Avenue School for Expeditionary Learning,MS,82,97,92.0,False
+31R064,Gaynor McCown Expeditionary Learning School,HS,45,84,96.0,True
+31R065,P.S. 65 The Academy of Innovative Learning,ES,67,92,,False
+31R069,P.S. 069 Daniel D. Tompkins,ES,89,100,,False
+31R072,I.S. 072 Rocco Laurie,MS,78,96,95.0,True
+31R074,P.S. 74 FUTURE LEADERS ELEMENTARY SCHOOL,ECC,62,83,,True
+31R075,I.S. 075 Frank D. Paulo,MS,83,99,98.0,False
+31R078,PS 78,ECC,65,69,,False
+31R080,The Michael J. Petrides School,ES/MS/HS,58,85,97.0,False
+31R440,New Dorp High School,HS,30,99,86.0,True
+31R445,Port Richmond High School,HS,19,58,81.0,True
+31R450,Curtis High School,HS,55,93,86.0,True
+31R455,Tottenville High School,HS,27,92,85.0,False
+31R460,Susan E. Wagner High School,HS,45,97,84.0,True
+31R470,Concord High School,HST,45,100,82.0,False
+31R600,Ralph R. McKee Career and Technical Education High School,HS,35,93,88.0,True
+31R605,Staten Island Technical High School,HS,90,98,99.0,False
+31R607,Staten Island Yabc,YABC,3,89,69.0,False
+31R861,Staten Island School of Civic Leadership,ES/MS,75,98,99.0,False
+32K045,P.S. 045 Horace E. Greene,ES/MS,79,93,100.0,False
+32K075,P.S. 075 Mayda Cortiella,ES,78,96,,True
+32K086,P.S. 086 The Irvington,ES,91,100,,False
+32K106,P.S. 106 Edward Everett Hale,ES,61,78,,False
+32K116,P.S. 116 Elizabeth L Farrell,ES,70,74,,False
+32K123,P.S. 123 Suydam,ES,85,98,,True
+32K145,P.S. 145 Andrew Jackson,ES,78,95,,True
+32K151,P.S. 151 Lyndon B. Johnson,ES,65,84,,True
+32K162,J.H.S. 162 The Willoughby,MS,37,88,92.0,True
+32K168,The Brooklyn School for Math and Research,HS,51,100,89.0,False
+32K274,P.S. 274 Kosciusko,ES,60,93,,False
+32K291,J.H.S. 291 Roland Hayes,MS,67,100,92.0,True
+32K296,I.S. 296 - The Anna Gonzalez Community School,MS,34,77,83.0,True
+32K299,P.S. 299 Thomas Warren Field,ES,100,87,,True
+32K347,I.S. 347 School of Humanities,MS,29,73,89.0,True
+32K349,"I.S. 349 Math, Science & Tech.",MS,58,86,83.0,True
+32K376,P.S. 376,ES,89,95,,False
+32K377,P.S. 377 Alejandrina B. De Gautier,ES/MS,62,82,97.0,True
+32K383,J.H.S. 383 Philippa Schuyler,MS,41,94,96.0,True
+32K384,P.S. /I.S. 384 Frances E. Carter,ES/MS,81,100,96.0,False
+32K403,Academy for Environmental Leadership,HS,66,96,91.0,True
+32K545,EBC High School for Public Service–Bushwick,HS,48,68,85.0,True
+32K549,Bushwick School for Social Justice,HS,49,91,84.0,False
+32K552,Academy of Urban Planning,HS,33,100,69.0,True
+32K554,All City Leadership Secondary School,MS/HS,38,86,91.0,False
+32K556,Bushwick Leaders High School for Academic Excellence,HS,27,63,68.0,True
+32K562,Evergreen Middle School for Urban Exploration,MS,40,100,89.0,True
+32K564,Bushwick Community High School,HST,19,96,57.0,True
+75K004,P.S. K004,D75,63,69,,False
+75K036,P.S. 36,D75,78,64,87.0,False
+75K053,P.S. K053,D75,63,95,99.0,False
+75K077,P.S. K077,D75,54,42,93.0,False
+75K140,P.S. K140,D75,35,62,66.0,True
+75K141,P.S. K141,D75,26,60,68.0,True
+75K231,P.S. K231,D75,59,68,100.0,False
+75K368,P.S. 368,D75,29,80,60.0,False
+75K369,P.S. K369 - Coy L. Cox School,D75,35,71,68.0,False
+75K370,P.S. 370,D75,39,76,47.0,False
+75K371,P.S. 371 - Lillian L. Rashkis,D75,44,64,56.0,False
+75K372,P.S. 372 -The Children's School,D75,31,54,,False
+75K373,P.S. 373 - Brooklyn Transition Center,D75,31,58,97.0,True
+75K396,P.S. K396,D75,34,73,97.0,False
+75K721,P.S. K721 - Brooklyn Occupational Training Center,D75,27,88,100.0,False
+75K753,P.S. K753 - School for Career Development,D75,82,70,80.0,False
+75K771,P.S. K771,D75,59,84,94.0,False
+75K811,P.S. K811 Connie Lekas School,D75,37,76,95.0,False
+75M035,P.S. 035,D75,14,82,49.0,True
+75M079,P.S. M079 - Horan School,D75,60,62,100.0,True
+75M094,P.S. M094,D75,40,63,,True
+75M138,P.S. 138,D75,21,68,80.0,False
+75M169,P.S. M169 - Robert F. Kennedy,D75,74,78,97.0,False
+75M721,P.S. M721 - Manhattan Occupational Training Center,D75,51,66,99.0,False
+75M751,Manhattan School for Career Development,D75,20,88,88.0,True
+75M811,P.S. M811 - Mickey Mantle School,D75,41,45,91.0,False
+75Q004,P.S. Q004,D75,66,94,96.0,False
+75Q009,P.S. 009,D75,25,50,58.0,True
+75Q023,P.S. Q023 @ Queens Children Center,D75,13,75,67.0,True
+75Q075,Robert E. Peary School,D75,28,35,97.0,True
+75Q177,P.S. Q177,D75,35,54,100.0,False
+75Q224,P.S. Q224,D75,65,89,94.0,False
+75Q233,P.S. Q233,D75,30,68,94.0,False
+75Q255,P.S. Q255,D75,50,66,67.0,False
+75Q256,P.S. Q256,D75,45,96,81.0,False
+75Q721,John F. Kennedy Jr. School,D75,39,60,96.0,False
+75Q752,Queens Transition Center,D75,27,58,82.0,True
+75Q811,P.S. Q811,D75,27,48,91.0,False
+75Q993,P.S. Q993,D75,50,88,98.0,False
+75R025,South Richmond High School I.S./P.S. 25,D75,43,73,66.0,False
+75R037,P.S. R037,D75,50,69,92.0,False
+75R373,P.S. R373,D75,36,60,96.0,False
+75R721,THE RICHARD H. HUNGERFORD SCHOOL,D75,67,85,100.0,False
+75X010,P.S. X010,D75,44,68,88.0,False
+75X012,P.S. X012 Lewis and Clark School,D75,12,35,58.0,True
+75X017,P.S. X017,D75,65,93,94.0,True
+75X168,P.S. 168,D75,36,58,62.0,True
+75X176,P.S. X176,D75,23,49,98.0,False
+75X186,P186X Walter J. Damrosch School,D75,23,43,69.0,False
+75X188,P.S. X188,D75,38,79,88.0,True
+75X352,The Vida Bogart School for All Children,D75,31,68,95.0,True
+75X721,P.S. X721 - Stephen McSweeney School,D75,44,87,96.0,False
+75X723,P.S. 723,D75,18,79,72.0,False
+75X754,J. M. Rapport School Career Development,D75,19,74,57.0,True
+75X811,P.S. X811,D75,31,68,94.0,False
+84K037,Beginning with Children Charter School II,ECC,70,88,,False
+84K125,Success Academy Charter School - Bed-Stuy 2,ECC,34,100,,False
+84K129,Success Academy Charter School - Cobble Hill,ECC,46,100,,False
+84K182,Success Academy Charter School - Williamsburg,ECC,42,93,,False
+84K333,Explore Exceed Charter School,ECC,78,100,,False
+84K355,Williamsburg Collegiate Charter School,MS,82,97,97.0,False
+84K356,Achievement First Crown Heights Charter School,ES/MS,32,27,79.0,True
+84K357,KIPP AMP Charter School,MS,55,85,93.0,True
+84K358,Achievement First East New York Charter School,ES/MS,36,87,90.0,False
+84K359,The Uft Charter School,ES/MS/HS,28,31,90.0,True
+84K360,LAUNCH EXPEDITIONARY LEARNING CHARTER SCHOOL,MS,51,100,96.0,False
+84K362,Hellenic Classical Charter School,ES/MS,75,100,99.0,False
+84K367,Success Academy Charter School - Bed-Stuy 1,ECC,40,100,,False
+84K379,Explore Excel Charter School,ES,40,96,,True
+84K386,Invictus Preparatory Charter School,MS,39,100,99.0,False
+84K395,Roads Charter School I,HS,12,7,45.0,False
+84K406,Teaching Firms of America-Professional Preparatory Charter School,ECC,66,84,,False
+84K417,Urban Dove Charter School,HST,19,63,59.0,True
+84K473,Williamsburg Charter High School,HS,44,95,88.0,True
+84K486,New Dawn Charter High School,HS,29,89,49.0,True
+84K508,Achievement First Endeavor Charter School,ES/MS,56,77,95.0,False
+84K517,Leadership Prep Bedford Stuyvesant Charter School,ES/MS,57,92,97.0,False
+84K536,Community Roots Charter School,ES,80,80,88.0,False
+84K538,Achievement First Bushwick Charter School,ES/MS,57,53,86.0,False
+84K593,Excellence Boys Charter School,ES/MS,68,96,99.0,True
+84K608,Kings Collegiate Charter School,MS,81,69,91.0,False
+84K626,ACHIEVEMENT FIRST BROWNSVILLE CHARTER SCHOOL,ES,48,95,,False
+84K648,Bedford Stuyvesant Collegiate Charter School,MS,46,100,98.0,False
+84K649,La Cima Charter School,ES,100,97,,False
+84K651,PAVE Academy Charter School,ES,83,100,,False
+84K652,Brooklyn Ascend Charter School,ES,40,90,100.0,True
+84K693,Believe Northside Charter High School,HS,21,100,95.0,False
+84K701,Brooklyn Charter School,ES,60,91,,False
+84K702,Community Partnership Charter School,ES/MS,58,83,97.0,False
+84K703,Beginning With Children Charter School,ES/MS,62,71,98.0,True
+84K704,Explore Charter School,ES/MS,80,96,93.0,True
+84K707,Brooklyn Prospect Charter School,MS/HS,55,100,80.0,False
+84K710,Brownsville Collegiate Charter School,MS,39,100,64.0,False
+84K711,Leadership Preparatory Brownsville Charter School,ES,74,100,,False
+84K712,Excellence Girls Charter School,ES,40,92,,False
+84K726,Fahari Academy Charter School,MS,75,100,94.0,True
+84K730,Summit Academy Charter School,MS/HS,38,83,79.0,True
+84K731,Brooklyn Excelsior Charter School,ES/MS,35,97,96.0,True
+84K734,The Ethical Community Charter School (TECCS),ES,79,96,,True
+84K737,Brownsville Ascend Charter School,ES,55,58,,False
+84K740,Brooklyn Scholars Charter School,ES/MS,24,21,100.0,False
+84K742,Explore Empower Charter School,ES,78,94,,False
+84K744,Coney Island Preparatory Public Charter School,MS,85,100,95.0,False
+84K746,Hebrew Language Academy Charter School,ES,86,100,,False
+84K769,Hyde Leadership Charter School- Brooklyn,ECC,80,96,,False
+84K774,Achievement First Apollo Charter School,ECC,40,93,,False
+84K775,Leadership Preparatory Ocean Hill Charter School,ECC,69,97,,False
+84K777,Ocean Hill Collegiate Charter School,MS,77,100,96.0,False
+84K780,Brooklyn East Collegiate Charter School,MS,75,95,77.0,False
+84K782,Bedford Stuyvesant New Beginnings Charter School,ES,67,80,,False
+84K785,Imagine Me Leadership Charter School,ECC,36,29,,True
+84K791,Brooklyn Dreams Charter School,ES,15,0,,True
+84K792,The Cultural Arts Academy at Spring Creek Charter School,ECC,82,100,,False
+84K793,Bushwick Ascend Charter School,ECC,27,32,,False
+84K796,Lefferts Gardens Charter School,ECC,72,52,,True
+84K797,New Hope Academy Charter School,ES,73,56,,False
+84K888,Achievement First HS,HS,14,96,77.0,False
+84K979,Uncommon Charter HS 2,HS,73,100,94.0,False
+84K999,Uncommon Charter HS,HS,51,100,90.0,False
+84M065,Democracy Prep Endurance Charter School,MS,93,100,99.0,False
+84M068,KIPP Washington Heights Middle School,MS,96,83,,False
+84M080,Manhattan Charter School II,ECC,73,100,,False
+84M085,Global Community Charter School,ECC,32,90,,False
+84M100,Neighborhood Charter School of Harlem,ECC,79,93,,False
+84M279,The Opportunity Charter School,MS/HS,46,95,93.0,True
+84M284,Harlem Children's Zone Promise Academy 1 Charter School,ES/MS/HS,67,87,90.0,True
+84M320,Manhattan Charter School,ES,96,100,,False
+84M329,Harlem Link Charter School,ES,61,87,,False
+84M330,Girls Preparatory Charter School of New York,ES/MS,85,98,98.0,False
+84M335,Harlem Village Academy Leadership Charter School,ES/MS,72,100,98.0,False
+84M336,KIPP Infinity Charter School,ES/MS,69,78,90.0,False
+84M337,New York Center for Autism Charter School,ES/MS,93,93,,False
+84M341,Harlem Children's Zone Promise Academy II Charter School,ES/MS,84,96,100.0,True
+84M350,Democracy Prep Charter School,MS/HS,60,93,87.0,False
+84M351,Success Academy Charter School - Harlem 1,ES/MS,38,52,95.0,False
+84M353,New Heights Academy Charter School,MS/HS,48,69,89.0,True
+84M382,DREAM Charter School,ES,81,100,,False
+84M384,Success Academy Charter School - Harlem 2,ES,27,50,,False
+84M385,Success Academy Charter School - Harlem 3,ES,33,37,,False
+84M386,Success Academy Charter School - Harlem 4,ES,37,92,,False
+84M388,St. HOPE Leadership Academy Charter School,MS,91,100,99.0,False
+84M430,The Equity Project Charter School (TEP),MS,97,100,96.0,False
+84M433,Renaissance Charter High School for Innovation,HS,47,85,93.0,True
+84M478,Inwood Academy for Leadership Charter School,MS,81,100,98.0,False
+84M481,Democracy Prep Harlem Charter School,MS,56,93,94.0,True
+84M482,Success Academy Charter School - Harlem 5,ECC,38,79,,False
+84M483,New York French American Charter School,ES,51,88,,True
+84M518,East Harlem Scholars Academy Charter School,ECC,75,100,,False
+84M522,Broome Street Academy Charter School,HS,27,83,70.0,True
+84M523,Success Academy Charter School - Upper West,ECC,60,91,,False
+84M524,Innovate Manhattan Charter School,MS,22,28,67.0,True
+84M702,Sisulu-Walker Charter School of Harlem,ES,50,82,,False
+84M704,Harbor Science and Arts Charter School,ES/MS,66,78,76.0,False
+84M705,Amber Charter School,ES,68,93,,False
+84M707,John V. Lindsay Wildcat Academy Charter School,HST,49,59,33.0,False
+84M708,Harlem Prep Charter School,ES,80,100,93.0,True
+84M709,Harlem Village Academy Charter School,ES/MS,74,100,97.0,False
+84M726,KIPP STAR College Prep Charter School,ES/MS,48,65,81.0,False
+84M861,Future Leaders Institute Charter School,ES/MS,51,100,99.0,True
+84M888,Harlem Village Academy HS,HS,52,85,93.0,True
+84M999,KIPP NYC College Prep,HS,59,82,88.0,True
+84Q083,Central Queens Academy Charter School,MS,92,100,,False
+84Q170,Peninsula Preparatory Academy Charter School,ES,100,92,,False
+84Q304,VOICE Charter School of New York,ES,71,90,,False
+84Q321,Growing Up Green Charter School,ES,60,96,,False
+84Q340,Challenge Preparatory Charter School,ECC,87,97,,False
+84Q341,Riverton Street Charter School,ES,44,68,,False
+84Q342,Rochdale Early Advantage Charter School,ECC,93,100,,False
+84Q359,Academy of the City Charter School,ECC,40,94,,False
+84Q704,Merrick Academy - Queens Public Charter School,ES,55,95,100.0,False
+84Q705,Renaissance Charter School,ES/MS/HS,63,76,99.0,True
+84Q706,Our World Neighborhood Charter School,ES/MS,42,78,99.0,False
+84R067,John W. Lavelle Preparatory Charter School,MS/HS,67,97,99.0,False
+84R071,Staten Island Community Charter School,ECC,85,96,,False
+84R073,New World Preparatory Charter School,MS,56,92,97.0,False
+84X124,Children's Aid Society Community Charter School,ECC,70,82,,False
+84X133,Icahn Charter School 6,ECC,86,100,,False
+84X165,Grand Concourse Academy Charter School,ES,80,100,,False
+84X177,MOTT HALL CHARTER SCHOOL,MS,92,100,97.0,False
+84X185,Bronx Lighthouse Charter School,ES/MS/HS,90,100,93.0,True
+84X200,ROADS Charter School II,HS,13,100,39.0,False
+84X202,New Visions Charter High School for Advanced Math and Science II,HS,65,92,93.0,False
+84X208,New Visions Charter High School for the Humanities II,HS,50,87,94.0,True
+84X233,Family Life Academy Charter School II,ECC,9,62,,False
+84X255,Bronx Charter School for Excellence,ES/MS,85,98,100.0,False
+84X256,Heketi Community Charter School,ECC,97,88,,False
+84X258,Tech International Charter School,MS,100,90,100.0,True
+84X309,South Bronx Charter School for International Cultures and the Arts,ES,86,100,,False
+84X345,Hyde Leadership Charter School,ES/MS/HS,49,93,93.0,True
+84X346,South Bronx Classical Charter School,ES,93,86,,True
+84X347,International Leadership Charter High School,HS,55,91,56.0,True
+84X378,Icahn Charter School 2,ES/MS,90,100,0.0,False
+84X389,Bronx Global Learning Institute for Girls Charter School,ES,84,91,,False
+84X393,Green Dot New York Charter School,HS,50,97,90.0,False
+84X394,Mott Haven Academy Charter School,ES,67,90,,False
+84X395,"NYC Charter High School for Architecture, Engineering and Construction Industries (AECI)",HS,52,97,95.0,True
+84X398,Bronx Community Charter School,ES,87,91,,False
+84X407,Bronx Charter School for Children,ES,70,44,,False
+84X419,Bronx Academy of Promise Charter School,ES,76,100,98.0,False
+84X422,Icahn Charter School 3,ES,47,88,100.0,False
+84X461,Metropolitan Lighthouse Charter School,ES,87,100,,False
+84X482,Dr. Richard Izquierdo Health and Science Charter School,MS,72,100,97.0,True
+84X487,Girls Preparatory Charter School of the Bronx,ES,82,92,,False
+84X488,The Equality Charter School,MS,80,100,97.0,False
+84X491,Academic Leadership Charter School,ES,94,100,,False
+84X493,Success Academy Charter School - Bronx 1,ECC,78,100,,False
+84X494,Success Academy Charter School - Bronx 2,ECC,63,97,,False
+84X496,Icahn Charter School 4,ES,90,100,,False
+84X538,Icahn Charter School 5,ECC,53,100,,False
+84X539,New Visions Charter High School for Advanced Math and Science,HS,39,91,61.0,True
+84X553,New Visions Charter High School for the Humanities,HS,27,29,70.0,True
+84X554,New York City Montessori Charter School,ECC,34,55,,True
+84X703,Bronx Preparatory Charter School,MS/HS,51,90,84.0,True
+84X704,KIPP Academy Charter School,ES/MS,62,70,94.0,False
+84X705,Family Life Academy Charter School,ES/MS,99,90,100.0,False
+84X706,Harriet Tubman Charter School,ES/MS,92,73,95.0,False
+84X717,Icahn Charter School,ES/MS,77,100,100.0,False
+84X718,Bronx Charter School for Better Learning,ES,66,100,,False
+84X730,Bronx Charter School for the Arts,ES,37,58,,False

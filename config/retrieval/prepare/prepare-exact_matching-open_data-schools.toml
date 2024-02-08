@@ -1,0 +1,5 @@
+# Company employees
+[["exact_matching"]]
+metadata_dir="data/metadata/open_data_us"
+base_table_path="data/source_tables/open_data_us/schools-depleted-open_data.parquet"
+query_column="col_to_embed"

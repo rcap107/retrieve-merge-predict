@@ -1,3 +1,6 @@
 datasketch==1.5.9
+chardet==3.0.4
 protobuf==3.20.3
 lazo-index-service
+memory-profiler==0.61.0
+clevercsv==0.8.2
