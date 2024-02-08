@@ -137,7 +137,7 @@ def generate_candidates(
     return candidates
 
 
-def prepare_join_discovery_methods(index_configurations: dict):
+def prepare_retrieval_methods(index_configurations: dict):
     """Given a dict of index configurations, initialize the required indices.
 
     Args:
