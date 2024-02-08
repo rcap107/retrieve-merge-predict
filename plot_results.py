@@ -35,33 +35,6 @@ if __name__ == "__main__":
     elif case == "full":
         current_results = results_full.clone()
 
-    # for var in ["estimator", "jd_method", "chosen_model"]:
-    #     print(f"Variable: {var}")
-    #     n_unique = current_results.select(pl.col(var).n_unique()).item()
-    #     for scatter_d in ["case"]:
-    #         if scatter_d == var:
-    #             continue
-    #         form_factor = "binary" if n_unique == 2 else "multi"
-    #         if form_factor == "multi":
-    #             figsize = (12, 3)
-    #         else:
-    #             figsize = (8, 1)
-    #         plotting.draw_pair_comparison(
-    #             current_results,
-    #             var,
-    #             form_factor=form_factor,
-    #             scatterplot_dimension=scatter_d,
-    #             figsize=figsize,
-    #             scatter_mode="split",
-    #             savefig=True,
-    #             savefig_type=["png", "pdf"],
-    #             savefig_tag="open_data",
-    #             case=case,
-    #             colormap_name="Set1",
-    #             qle=0.01,
-    #             jitter_factor=0.02
-    #         )
-
     # Plot retrieval method
     var = "jd_method"
     scatter_d = "case"

@@ -19,7 +19,6 @@ def parse_args():
 
 
 def get_metadata_index(data_lake_version):
-    metadata_dir = Path(f"data/metadata/{data_lake_version}")
     metadata_index_path = Path(
         f"data/metadata/_mdi/md_index_{data_lake_version}.pickle"
     )
