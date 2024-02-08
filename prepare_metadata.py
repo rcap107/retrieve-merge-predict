@@ -16,13 +16,12 @@ def parse_args():
 
 
 def prepare_metadata_from_case(data_folder, flat=False):
-    # logger.info("Case %s", case)
     data_folder = Path(data_folder)
     case = data_folder.stem
     if flat:
         case += "_flat"
     if data_folder.exists() and data_folder.is_dir():
-
+        print(f"Building metadata for folder {data_folder}")
         from src.data_structures.metadata import MetadataIndex
         from src.utils.indexing import save_single_table
 
@@ -42,15 +41,9 @@ def prepare_metadata_from_case(data_folder, flat=False):
         )
         metadata_index.save_index(f"data/metadata/_mdi/md_index_{case}.pickle")
     else:
-        raise FileNotFoundError(f"Invalid path {data_folder}")
+        raise FileNotFoundError(f"Invalid data folder path '{data_folder}'")
 
 
 if __name__ == "__main__":
     args = parse_args()
-    # a = {
-    #     "case": "binary_update",
-    #     "data_folder": "data/yadl/binary_update",
-    # }
-
-    # args = SimpleNamespace(**a)
     prepare_metadata_from_case(args.data_folder, args.flat)
