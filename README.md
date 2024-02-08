@@ -4,23 +4,22 @@ This repository contains the code for implementing and running the pipeline desc
 (Experiment, Analysis & Benchmark Paper).
 
 The objective is modeling a situation where an user is trying to execute ML tasks on some base data, enriching it by
-using new tables found in a data lake through Join Discovery methods.
+using new tables found in a data lake using retrieval methods.
 
-The candidates produced by the join discovery methods are used to augment the base table, then the performance of the
-joined tables is compared to that of the base table by training a regressor with Catboost and comparing the R2 score
-measured before and after joining.
+The join candidates are merged with the base table under study, before training a ML model (either Catboost, or a linear model) to evaluate the performance
+before and after the merge.
 
 We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
-are available [on Zenodo](https://zenodo.org/record/8015298).
+are available [on Zenodo](https://zenodo.org/doi/10.5281/zenodo.10600047).
 
-The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/prepare-data-lakes)
+The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/prepare-data-lakes).
 
 # Installing the requirements
 We strongly recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the
 required dependencies and allows to create directly a conda environment:
 ```
 conda env create --file=environment.yaml
-conda activate bench-repro
+conda activate bench
 ```
 Then, install the remaining dependencies with pip:
 ```
@@ -28,12 +27,15 @@ pip install -r requirements.txt
 ```
 
 # Downloading YADL
-It is possible to download YADL from zenodo using `wget` in the root folder:
+It is possible to download YADL from [the zenodo repository](https://zenodo.org/doi/10.5281/zenodo.10600047) using `wget` in the root folder:
+```sh
+wget -O data/binary_update.tar.gz https://zenodo.org/records/10600048/files/binary_update.tar.gz
+wget -O data/wordnet_full.tar.gz https://zenodo.org/records/10600048/files/wordnet_full.tar.gz
 ```
-wget -O data/YADL_binary.tar.gz https://zenodo.org/record/8015298/files/YADL_binary.tar.gz
-wget -O data/YADL_wordnet.tar.gz https://zenodo.org/record/8015298/files/YADL_wordnet.tar.gz
+Additional files may be downloaded from zenodo using the same command:
+```sh
+wget -O destination_file_name path_to_file
 ```
-
 # Preparing the environment
 Once the required python environment has been prepared it is necessary to prepare the files required
 for the execution of the pipeline.
