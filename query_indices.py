@@ -1,13 +1,20 @@
 import argparse
 from pathlib import Path
+import os
 
 import toml
 from tqdm import tqdm
 
 from src.data_structures.join_discovery_methods import ExactMatchingIndex
-from src.data_structures.loggers import SimpleIndexLogger
+
+# from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import MetadataIndex
-from src.utils.indexing import DEFAULT_INDEX_DIR, load_index, query_index
+from src.utils.indexing import (
+    DEFAULT_INDEX_DIR,
+    load_index,
+    query_index,
+    SimpleIndexLogger,
+)
 
 
 def parse_args():
@@ -16,6 +23,11 @@ def parse_args():
 
     args = parser.parse_args()
     return args
+
+
+def prepare_dirtree():
+    os.makedirs("data/metadata/queries", exist_ok=True)
+    os.makedirs("results/query_results", exist_ok=True)
 
 
 def get_metadata_index(data_lake_version):
@@ -36,6 +48,7 @@ def get_metadata_index(data_lake_version):
 
 if __name__ == "__main__":
     args = parse_args()
+    prepare_dirtree()
     config = toml.load(args.config_file)
 
     jd_methods = config["join_discovery_method"]
@@ -49,6 +62,7 @@ if __name__ == "__main__":
     for it in tqdm(range(iterations), position=1):
         if "minhash" in jd_methods:
             index_name = "minhash_hybrid" if rerank else "minhash"
+            # The SimpleIndexLogger is used to track the time required to query each index
             logger_minhash = SimpleIndexLogger(
                 index_name=index_name,
                 step="query",
@@ -67,9 +81,11 @@ if __name__ == "__main__":
             query_column = query_case["query_column"]
             for jd_method in jd_methods:
                 if jd_method == "minhash":
+                    # If the index is minhash, it is loaded only once.
                     index = minhash_index
                     index_logger = logger_minhash
                 elif jd_method == "exact_matching":
+                    # Otherwise, the index is loaded once for each query and the logger is created with it.
                     index_logger = SimpleIndexLogger(
                         index_name="exact_matching",
                         step="query",

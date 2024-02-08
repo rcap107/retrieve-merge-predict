@@ -27,9 +27,9 @@ if __name__ == "__main__":
     if Path(config_file_path).exists():
         config = toml.load(config_file_path)
         print(f"Reading configuration from file {config_file_path}")
-        from src.utils.indexing import prepare_join_discovery_methods
+        from src.utils.indexing import prepare_retrieval_methods
 
         for _ in range(args.repeats):
-            prepare_join_discovery_methods(config)
+            prepare_retrieval_methods(config)
     else:
         raise FileNotFoundError

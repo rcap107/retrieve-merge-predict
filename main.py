@@ -11,17 +11,16 @@ from src.utils.logging import (
     archive_experiment,
     get_exp_name,
     setup_run_logging,
-    wrap_up_plot,
 )
 
-logger_sh = logging.getLogger("pipeline")
-# console handler for info
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-# set formatter
-ch_formatter = logging.Formatter("'%(asctime)s - %(message)s'")
-ch.setFormatter(ch_formatter)
-logger_sh.addHandler(ch)
+# logger_sh = logging.getLogger("pipeline")
+# # console handler for info
+# ch = logging.StreamHandler()
+# ch.setLevel(logging.INFO)
+# # set formatter
+# ch_formatter = logging.Formatter("'%(asctime)s - %(message)s'")
+# ch.setFormatter(ch_formatter)
+# logger_sh.addHandler(ch)
 
 
 def parse_args():
