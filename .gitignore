@@ -13,6 +13,8 @@ notebooks/*
 wandb/
 telegram_*
 .nfs*
+.DS_Store
+_site/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
