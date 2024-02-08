@@ -27,6 +27,13 @@ Then, install the remaining dependencies with pip:
 pip install -r requirements.txt
 ```
 
+# Downloading YADL
+It is possible to download YADL from zenodo using `wget` in the root folder:
+```
+wget -O data/YADL_binary.tar.gz https://zenodo.org/record/8015298/files/YADL_binary.tar.gz
+wget -O data/YADL_wordnet.tar.gz https://zenodo.org/record/8015298/files/YADL_wordnet.tar.gz
+```
+
 # Preparing the environment
 Once the required python environment has been prepared it is necessary to prepare the files required
 for the execution of the pipeline.

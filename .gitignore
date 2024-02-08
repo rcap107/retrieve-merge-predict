@@ -9,6 +9,7 @@ images/
 catboost_info/
 results/
 *.tex
+notebooks/*
 wandb/
 telegram_*
 .nfs*

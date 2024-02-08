@@ -173,13 +173,14 @@ class MinHashIndex:
     def create_ensembles(self):
         """Utility function to create the ensembles once all tables have been loaded in the index."""
         if not self.initialized:
-            for t in self.thresholds:
+            print("Creating ensembles.")
+            for t in tqdm(self.thresholds):
                 ens = MinHashLSHEnsemble(
                     threshold=t / 100, num_perm=self.num_perm, num_part=self.num_part
                 )
                 ens.index(self.hash_index)
                 self.ensembles[t] = ens
-            print("Initialization complete. ")
+            print("Ensembles creation complete. ")
             self.initialized = True
         else:
             print("Ensembles are already initialized. Skipping.")
