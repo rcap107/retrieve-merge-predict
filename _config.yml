@@ -56,3 +56,15 @@ plugins:
 # Config variables
 show_excerpts: false
 posts.size: 0
+
+exclude:
+  - catboost_info/
+  - .ipynb_checkpoints/
+  - .vscode/
+  - config/
+  - data/
+  - images/
+  - notebooks/
+  - results/
+  - scripts/
+  - src/
