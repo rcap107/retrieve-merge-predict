@@ -31,7 +31,7 @@ github_username:  rcap107
 # Build settings
 theme: minima
 plugins:
-  - jekyll-feed
+  # - jekyll-feed
 
 # Exclude from processing.
 # The following items will not be processed, by default.
@@ -68,3 +68,12 @@ exclude:
   - results/
   - scripts/
   - src/
+  - main.py
+  - add_depleted.py
+  - analysis_query_results.py
+  - buildconfig.py
+  - debug_plotting.py
+  - plot_results.py
+  - plot_results.py
+  - plot_results.py
+  - plot_results.py
