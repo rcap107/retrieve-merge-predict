@@ -9,11 +9,11 @@ The work described here was created by the following authors:
     - riccardo.cappuzzo[at]dataiku.com
 - Gael VAROQUAUX (SODA Team)
 - Aimee COELHO (Dataiku)
-- Paolo PAPOTTI (Eurecom)
+- Paolo PAPOTTI (EURECOM)
 
 This project was a collaboration between the [SODA Team][soda-team] at 
 [Inria Saclay][inria-saclay] and [Dataiku][dataiku].
-Additional help was provided by [Eurecom][eurecom] Professor 
+Additional help was provided by [EURECOM][eurecom] Professor 
 [Paolo Papotti][papotti]. 
 
 For any questions, please contact Riccardo CAPPUZZO at `riccardo.cappuzzo[at]inria.fr`.
