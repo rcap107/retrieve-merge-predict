@@ -1,4 +1,4 @@
 ---
 permalink: /docs/results
-layout: post
+layout: page
 ---

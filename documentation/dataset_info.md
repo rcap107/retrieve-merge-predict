@@ -1,6 +1,6 @@
 ---
 permalink: /docs/datasets
-layout: post
+layout: page
 ---
 We used the following sources for our dataset:
 - *Company Employees* [source](https://www.kaggle.com/datasets/iqmansingh/company-employee-dataset) - CC0

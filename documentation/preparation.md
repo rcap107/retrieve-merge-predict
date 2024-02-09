@@ -1,6 +1,6 @@
 ---
 permalink: /docs/preparation
-layout: post
+layout: page
 ---
 
 Preparing the environment

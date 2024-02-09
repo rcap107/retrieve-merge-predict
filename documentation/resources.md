@@ -1,8 +1,9 @@
 ---
 permalink: /docs/resources
-layout: post
+layout: page
 ---
-# Accessing the resources
+Accessing the resources
+---
 ## Code repositories
 The repository containing the pipeline and the code required to run the experiments 
 can be found in the [pipeline repository][pipeline_repo].
