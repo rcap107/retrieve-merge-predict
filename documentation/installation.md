@@ -2,8 +2,8 @@
 permalink: /docs/installation
 layout: page
 ---
-Installing the requirements
----
+**Installation**
+
 We recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the
 required dependencies and allows to create directly a conda environment:
 ```

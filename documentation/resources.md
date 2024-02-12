@@ -2,17 +2,18 @@
 permalink: /docs/resources
 layout: page
 ---
-Accessing the resources
----
-## Code repositories
+**Code repositories**
+
 The repository containing the pipeline and the code required to run the experiments 
 can be found in the [pipeline repository][pipeline_repo].
 The code for preparing the YADL variants can be found in the [preparation repository][prepare_repo]. 
 
-## Base tables
+**Base tables**
+
 The base tables used for the experiments are available in the [pipeline repository][pipeline_repo], in folder `data/source_tables`.
 
-## YADL
+**YADL**
+
 It is possible to download YADL from [the zenodo repository][zenodo_link] manually or by using `wget` in the root folder:
 ```sh
 wget -O data/binary_update.tar.gz https://zenodo.org/records/10600048/files/binary_update.tar.gz

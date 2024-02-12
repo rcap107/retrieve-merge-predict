@@ -3,8 +3,6 @@ permalink: /docs/preparation
 layout: page
 ---
 
-Preparing the environment
----
 - TOC
 {:toc}
 Once the required python environment has been prepared it is necessary to prepare the files required

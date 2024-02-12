@@ -7,7 +7,7 @@ We used the following sources for our dataset:
 - *Housing Prices* [source](https://www.zillow.com/research/data/)
 - *Movie Ratings* and *Movie Revenue* [source](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset) - CC0
 - *US Accidents* [source](https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents) - CC BY-NC-SA 4.0
-- *US Elections* [source] (https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ) - CC0
+- *US Elections* [source](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ) - CC0
 
 The *Schools* dataset is an internal dataset found in the Open Data US data lake. The *US County Population* dataset is 
 an internal dataset found in YADL. 
