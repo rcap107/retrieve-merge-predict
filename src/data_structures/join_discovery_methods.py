@@ -13,7 +13,6 @@ from scipy.sparse import load_npz, save_npz
 from sklearn.feature_extraction.text import CountVectorizer
 from tqdm import tqdm
 
-
 LAZO_MESSAGE_SIZE_LIMIT = 4194304
 
 
@@ -591,11 +590,11 @@ class CountVectorizerIndex:
 class ExactMatchingIndex:
     def __init__(
         self,
-        metadata_dir=None,
-        base_table_path=None,
-        query_column=None,
-        file_path=None,
-        n_jobs=1,
+        metadata_dir: str | Path = None,
+        base_table_path: str | Path = None,
+        query_column: str = None,
+        file_path: str | Path = None,
+        n_jobs: int = 1,
     ) -> None:
         self.index_name = "exact_matching"
         if file_path is not None:
