@@ -1,16 +1,11 @@
 #%%
 # %cd ~/bench
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
 
 #%%
 import polars as pl
 import seaborn as sns
-from sklearn.linear_model import LinearRegression
-
-import src.utils.plotting as plotting
 
 sns.set_context("paper")
 plt.style.use("seaborn-v0_8-talk")

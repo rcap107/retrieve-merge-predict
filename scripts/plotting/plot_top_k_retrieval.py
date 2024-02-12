@@ -6,14 +6,11 @@
 import json
 from pathlib import Path
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
 
 #%%
 import polars as pl
 import seaborn as sns
-from sklearn.linear_model import LinearRegression
 
 import src.utils.plotting as plotting
 from src.utils.logging import read_and_process, read_logs

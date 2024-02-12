@@ -10,8 +10,6 @@ import polars.selectors as cs
 import seaborn as sns
 from matplotlib import ticker
 
-from src.utils.constants import LABEL_MAPPING
-
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
 plt.rc("font", family="sans-serif")

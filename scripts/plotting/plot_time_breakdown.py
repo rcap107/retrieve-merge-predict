@@ -3,23 +3,12 @@
 # %load_ext autoreload
 # %autoreload 2
 # %%
-import json
-import tarfile
-from pathlib import Path
-
-import matplotlib as mpl
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import polars as pl
 import polars.selectors as cs
 import seaborn as sns
-from matplotlib.gridspec import GridSpec
 
 import src.utils.constants as constants
-import src.utils.plotting as plotting
-from src.utils.logging import read_logs
 
 # %%
 

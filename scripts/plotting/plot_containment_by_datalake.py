@@ -4,24 +4,13 @@
 # #%%
 # %load_ext autoreload
 # %autoreload 2
-
-import datetime
-import pickle
 from pathlib import Path
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
 import polars as pl
 import seaborn as sns
 
-# %%
-from joblib import load
-
-import src.utils.plotting as plotting
 from src.utils.constants import LABEL_MAPPING
-from src.utils.joining import execute_join_with_aggregation
-from src.utils.logging import read_logs
 
 #%%
 sns.set_context("talk")
@@ -34,13 +23,7 @@ DEFAULT_QUERY_RESULT_DIR = Path("results/query_results")
 df_od = pl.read_csv("analysis_query_results_open_data_us-fixed.csv")
 df_wn = pl.read_csv("analysis_query_results.csv")
 df_od_hybrid = pl.read_csv("analysis_query_results_open_data_us_hybrid.csv")
-
 df = pl.concat([df_wn, df_od, df_od_hybrid]).filter(pl.col("top_k") == 200)
-#%%
-
-# df = df_od.with_columns(
-#     (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
-# )
 
 # %%
 order = ["minhash", "minhash_hybrid", "exact_matching"]

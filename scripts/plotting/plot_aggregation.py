@@ -1,13 +1,10 @@
 #%%
 # %cd ~/bench
 #%%
-from pathlib import Path
-
 import polars as pl
-import polars.selectors as cs
 
 import src.utils.plotting as plotting
-from src.utils.logging import read_and_process, read_logs
+from src.utils.logging import read_and_process
 
 cfg = pl.Config()
 cfg.set_fmt_str_lengths(150)
