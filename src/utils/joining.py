@@ -1,18 +1,8 @@
 import base64
 
-import featuretools as ft
 import polars as pl
 import polars.selectors as cs
 from tqdm import tqdm
-from woodwork.logical_types import Categorical, Double
-
-
-def get_logical_types(df):
-    num_types = df.select_dtypes("number").columns
-    cat_types = [_ for _ in df.columns if _ not in num_types]
-    logical_types = {col: Categorical for col in cat_types}
-    logical_types.update({col: Double for col in num_types})
-    return logical_types
 
 
 def get_cols_by_type(table: pl.DataFrame):
@@ -76,6 +66,15 @@ def prepare_dfs_table(
     Returns:
         pl.DataFrame: The new table.
     """
+    import featuretools as ft
+    from woodwork.logical_types import Categorical, Double
+
+    def get_logical_types(df):
+        num_types = df.select_dtypes("number").columns
+        cat_types = [_ for _ in df.columns if _ not in num_types]
+        logical_types = {col: Categorical for col in cat_types}
+        logical_types.update({col: Double for col in num_types})
+        return logical_types
 
     if on is not None:
         left_on = right_on = on
@@ -157,6 +156,7 @@ def execute_join_with_aggregation(
                 "If `on` is provided, `left_on` and `right_on` should be left as None."
             )
     if aggregation == "dfs":
+
         merged = prepare_dfs_table(
             left_table,
             right_table,

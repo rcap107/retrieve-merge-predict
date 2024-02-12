@@ -6,9 +6,7 @@ import logging
 from pathlib import Path
 from time import process_time
 
-import matplotlib.pyplot as plt
 import polars as pl
-import seaborn as sns
 from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
 
 import src.utils.logging as log
@@ -176,6 +174,9 @@ class ScenarioLogger:
             raise IOError(f"Invalid path {root_path}")
 
     def write_summary_plot(self, root_path):
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
         keys = [
             "exp_name",
             "scenario_id",
