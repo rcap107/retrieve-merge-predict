@@ -29,7 +29,7 @@ stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
 
 ["query_cases"]
-data_lake=["wordnet_full"]
+data_lake=["binary_update"]
 join_discovery_method=["exact_matching"]
 table_path=[
 # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",

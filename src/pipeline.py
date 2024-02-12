@@ -142,13 +142,13 @@ def validate_configuration(run_config: dict):
         assert par["active"] in [True, False]
 
     # Check model parameters
-    for model, par in model_parameters.items():
-        assert model in ["linear", "catboost"]
-        if model == "catboost":
-            assert isinstance(par["iterations"], int) and par["iterations"] > 0
-            assert par["od_type"] in ["Iter"]
-            assert isinstance(par["od_wait"], int) and par["od_wait"] >= 0
-            assert isinstance(par["l2_leaf_reg"], float) and par["l2_leaf_reg"] >= 0
+    assert model_parameters["chosen_model"] in ["linear", "catboost"]
+    if model_parameters["chosen_model"] == "catboost":
+        par = model_parameters["catboost"]
+        assert isinstance(par["iterations"], int) and par["iterations"] > 0
+        assert par["od_type"] in ["Iter"]
+        assert isinstance(par["od_wait"], int) and par["od_wait"] >= 0
+        assert isinstance(par["l2_leaf_reg"], float) and par["l2_leaf_reg"] >= 0
 
     # Check join parameters
     assert join_parameters["join_strategy"] == "left"

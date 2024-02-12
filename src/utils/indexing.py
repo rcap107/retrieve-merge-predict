@@ -290,5 +290,5 @@ def load_query_result(
             query_result.select_top_k(top_k)
         return query_result
     else:
-        assert query_result_path.exists()
+        assert Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path).exists()
         assert isinstance(top_k, int) and top_k >= 0

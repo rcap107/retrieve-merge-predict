@@ -1,5 +1,4 @@
 import json
-import logging
 from pathlib import Path
 from sys import getsizeof
 
@@ -14,24 +13,6 @@ from scipy.sparse import load_npz, save_npz
 from sklearn.feature_extraction.text import CountVectorizer
 from tqdm import tqdm
 
-import src.methods.profiling as jp
-
-jd_logger = logging.getLogger("metadata_logger")
-jd_logger.setLevel(logging.DEBUG)
-
-sh_logger = logging.getLogger("sh_logger")
-sh_logger.setLevel(logging.ERROR)
-
-log_format = "%(message)s"
-formatter = logging.Formatter(fmt=log_format)
-
-fh = logging.FileHandler(filename="results/logging_jd.log")
-fh.setFormatter(formatter)
-sh = logging.StreamHandler()
-sh.setFormatter(formatter)
-
-jd_logger.addHandler(fh)
-sh_logger.addHandler(sh)
 
 LAZO_MESSAGE_SIZE_LIMIT = 4194304
 
@@ -357,7 +338,6 @@ class LazoIndex:
             self.data_dir = data_dir
 
     def _index_single_table(self, df: pl.DataFrame, tab_name: str):
-        jd_logger.debug("STARTING: Tab %s" % tab_name)
         for col in df.select(cs.string()).columns:
             partitions = self._partition_list_for_indexing(df[col].unique().to_list())
             for partition in partitions:
@@ -370,10 +350,7 @@ class LazoIndex:
                 except LazoError as e:
                     print(e)
                     print(tab_name, col)
-                    jd_logger.error("FAILURE: tab %s col %s " % (tab_name, col))
-                    sh_logger.error("FAILURE: tab %s col %s " % (tab_name, col))
                     continue
-        jd_logger.debug("SUCCESS: Tab %s " % tab_name)
 
     def _partition_list_for_indexing(self, value_list: list):
         size_of_list = sum([getsizeof(val) for val in value_list]) + getsizeof(
