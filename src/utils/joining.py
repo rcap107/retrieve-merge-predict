@@ -286,10 +286,10 @@ def execute_join(
             )
 
     elif left_on is not None and right_on is not None:
-        if not all([c in left_table.columns for c in left_on]):
+        if not all(c in left_table.columns for c in left_on):
             raise KeyError("Not all columns in left_on are found in left_table.")
 
-        if not all([c in right_table.columns for c in right_on]):
+        if not all(c in right_table.columns for c in right_on):
             raise KeyError("Not all columns in right_on are found in right_table.")
 
         joined_table = (
@@ -303,15 +303,9 @@ def execute_join(
             )
             .collect()
         )
-
-        # if mean:
-        #     joined_table = aggregate_mean(joined_table, left_table.columns)
-        # else:
-        #     joined_table = aggregate_first(joined_table, left_table.columns)
-
         return joined_table
     else:
-        raise ValueError(f"Both `left_on` and `right_on` are None.")
+        raise ValueError("Both `left_on` and `right_on` are None.")
 
 
 def aggregate_table(
