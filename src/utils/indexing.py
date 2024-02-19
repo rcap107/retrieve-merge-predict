@@ -6,18 +6,18 @@ from pprint import pprint
 
 from joblib import load
 
-from src.data_structures.join_discovery_methods import (
-    CountVectorizerIndex,
-    ExactMatchingIndex,
-    LazoIndex,
-    MinHashIndex,
-)
 from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import (
     CandidateJoin,
     MetadataIndex,
     QueryResult,
     RawDataset,
+)
+from src.data_structures.retrieval_methods import (
+    CountVectorizerIndex,
+    ExactMatchingIndex,
+    LazoIndex,
+    MinHashIndex,
 )
 
 logger = logging.getLogger("join_discovery_logger")
@@ -290,5 +290,7 @@ def load_query_result(
             query_result.select_top_k(top_k)
         return query_result
     else:
-        assert Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path).exists()
+        assert Path(
+            DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path
+        ).exists()
         assert isinstance(top_k, int) and top_k >= 0

@@ -8,7 +8,7 @@ from typing import Union
 
 import polars as pl
 
-from src.data_structures.join_discovery_methods import LazoIndex, MinHashIndex
+from src.data_structures.retrieval_methods import LazoIndex, MinHashIndex
 
 QUERY_RESULTS_PATH = Path("results/query_results")
 os.makedirs(QUERY_RESULTS_PATH, exist_ok=True)
