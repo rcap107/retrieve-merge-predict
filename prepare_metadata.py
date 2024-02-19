@@ -8,8 +8,16 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("path_data_folder", action="store", help="Path to the folder to use to prepare metadata. ")
-    parser.add_argument("--flat", action="store_true", help="If provided, do not proceed recursively and only consider parquet files found in the main folder.")
+    parser.add_argument(
+        "path_data_folder",
+        action="store",
+        help="Path to the folder to use to prepare metadata. ",
+    )
+    parser.add_argument(
+        "--flat",
+        action="store_true",
+        help="If provided, do not proceed recursively and only consider parquet files found in the main folder.",
+    )
 
     args = parser.parse_args()
     return args
@@ -33,7 +41,7 @@ def prepare_metadata_from_case(data_folder, flat=False):
 
         if total_files == 0:
             raise RuntimeError("No parquet files found. Is the path correct? ")
-        
+
         metadata_dest = f"data/metadata/{case}"
         Parallel(n_jobs=-1, verbose=0)(
             delayed(save_single_table)(dataset_path, "yadl", metadata_dest)
@@ -49,4 +57,4 @@ def prepare_metadata_from_case(data_folder, flat=False):
 
 if __name__ == "__main__":
     args = parse_args()
-    prepare_metadata_from_case(args.data_folder, args.flat)
+    prepare_metadata_from_case(args.path_data_folder, args.flat)
