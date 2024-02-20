@@ -17,8 +17,7 @@ def parse_args():
         help="Utility parameter that repeats the index creation for the given config. to measure avg. time.",
     )
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
