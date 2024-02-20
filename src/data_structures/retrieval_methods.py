@@ -86,11 +86,10 @@ class MinHashIndex:
             self.thresholds = sorted(thresholds)
         else:
             self.thresholds = [thresholds]
-        self.single_threshold = True if len(self.thresholds) == 1 else False
+        self.single_threshold = len(self.thresholds) == 1
         self.initialized = False
         self.ensembles = {}
         self.n_jobs = n_jobs
-        self.compute_exact = compute_exact
 
         if index_file is not None:
             self.load_index(index_file)
