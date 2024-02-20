@@ -1,19 +1,18 @@
 import argparse
-from pathlib import Path
 import os
+from pathlib import Path
 
 import toml
 from tqdm import tqdm
 
-from src.data_structures.join_discovery_methods import ExactMatchingIndex
-
 # from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import MetadataIndex
+from src.data_structures.retrieval_methods import ExactMatchingIndex
 from src.utils.indexing import (
     DEFAULT_INDEX_DIR,
+    SimpleIndexLogger,
     load_index,
     query_index,
-    SimpleIndexLogger,
 )
 
 
