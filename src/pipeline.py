@@ -120,6 +120,23 @@ def validate_configuration(run_config: dict):
     join_parameters = run_config["join_parameters"]
     query_info = run_config["query_cases"]
 
+    # Check base table
+    path_bt = Path(query_info["table_path"])
+    tab_name = path_bt.stem
+    print(f"Validating table {tab_name}")
+    assert path_bt.exists()
+    suffix = path_bt.suffix
+    assert suffix in [".parquet", ".csv"]
+
+    if suffix == ".parquet":
+        df = pl.read_parquet(path_bt)
+    elif suffix == ".csv":
+        df = pl.read_csv(path_bt)
+    else:
+        raise ValueError(f"Base table type {suffix} not supported.")
+
+    assert query_info["query_column"] in df.columns
+
     # Check run parameters
     assert run_parameters["task"] in ["regression", "classification"]
     assert run_parameters["debug"] in [True, False]
@@ -161,22 +178,6 @@ def validate_configuration(run_config: dict):
         "minhash_hybrid",
         "minhash",
     ]
-
-    # Check base table
-    path_bt = Path(query_info["table_path"])
-    tab_name = path_bt.stem
-    assert path_bt.exists()
-    suffix = path_bt.suffix
-    assert suffix in [".parquet", ".csv"]
-
-    if suffix == ".parquet":
-        df = pl.read_parquet(path_bt)
-    elif suffix == ".csv":
-        df = pl.read_csv(path_bt)
-    else:
-        raise ValueError(f"Base table type {suffix} not supported.")
-
-    assert query_info["query_column"] in df.columns
 
     # Check query existence
     load_query_result(
