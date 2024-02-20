@@ -50,14 +50,14 @@ class MinHashIndex:
 
     def __init__(
         self,
-        metadata_dir=None,
-        thresholds=[20],
-        num_perm=128,
-        num_part=32,
-        oneshot=True,
-        index_file=None,
+        metadata_dir: str | Path = None,
+        thresholds: int | list = 20,
+        num_perm: int = 128,
+        num_part: int = 32,
+        oneshot: bool = True,
+        index_file: str | Path = None,
         n_jobs=1,
-        compute_exact=False,
+        no_tag: bool = True,
     ) -> None:
         """
         If `index_file` is provided, the data structures required for the index are loaded from the given
@@ -70,7 +70,7 @@ class MinHashIndex:
 
         Args:
             metadata_dir (str, optional): Path to the dir that contains the metadata of the target tables.
-            thresholds (list, optional): List of thresholds to be used by the ensemble. Defaults to [20].
+            thresholds (int | list, optional): Threshold or list of thresholds to be used by the ensemble. Defaults to 20.
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
             oneshot (bool, optional): If False, index will have to be finalized by the user. Defaults to True.
@@ -81,7 +81,12 @@ class MinHashIndex:
         self.hash_index = []
         self.num_perm = num_perm
         self.num_part = num_part
-        self.thresholds = sorted(thresholds)
+        self.no_tag = no_tag
+        if isinstance(thresholds, list):
+            self.thresholds = sorted(thresholds)
+        else:
+            self.thresholds = [thresholds]
+        self.single_threshold = True if len(self.thresholds) == 1 else False
         self.initialized = False
         self.ensembles = {}
         self.n_jobs = n_jobs
@@ -210,17 +215,16 @@ class MinHashIndex:
             query_dict = {}
 
             if threshold is not None:
-                if any([th not in self.ensembles for th in threshold]):
-                    raise ValueError(f"Invalid thresholds in the provided list.")
-                else:
-                    for th in sorted(threshold):
-                        ens = self.ensembles[th]
-                        res = list(ens.query(m_query, len(query)))
-                        query_dict.update(self.prepare_result(res, threshold))
-            else:
-                for threshold, ens in self.ensembles.items():
+                if any(th not in self.ensembles for th in threshold):
+                    raise ValueError("Invalid thresholds in the provided list.")
+                for th in sorted(threshold):
+                    ens = self.ensembles[th]
                     res = list(ens.query(m_query, len(query)))
                     query_dict.update(self.prepare_result(res, threshold))
+            else:
+                for th, ens in self.ensembles.items():
+                    res = list(ens.query(m_query, len(query)))
+                    query_dict.update(self.prepare_result(res, th))
 
             if to_dataframe:
                 query_results = pl.from_records(
@@ -230,9 +234,6 @@ class MinHashIndex:
                 query_results = []
                 for k, v in query_dict.items():
                     query_results.append((k[0], k[1], v))
-
-            if self.compute_exact:
-                query_results = self.measure_exact_overlap(query_results)
 
             return query_results
         else:
@@ -247,7 +248,7 @@ class MinHashIndex:
         with open(output_path, "wb") as fp:
             dump(self.ensembles, fp)
 
-    def save_index(self, output_dir):
+    def save_index(self, output_dir: str | Path):
         out_dict = {
             "index_name": self.index_name,
             "hash_index": self.hash_index,
@@ -267,7 +268,9 @@ class MinHashIndex:
         ) as fp:
             dump(out_dict, fp)
 
-    def load_index(self, index_file=None, index_dict=None):
+    def load_index(
+        self, index_file: str | Path | None = None, index_dict: dict | None = None
+    ):
         if index_file is not None:
             if Path(index_file).exists():
                 with open(index_file, "rb") as fp:
