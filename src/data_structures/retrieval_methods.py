@@ -258,11 +258,18 @@ class MinHashIndex:
             "ensembles": self.ensembles,
         }
 
-        # TODO: clean this up
+        if self.no_tag:
+            index_name = "minhash_index"
+        else:
+            if self.single_threshold:
+                index_name = f"minhash_index_{self.thresholds[0]}.pickle"
+            else:
+                index_name = f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}.pickle"
+
         with open(
             Path(
                 output_dir,
-                f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}.pickle",
+                index_name,
             ),
             "wb",
         ) as fp:
@@ -280,7 +287,6 @@ class MinHashIndex:
                     self.num_part = index_dict["num_part"]
                     self.thresholds = index_dict["thresholds"]
                     self.ensembles = index_dict["ensembles"]
-                    self.compute_exact = index_dict["compute_exact"]
                     self.initialized = True
             else:
                 raise FileNotFoundError(f"File `{index_file}` not found.")
@@ -290,7 +296,6 @@ class MinHashIndex:
             self.num_part = index_dict["num_part"]
             self.thresholds = index_dict["thresholds"]
             self.ensembles = index_dict["ensembles"]
-            # self.compute_exact = index_dict["compute_exact"]
             self.initialized = True
         else:
             raise ValueError("Either `index_file` or `index_dict` must be provided.")
