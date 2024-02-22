@@ -749,3 +749,140 @@ class ExactMatchingIndex:
         }
         with open(path_mdata, "wb") as fp:
             dump(dd, fp, compress=True)
+
+
+class ReverseIndex:
+    def __init__(
+        self,
+        metadata_dir=None,
+        file_path=None,
+        n_jobs=1,
+    ) -> None:
+        self.index_name = "reverse_index"
+        self.sep = "|" * 4
+        if file_path is not None:
+            if Path(file_path).exists():
+                with open(file_path, "rb") as fp:
+                    mdata = load(fp)
+                    self.data_dir = mdata["data_dir"]
+                    self.keys = mdata["keys"]
+                    self.n_jobs = 0
+                    self.count_matrix = self._load_count_matrix(
+                        mdata["path_count_matrix"]
+                    )
+                    self.vocabulary = mdata["vocabulary"]
+                    # self.count_vectorizer = mdata["count_vectorizer"]
+                # self.count_vectorizer = None
+            else:
+                raise FileNotFoundError
+        else:
+            if metadata_dir is None:
+                raise ValueError
+            if not Path(metadata_dir).exists():
+                raise FileNotFoundError
+
+            self.data_dir = Path(metadata_dir)
+            self.count_vectorizer = CountVectorizer(
+                token_pattern=r"(?u)([^|]*)[|]{4}", binary=True
+            )
+            self.n_jobs = n_jobs
+            self.count_matrix, self.keys = self._build_count_matrix()
+            self.vocabulary = self.count_vectorizer.vocabulary_
+
+    def _prepare_single_table(self, path):
+        with open(path, "r") as fp:
+            mdata_dict = json.load(fp)
+        table_path = mdata_dict["full_path"]
+        # Selecting only string columns
+        table = pl.read_parquet(table_path).select(cs.string())
+        ds_hash = mdata_dict["hash"]
+        res = []
+        for col in table.select(cs.string()).columns:
+            values = self.sep.join([_ for _ in table[col].to_list() if _ is not None])
+            values += self.sep
+            key = f"{ds_hash}__{col}"
+            res.append((key, values))
+        return res
+
+    def _get_values(self, list_values):
+        s = self.sep.join(list_values) + self.sep
+        return [s]
+
+    def _build_count_matrix(self):
+        total = sum(1 for _ in self.data_dir.glob("*.json"))
+        partial_result = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            delayed(self._prepare_single_table)(pth)
+            for pth in tqdm(self.data_dir.glob("*.json"), total=total)
+        )
+        result = [
+            col_tup for table_result in partial_result for col_tup in table_result
+        ]
+        keys = np.array([_[0] for _ in result])
+        print("fitting")
+        count_matrix = self.count_vectorizer.fit_transform(
+            col_tup[1] for col_tup in result
+        )
+        return count_matrix, keys
+
+    def _load_count_matrix(self, path_matrix):
+        if Path(path_matrix).exists():
+            mat = load_npz(path_matrix)
+            return mat
+
+        raise FileNotFoundError
+
+    def _save_count_matrix(self, path_matrix):
+        save_npz(path_matrix, self.count_matrix)
+
+    def query_index(self, query: list, top_k=200):
+        q_ = set(_.lower() for _ in query)
+        key_pos = [
+            self.vocabulary.get(_) for _ in q_ if self.vocabulary.get(_) is not None
+        ]
+
+        qm = self.count_matrix[:, key_pos]
+        a = np.array(qm.sum(axis=1)) / len(q_)
+        ranking = pl.from_dict(
+            {"key": self.keys.squeeze(), "containment": a.squeeze()},
+            schema=["key", "containment"],
+        )
+        ranking = (
+            ranking.filter(pl.col("containment") > 0)
+            .with_columns(
+                pl.col("key")
+                .str.split("__")
+                .list.to_struct()
+                .struct.rename_fields(["hash", "col"])
+            )
+            .unnest("key")
+            .sort("containment", descending=True)
+        )
+
+        if top_k == -1:
+            return ranking
+        return ranking[:top_k]
+
+    def save_index(self, output_dir):
+        path_mdata = Path(
+            output_dir,
+            "reverse_index.pickle",
+        )
+        self.count_vectorizer.stop_words_ = None
+        path_matrix = Path(
+            output_dir,
+            "count_matrix.npz",
+        )
+        self._save_count_matrix(path_matrix)
+
+        dd = {
+            "index_name": self.index_name,
+            "data_dir": self.data_dir,
+            "keys": self.keys,
+            # "count_matrix": self.count_matrix,
+            "path_count_matrix": path_matrix,
+            "vocabulary": self.vocabulary,
+        }
+        with open(path_mdata, "wb") as fp:
+            dump(dd, fp, compress=True)
+
+        return path_mdata
