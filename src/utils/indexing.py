@@ -103,6 +103,22 @@ def write_candidates_on_file(candidates, output_file_path, separator=","):
     # metam format is left_table;left_on_column;right_table;right_on_column
 
 
+def get_metadata_index(data_lake_version):
+    metadata_index_path = Path(
+        f"data/metadata/_mdi/md_index_{data_lake_version}.pickle"
+    )
+
+    if not metadata_index_path.exists():
+        raise FileNotFoundError(
+            f"Path to metadata index {metadata_index_path} is invalid."
+        )
+    mdata_index = MetadataIndex(
+        data_lake_variant=data_lake_version, index_path=metadata_index_path
+    )
+
+    return mdata_index
+
+
 def generate_candidates(
     index_name: str,
     index_result: list,

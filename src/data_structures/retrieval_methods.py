@@ -265,14 +265,16 @@ class MinHashIndex:
             else:
                 index_name = f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}.pickle"
 
+        index_path = Path(
+            output_dir,
+            index_name,
+        )
         with open(
-            Path(
-                output_dir,
-                index_name,
-            ),
+            index_path,
             "wb",
         ) as fp:
             dump(out_dict, fp)
+        return index_path
 
     def load_index(
         self, index_file: str | Path | None = None, index_dict: dict | None = None
@@ -634,6 +636,8 @@ class ExactMatchingIndex:
             self.unique_base_table = set(
                 self.base_table[query_column].unique().to_list()
             )
+
+            # self.unique_base_table = self.base_table[query_column].unique().implode()
             self.counts = self._build_count_matrix(self.metadata_dir)
 
     @staticmethod
@@ -656,6 +660,16 @@ class ExactMatchingIndex:
             unique_keys = None
 
         return unique_keys
+
+    # TODO: uncomment to use the better method
+    # def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
+    #     return len(
+    #         self.unique_base_table
+    #         .list.set_intersection(
+    #             candidate_table.select(pl.col(right_on).unique()).to_series().implode()
+    #         )
+    #         .explode()
+    #     ) / len(self.unique_base_table)
 
     def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
         unique_cand = self.find_unique_keys(candidate_table, right_on)
@@ -695,8 +709,8 @@ class ExactMatchingIndex:
         overlap_dict = {key: val for result in r for key, val in result.items()}
         df_overlap = pl.from_dict(
             {
-                "key": list(overlap_dict.keys()),
-                "containment": list(overlap_dict.values()),
+                "key": overlap_dict.keys(),
+                "containment": overlap_dict.values(),
             }
         )
         df_overlap = (

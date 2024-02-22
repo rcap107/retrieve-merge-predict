@@ -5,12 +5,12 @@ from pathlib import Path
 import toml
 from tqdm import tqdm
 
-# from src.data_structures.loggers import SimpleIndexLogger
+from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import MetadataIndex
 from src.data_structures.retrieval_methods import ExactMatchingIndex
 from src.utils.indexing import (
     DEFAULT_INDEX_DIR,
-    SimpleIndexLogger,
+    get_metadata_index,
     load_index,
     query_index,
 )
@@ -27,22 +27,6 @@ def parse_args():
 def prepare_dirtree():
     os.makedirs("data/metadata/queries", exist_ok=True)
     os.makedirs("results/query_results", exist_ok=True)
-
-
-def get_metadata_index(data_lake_version):
-    metadata_index_path = Path(
-        f"data/metadata/_mdi/md_index_{data_lake_version}.pickle"
-    )
-
-    if not metadata_index_path.exists():
-        raise FileNotFoundError(
-            f"Path to metadata index {metadata_index_path} is invalid."
-        )
-    mdata_index = MetadataIndex(
-        data_lake_variant=data_lake_version, index_path=metadata_index_path
-    )
-
-    return mdata_index
 
 
 if __name__ == "__main__":
