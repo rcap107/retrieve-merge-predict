@@ -498,9 +498,12 @@ class SimpleIndexLogger:
             "peak_query": None,
         }
 
+        self.query_results = {"n_candidates": 0}
+
         self.header = [
             "data_lake_version",
             "index_name",
+            "n_jobs",
             "base_table",
             "query_column",
             "step",
@@ -510,6 +513,7 @@ class SimpleIndexLogger:
             "time_query",
             "peak_create",
             "peak_query",
+            "n_candidates",
         ]
 
     def update_query_parameters(self, query_table, query_column):
@@ -578,6 +582,7 @@ class SimpleIndexLogger:
         values = [
             self.data_lake_version,
             self.index_name,
+            self.index_parameters.get("n_jobs", 1),
             self.query_parameters.get("base_table", ""),
             self.query_parameters.get("query_column", ""),
             self.step,
@@ -587,6 +592,7 @@ class SimpleIndexLogger:
             self.durations.get("time_query", 0),
             self.memory_usage.get("peak_create", 0),
             self.memory_usage.get("peak_query", 0),
+            self.query_results.get("n_candidates", 0),
         ]
 
         return dict(zip(self.header, values))
