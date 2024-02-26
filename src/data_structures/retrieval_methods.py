@@ -248,6 +248,17 @@ class MinHashIndex:
             dump(self.ensembles, fp)
 
     def save_index(self, output_dir: str | Path):
+        if self.no_tag:
+            index_name = "minhash_index"
+        else:
+            if self.single_threshold:
+                index_name = f"minhash_index_{self.thresholds[0]}"
+            else:
+                index_name = (
+                    f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}"
+                )
+            self.index_name = index_name
+
         out_dict = {
             "index_name": self.index_name,
             "hash_index": self.hash_index,
@@ -257,17 +268,9 @@ class MinHashIndex:
             "ensembles": self.ensembles,
         }
 
-        if self.no_tag:
-            index_name = "minhash_index"
-        else:
-            if self.single_threshold:
-                index_name = f"minhash_index_{self.thresholds[0]}.pickle"
-            else:
-                index_name = f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}.pickle"
-
         index_path = Path(
             output_dir,
-            index_name,
+            index_name + ".pickle",
         )
         with open(
             index_path,
@@ -288,6 +291,7 @@ class MinHashIndex:
                     self.num_part = index_dict["num_part"]
                     self.thresholds = index_dict["thresholds"]
                     self.ensembles = index_dict["ensembles"]
+                    self.index_name = index_dict["index_name"]
                     self.initialized = True
             else:
                 raise FileNotFoundError(f"File `{index_file}` not found.")
@@ -859,8 +863,8 @@ class ReverseIndex:
         )
 
         if top_k == -1:
-            return ranking
-        return ranking[:top_k]
+            return ranking.rows()
+        return ranking[:top_k].rows()
 
     def save_index(self, output_dir):
         path_mdata = Path(
