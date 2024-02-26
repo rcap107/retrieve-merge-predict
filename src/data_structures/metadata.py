@@ -8,8 +8,6 @@ from typing import Union
 
 import polars as pl
 
-from src.data_structures.retrieval_methods import LazoIndex, MinHashIndex
-
 QUERY_RESULTS_PATH = Path("results/query_results")
 os.makedirs(QUERY_RESULTS_PATH, exist_ok=True)
 
@@ -299,7 +297,7 @@ class RawDataset:
 class QueryResult:
     def __init__(
         self,
-        index: MinHashIndex | LazoIndex,
+        index,
         source_mdata: RawDataset,
         query_column: str,
         mdata_index: MetadataIndex,
@@ -338,10 +336,10 @@ class QueryResult:
             )
             tmp_cand[cjoin.candidate_id] = cjoin
 
+        self.n_candidates = len(self.candidates)
         ranked_results = self.rank_results(tmp_cand, rerank)
 
         self.candidates = {k: tmp_cand[k] for k in ranked_results}
-        self.n_candidates = len(self.candidates)
 
     def measure_containment(
         self, source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on, right_on
@@ -362,24 +360,22 @@ class QueryResult:
                     reverse=True,
                 )
             )
-        else:
-            resort = []
-            for k, candidate_join in candidates.items():
-                source_md = candidate_join.source_metadata
-                cand_md = candidate_join.candidate_metadata
-                left_on = candidate_join.left_on
-                right_on = candidate_join.right_on
+        # Reranking
+        resort = []
+        for k, candidate_join in candidates.items():
+            source_md = candidate_join.source_metadata
+            cand_md = candidate_join.candidate_metadata
+            left_on = candidate_join.left_on
+            right_on = candidate_join.right_on
 
-                source_table = pl.read_parquet(source_md["full_path"])
-                cand_table = pl.read_parquet(cand_md["full_path"])
+            source_table = pl.read_parquet(source_md["full_path"])
+            cand_table = pl.read_parquet(cand_md["full_path"])
 
-                cont = self.measure_containment(
-                    source_table, cand_table, left_on, right_on
-                )
-                resort.append((k, cont))
+            cont = self.measure_containment(source_table, cand_table, left_on, right_on)
+            resort.append((k, cont))
 
-            resort.sort(key=lambda x: x[1], reverse=True)
-            return dict(resort)
+        resort.sort(key=lambda x: x[1], reverse=True)
+        return dict(resort)
 
     def select_top_k(self, top_k=0):
         if top_k > 0:
@@ -391,17 +387,19 @@ class QueryResult:
         else:
             pass
 
-    def save_to_pickle(self):
+    def save_to_pickle(self, root_dir=None):
         output_name = "{}__{}__{}__{}.pickle".format(
             self.data_lake_version,
             self.index_name,
             self.source_mdata.df_name,
             self.query_column,
         )
-        os.makedirs(Path(QUERY_RESULTS_PATH, self.data_lake_version), exist_ok=True)
-        with open(
-            Path(QUERY_RESULTS_PATH, self.data_lake_version, output_name),
-            "wb"
-            # Path(QUERY_RESULTS_PATH, output_name), "wb"
-        ) as fp:
+        if root_dir is None:
+            os.makedirs(Path(QUERY_RESULTS_PATH, self.data_lake_version), exist_ok=True)
+            output_path = Path(QUERY_RESULTS_PATH, self.data_lake_version, output_name)
+        else:
+            os.makedirs(Path(root_dir), exist_ok=True)
+            output_path = Path(root_dir, output_name)
+
+        with open(output_path, "wb") as fp:
             pickle.dump(self, fp)
