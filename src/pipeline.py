@@ -226,7 +226,7 @@ def single_run(run_config, run_name=None):
         top_k=query_info["top_k"],
     )
 
-    df_source = pl.read_parquet(query_tab_path).unique()
+    df_source = pl.read_parquet(query_tab_path).select(~cs.by_dtype(pl.Null)).unique()
 
     scl.add_timestamp("start_evaluation")
     logger.info("Starting evaluation.")
