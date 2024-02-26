@@ -46,7 +46,7 @@ def prepare_splits(run_parameters: dict, base_table: pl.DataFrame, group_column:
     test_size = run_parameters["test_size"]
     if split_kind == "group_shuffle":
         groups = base_table.select(
-            pl.col(group_column).cast(pl.Categorical).cast(pl.Int64).alias("group")
+            pl.col(group_column).cast(pl.Categorical).cast(pl.Int32).alias("group")
         ).to_numpy()
         gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
         splits = gss.split(base_table, groups=groups)
