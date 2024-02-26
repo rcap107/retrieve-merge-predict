@@ -5,6 +5,7 @@ from pathlib import Path
 
 import git
 import polars as pl
+import polars.selectors as cs
 
 import src.methods.evaluation as em
 from src.data_structures.loggers import ScenarioLogger
@@ -137,6 +138,8 @@ def validate_configuration(run_config: dict):
 
     assert query_info["query_column"] in df.columns
 
+    assert run_parameters["target_column"] in df.columns
+
     # Check run parameters
     assert run_parameters["task"] in ["regression", "classification"]
     assert run_parameters["debug"] in [True, False]
@@ -172,7 +175,10 @@ def validate_configuration(run_config: dict):
     assert join_parameters["aggregation"] in ["dfs", "mean", "first"]
 
     # Check query parameters
+    # TODO: fix this so it can be generalized
     assert query_info["data_lake"] in ["open_data_us", "binary_update", "wordnet_full"]
+    # TODO: fix this so that the config returns a single string
+    assert isinstance(query_info["join_discovery_method"], list)
     assert query_info["join_discovery_method"] in [
         "exact_matching",
         "minhash_hybrid",
@@ -235,7 +241,7 @@ def single_run(run_config, run_name=None):
         df_source,
         join_candidates=query_result.candidates,
         # TODO: generalize this
-        target_column="target",
+        target_column=run_parameters["target_column"],
         group_column=query_info["query_column"],
         estim_parameters=estim_parameters,
         join_parameters=join_parameters,
