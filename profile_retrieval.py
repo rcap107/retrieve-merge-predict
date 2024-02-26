@@ -4,6 +4,7 @@ from pathlib import Path
 
 import polars as pl
 from memory_profiler import memory_usage
+from sklearn.model_selection import ParameterGrid
 
 from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import QueryResult, RawDataset
@@ -33,12 +34,14 @@ def wrapper_prepare_exact_matching(queries, method_config, index_dir):
     return time_create, time_save
 
 
-def wrapper_query_index(queries, index_path, index_name):
+def wrapper_query_index(queries, index_path, index_name, data_lake_version, rerank):
     time_load = 0
     time_query = 0
 
+    metadata_index = get_metadata_index(data_lake_version)
+
     start = dt.datetime.now()
-    if index_name == "minhash":
+    if index_name.startswith("minhash"):
         this_index = MinHashIndex(index_file=index_path)
     elif index_name == "reverse_index":
         this_index = ReverseIndex(file_path=index_path)
@@ -48,10 +51,14 @@ def wrapper_query_index(queries, index_path, index_name):
     for query_case in queries:
         query_tab_path = Path(query_case[0])
         query_column = query_case[1]
-        query_table = pl.read_parquet(query_tab_path)
-        query = query_table[query_column]
         start = dt.datetime.now()
-        this_index.query_index(query)
+        query_tab_metadata = RawDataset(
+            query_tab_path.resolve(), "queries", "data/metadata/queries"
+        )
+        query_result = QueryResult(
+            this_index, query_tab_metadata, query_column, metadata_index, rerank
+        )
+        query_result.save_to_pickle("results/profiling/query_results")
         end = dt.datetime.now()
         time_query += (end - start).total_seconds()
 
@@ -95,6 +102,8 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_parameters=index_config,
     )
 
+    rerank = index_config.pop("rerank", False)
+
     if index_name == "minhash":
         index_logger.start_time("create")
         mem_usage, this_index = memory_usage(
@@ -114,7 +123,11 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_logger.end_time("save")
 
         mem_usage, (time_load, time_query) = memory_usage(
-            (wrapper_query_index, [queries, index_path, index_name], {}),
+            (
+                wrapper_query_index,
+                [queries, index_path, index_name, data_lake_version, rerank],
+                {},
+            ),
             timestamps=True,
             max_iterations=1,
             retval=True,
@@ -142,7 +155,11 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_logger.end_time("save")
 
         mem_usage, (time_load, time_query) = memory_usage(
-            (wrapper_query_index, [queries, index_path, index_name], {}),
+            (
+                wrapper_query_index,
+                [queries, index_path, index_name, data_lake_version, rerank],
+                {},
+            ),
             timestamps=True,
             max_iterations=1,
             retval=True,
@@ -171,47 +188,38 @@ if __name__ == "__main__":
     os.makedirs("data/metadata/_indices/profiling", exist_ok=True)
     os.makedirs("results/profiling/retrieval", exist_ok=True)
 
-    data_lake_version = "binary_update"
+    data_lake_version = "wordnet_full"
+
+    base_table_root = "data/source_tables/yadl/"
 
     queries = [
         (
-            "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
+            Path(base_table_root, "company_employees-yadl-depleted.parquet"),
             "col_to_embed",
         ),
-        (
-            "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
-            "col_to_embed",
-        ),
-        ("data/source_tables/yadl/us_elections-yadl-depleted.parquet", "col_to_embed"),
-        ("data/source_tables/yadl/movies-yadl-depleted.parquet", "col_to_embed"),
-        ("data/source_tables/yadl/movies_vote-yadl-depleted.parquet", "col_to_embed"),
-        ("data/source_tables/yadl/us_accidents-yadl-depleted.parquet", "col_to_embed"),
+        (Path(base_table_root, "housing_prices-yadl-depleted.parquet"), "col_to_embed"),
+        (Path(base_table_root, "us_elections-yadl-depleted.parquet"), "col_to_embed"),
+        (Path(base_table_root, "movies-yadl-depleted.parquet"), "col_to_embed"),
+        (Path(base_table_root, "movies_vote-yadl-depleted.parquet"), "col_to_embed"),
+        (Path(base_table_root, "us_accidents-yadl-depleted.parquet"), "col_to_embed"),
     ]
 
-    ## Index creation
-
-    # # Minhash
-    # config_minhash = {
-    #     "metadata_dir": "data/metadata/binary_update",
-    #     "n_jobs": 2,
-    # }
-    # prepare_index("minhash", config_minhash, data_lake_version)
-
-    # # Exact matching
-    # config_exact = {
-    #     "metadata_dir": "data/metadata/binary_update",
-    #     "base_table_path": "data/source_tables/yadl/us_elections_dems-yadl-depleted.parquet",
-    #     "query_column": "col_to_embed",
-    #     "n_jobs": 1,
-    # }
-
-    # prepare_index("exact_matching", config_exact, data_lake_version)
+    # Minhash
+    method_config = {
+        "metadata_dir": [f"data/metadata/{data_lake_version}"],
+        "n_jobs": [16],
+        "thresholds": [20, 60, 80],
+        "no_tag": [False],
+    }
+    cases = ParameterGrid(method_config)
+    for config in cases:
+        test_retrieval_method(data_lake_version, "minhash", queries, config)
 
     # Reverse index
-    method_config = {
-        "metadata_dir": "data/metadata/wordnet_small",
-        "n_jobs": 2,
-        # "thresholds": 20,
-    }
-
-    test_retrieval_method(data_lake_version, "reverse_index", queries, method_config)
+    # method_config = {
+    #     "metadata_dir": [f"data/metadata/{data_lake_version}"],
+    #     "n_jobs": [16],
+    # }
+    # cases = ParameterGrid(method_config)
+    # for config in cases:
+    #     test_retrieval_method(data_lake_version, "reverse_index", queries, config)
