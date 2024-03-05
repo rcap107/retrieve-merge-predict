@@ -189,7 +189,7 @@ class MinHashIndex:
             result_dict[(table, column)] = threshold
         return result_dict
 
-    def query_index(self, query, threshold=None, to_dataframe=False):
+    def query_index(self, query, threshold=None, to_dataframe=False, top_k=200):
         """Query the index with a list of values and return a dictionary that contains all columns
         that satisfy the query for each threshold.
 
@@ -234,8 +234,9 @@ class MinHashIndex:
                 query_results = []
                 for k, v in query_dict.items():
                     query_results.append((k[0], k[1], v))
-
-            return query_results
+            if top_k == -1:
+                return query_results
+            return query_results[:top_k]
         else:
             raise RuntimeError("Ensembles are not initialized.")
 

@@ -302,6 +302,7 @@ class QueryResult:
         query_column: str,
         mdata_index: MetadataIndex,
         rerank: bool,
+        top_k=200,
     ) -> None:
         self.index_name = index.index_name
         if self.index_name in ["exact_matching", "inverse_index"]:
@@ -319,7 +320,7 @@ class QueryResult:
             raise pl.ColumnNotFoundError()
         query = df[self.query_column].drop_nulls()
 
-        query_result = index.query_index(query)
+        query_result = index.query_index(query, top_k=top_k)
 
         tmp_cand = {}
         for res in query_result:
