@@ -9,6 +9,7 @@ import polars.selectors as cs
 from datasketch import LeanMinHash, MinHash, MinHashLSHEnsemble
 from joblib import Parallel, delayed, dump, load
 from lazo_index_service.errors import LazoError
+from memory_profiler import profile
 from scipy.sparse import load_npz, save_npz
 from sklearn.feature_extraction.text import CountVectorizer
 from tqdm import tqdm
@@ -755,15 +756,12 @@ class ExactMatchingIndex:
             dump(dd, fp, compress=True)
 
 
-class ReverseIndex:
+class InverseIndex:
     def __init__(
-        self,
-        metadata_dir=None,
-        file_path=None,
-        n_jobs=1,
+        self, metadata_dir=None, file_path=None, n_jobs=1, dtype: np.dtype = np.uint16
     ) -> None:
-        self.index_name = "reverse_index"
-        self.sep = "|" * 4
+        self.index_name = "inverse_index"
+        self.sep = "|" * 3
         if file_path is not None:
             if Path(file_path).exists():
                 with open(file_path, "rb") as fp:
@@ -787,12 +785,13 @@ class ReverseIndex:
 
             self.data_dir = Path(metadata_dir)
             self.count_vectorizer = CountVectorizer(
-                token_pattern=r"(?u)([^|]*)[|]{4}", binary=True
+                token_pattern=r"(?u)([^|]*)[|]{3}", binary=True, dtype=dtype
             )
             self.n_jobs = n_jobs
             self.count_matrix, self.keys = self._build_count_matrix()
             self.vocabulary = self.count_vectorizer.vocabulary_
 
+    # @profile
     def _prepare_single_table(self, path):
         with open(path, "r") as fp:
             mdata_dict = json.load(fp)
@@ -802,7 +801,8 @@ class ReverseIndex:
         ds_hash = mdata_dict["hash"]
         res = []
         for col in table.select(cs.string()).columns:
-            values = self.sep.join([_ for _ in table[col].to_list() if _ is not None])
+            # values = self.sep.join(_ for _ in table[col] if _ is not None)
+            values = self.sep.join(_ for _ in table[col].unique() if _ is not None)
             values += self.sep
             key = f"{ds_hash}__{col}"
             res.append((key, values))
@@ -812,8 +812,10 @@ class ReverseIndex:
         s = self.sep.join(list_values) + self.sep
         return [s]
 
+    @profile
     def _build_count_matrix(self):
         total = sum(1 for _ in self.data_dir.glob("*.json"))
+        # glb = list(self.data_dir.glob("*.json"))[:1000]
         partial_result = Parallel(n_jobs=self.n_jobs, verbose=0)(
             delayed(self._prepare_single_table)(pth)
             for pth in tqdm(self.data_dir.glob("*.json"), total=total)
@@ -845,14 +847,14 @@ class ReverseIndex:
         ]
 
         qm = self.count_matrix[:, key_pos]
+        # qm = qm.cast
         a = np.array(qm.sum(axis=1)) / len(q_)
         ranking = pl.from_dict(
             {"key": self.keys.squeeze(), "containment": a.squeeze()},
             schema=["key", "containment"],
         )
         ranking = (
-            ranking.filter(pl.col("containment") > 0)
-            .with_columns(
+            ranking.with_columns(
                 pl.col("key")
                 .str.split("__")
                 .list.to_struct()
@@ -864,7 +866,7 @@ class ReverseIndex:
 
         if top_k == -1:
             return ranking.rows()
-        return ranking[:top_k].rows()
+        return ranking.filter(pl.col("containment") > 0)[:top_k].rows()
 
     def save_index(self, output_dir):
         path_mdata = Path(

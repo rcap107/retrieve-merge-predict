@@ -304,7 +304,7 @@ class QueryResult:
         rerank: bool,
     ) -> None:
         self.index_name = index.index_name
-        if self.index_name == "exact_matching":
+        if self.index_name in ["exact_matching", "inverse_index"]:
             rerank = False
         if rerank:
             self.index_name += "_hybrid"

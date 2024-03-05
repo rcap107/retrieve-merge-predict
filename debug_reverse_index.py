@@ -1,13 +1,13 @@
 #%%
 import polars as pl
 
-from src.data_structures.retrieval_methods import ReverseIndex
+from src.data_structures.retrieval_methods import InverseIndex
 
 config = {
     "metadata_dir": "data/metadata/binary_update",
     "file_path": None,
 }
-ri = ReverseIndex(**config)
+ri = InverseIndex(**config)
 
 base_table = pl.read_parquet(
     "data/source_tables/yadl/us_elections-yadl-depleted.parquet"
@@ -21,7 +21,7 @@ ri.save_index("data/metadata/_indices/binary_update")
 
 print(query_result)
 
-ri = ReverseIndex(file_path="data/metadata/_indices/binary_update/reverse_index.pickle")
+ri = InverseIndex(file_path="data/metadata/_indices/binary_update/reverse_index.pickle")
 base_table = pl.read_parquet(
     "data/source_tables/yadl/us_elections-yadl-depleted.parquet"
 )
