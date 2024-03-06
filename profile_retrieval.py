@@ -10,7 +10,7 @@ from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import QueryResult, RawDataset
 from src.data_structures.retrieval_methods import (
     ExactMatchingIndex,
-    InverseIndex,
+    InvertedIndex,
     MinHashIndex,
 )
 from src.utils.indexing import get_metadata_index, load_index, query_index
@@ -43,8 +43,8 @@ def wrapper_query_index(queries, index_path, index_name, data_lake_version, rera
     start = dt.datetime.now()
     if index_name.startswith("minhash"):
         this_index = MinHashIndex(index_file=index_path)
-    elif index_name == "inverse_index":
-        this_index = InverseIndex(file_path=index_path)
+    elif index_name == "inverted_index":
+        this_index = InvertedIndex(file_path=index_path)
     end = dt.datetime.now()
     time_load += (end - start).total_seconds()
 
@@ -142,11 +142,11 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_logger.durations["time_load"] = time_load
         index_logger.durations["time_query"] = time_query
 
-    elif index_name == "inverse_index":
+    elif index_name == "inverted_index":
         index_logger.start_time("create")
         mem_usage, this_index = memory_usage(
             (
-                InverseIndex,
+                InvertedIndex,
                 [],
                 index_config,
             ),
@@ -156,11 +156,11 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         )
         index_logger.end_time("create")
         index_logger.mark_memory(mem_usage, label="create")
-        index_logger.start_time("save")
-        index_path = this_index.save_index(index_dir)
-        index_logger.end_time("save")
+        # index_logger.start_time("save")
+        # index_path = this_index.save_index(index_dir)
+        # index_logger.end_time("save")
 
-        index_path = "/home/soda/rcappuzz/work/benchmark-join-suggestions/data/metadata/_indices/profiling/wordnet_full/inverse_index.pickle"
+        index_path = f"/home/soda/rcappuzz/work/benchmark-join-suggestions/data/metadata/_indices/profiling/{data_lake_version}/inverted_index.pickle"
 
         mem_usage, (time_load, time_query) = memory_usage(
             (
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     os.makedirs("data/metadata/_indices/profiling", exist_ok=True)
     os.makedirs("results/profiling/retrieval", exist_ok=True)
 
-    data_lake_version = "wordnet_full"
+    data_lake_version = "binary_update"
 
     base_table_root = "data/source_tables/yadl/"
 
@@ -213,23 +213,23 @@ if __name__ == "__main__":
     ]
 
     # Minhash
-    method_config = {
-        "metadata_dir": [f"data/metadata/{data_lake_version}"],
-        "n_jobs": [16],
-        # "thresholds": [60],
-        "thresholds": [20, 60, 80],
-        "no_tag": [False],
-        "rerank": [True],
-    }
-    cases = ParameterGrid(method_config)
-    for config in cases:
-        test_retrieval_method(data_lake_version, "minhash", queries, config)
-
-    # # Inverse index
     # method_config = {
     #     "metadata_dir": [f"data/metadata/{data_lake_version}"],
     #     "n_jobs": [16],
+    #     # "thresholds": [60],
+    #     "thresholds": [20, 60, 80],
+    #     "no_tag": [False],
+    #     "rerank": [True],
     # }
     # cases = ParameterGrid(method_config)
     # for config in cases:
-    #     test_retrieval_method(data_lake_version, "inverse_index", queries, config)
+    #     test_retrieval_method(data_lake_version, "minhash", queries, config)
+
+    # Inverted index
+    method_config = {
+        "metadata_dir": [f"data/metadata/{data_lake_version}"],
+        "n_jobs": [16],
+    }
+    cases = ParameterGrid(method_config)
+    for config in cases:
+        test_retrieval_method(data_lake_version, "inverted_index", queries, config)

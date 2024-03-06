@@ -906,7 +906,7 @@ class InverseIndexOld:
         return path_mdata
 
 
-class InverseIndex:
+class InvertedIndex:
     def __init__(
         self,
         metadata_dir: str | Path = None,
@@ -914,7 +914,7 @@ class InverseIndex:
         binary: bool = True,
         n_jobs: int = 1,
     ) -> None:
-        self.index_name = "inverse_index"
+        self.index_name = "inverted_index"
         if file_path is not None:
             if Path(file_path).exists():
                 with open(file_path, "rb") as fp:
@@ -932,8 +932,9 @@ class InverseIndex:
             self.binary = binary
 
             self.schema_mapping = self._prepare_schema_mapping()
+            self.key_mapping = None
 
-            self.vocab, self.keys, self.mat = self._prepare_data_structures()
+            self.keys, self.mat = self._prepare_data_structures()
 
     def _prepare_matrix(self, path: Path, col_keys: dict):
         with open(path, "r") as fp:
@@ -952,6 +953,7 @@ class InverseIndex:
 
         for col, key in col_keys.items():
             if not self.binary:
+                raise NotImplementedError
                 values, counts = table[col].drop_nulls().value_counts()
             else:
                 values = table[col].drop_nulls().unique()
@@ -966,15 +968,17 @@ class InverseIndex:
             i_arr.append(i)
             j_arr.append(j)
 
+        # TODO: maybe this can be optimized?
         return (
             col_keys,
             (np.concatenate(data), (np.concatenate(i_arr), np.concatenate(j_arr))),
         )
 
-    @profile
+    # @profile
     def _prepare_schema_mapping(self):
         schema_mapping = {}
         tot_col = 0
+        print("Preparing schema mapping")
         for idx, p in enumerate(self.data_dir.glob("**/*.json")):
             with open(p, "r") as fp:
                 mdata_dict = json.load(fp)
@@ -989,55 +993,49 @@ class InverseIndex:
 
         return schema_mapping
 
-    @profile
+    # @profile
     def _prepare_data_structures(self):
-        result = []
-        for p in self.data_dir.glob("**/*.json"):
-            r = self._prepare_matrix(p, self.schema_mapping[p])
-            if r is not None:
-                result.append(r)
-
-            # r = Parallel(n_jobs=self.n_jobs, verbose=0)(
-            #     delayed(self._prepare_single_table)(
-            #         fpath,
-            #     )
-            #     for fpath in tqdm(
-            #         mdata_path.glob("*.json"),
-            #         position=0,
-            #         leave=False,
-            #         total=sum(1 for _ in mdata_path.glob("*.json")),
-            #     )
-            # )
+        r = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            delayed(self._prepare_matrix)(fpath, self.schema_mapping[fpath])
+            for fpath in tqdm(
+                self.data_dir.glob("**/*.json"),
+                position=0,
+                leave=False,
+                total=sum(1 for _ in self.data_dir.glob("**/*.json")),
+            )
+        )
+        result = list(filter(lambda x: x is not None, r))
 
         result = list(zip(*result))
         keys = {v: k for d in self.schema_mapping.values() for k, v in d.items()}
+
         mats = result[1]
-        new_data = np.concatenate([m[0] for m in mats])
-        new_coord = np.concatenate([m[1] for m in mats], axis=1)
-        i = new_coord[0, :]
-        j = new_coord[1, :]
-        self.mapping = {k: idx for idx, k in enumerate(i)}
-        i = [self.mapping[_] for _ in i]
+        print("concatenating data")
+        data = np.concatenate([m[0] for m in mats])
+        print("concatenating coordinates")
+        coordinates = np.concatenate([m[1] for m in mats], axis=1)
+        i = coordinates[0, :]
+        j = coordinates[1, :]
+        # Creating a mapping between the hash and the index to reduce the memory footprint
+        self.key_mapping = {k: idx for idx, k in enumerate(i)}
+        i = [self.key_mapping[_] for _ in i]
 
-        mat = csc_array((new_data, (i, j)), dtype=np.uint32)
-        # coo = coo_array(
-        #     (new_data, (new_coord[0, :], new_coord[1, :])), dtype=np.uint32
-        # )
-        # vocab = np.unique(coo.row)
-        vocab = set(new_coord[0, :])
-        # vocab = set(coo.row)
-        # mat = coo.tocsc()
-        # del coo
+        # Creating a csc matrix by concatenating the data entries
+        print("Building csr array")
+        mat = csr_array((data, (i, j)), dtype=np.uint32)
 
-        return vocab, keys, mat
+        return keys, mat
 
-    @profile
+    # @profile
     def query_index(self, query: list, top_k: int = 200):
-        q_in = [self.mapping.get(murmurhash3_32(_, positive=True), None) for _ in query]
+        dedup_query = set(query)
+        q_in = [
+            self.key_mapping.get(murmurhash3_32(_, positive=True), None)
+            for _ in dedup_query
+        ]
         q_in = set(filter(lambda x: x is not None, q_in))
-        intersection = list(self.vocab.intersection(set(q_in)))
-        r = np.array(self.mat[intersection].sum(axis=0)).squeeze()
-        r = r / len(intersection)
+        r = np.array(self.mat[list(q_in)].sum(axis=0)).squeeze()
+        r = r / len(dedup_query)
         res = [(self.keys[_], r[_]) for _ in np.flatnonzero(r)]
         df_r = pl.from_records(res, schema=["candidate", "similarity_score"])
         if top_k == -1:
