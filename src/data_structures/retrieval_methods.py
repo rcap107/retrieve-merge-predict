@@ -10,11 +10,22 @@ from datasketch import LeanMinHash, MinHash, MinHashLSHEnsemble
 from joblib import Parallel, delayed, dump, load
 from lazo_index_service.errors import LazoError
 from memory_profiler import profile
-from scipy.sparse import load_npz, save_npz
+from scipy.sparse import (
+    coo_array,
+    coo_matrix,
+    csc_array,
+    csr_array,
+    hstack,
+    load_npz,
+    save_npz,
+    vstack,
+)
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.utils import murmurhash3_32
 from tqdm import tqdm
 
 LAZO_MESSAGE_SIZE_LIMIT = 4194304
+MAX_SIZE = np.iinfo(np.uint32).max
 
 
 class BaseIndex:
@@ -757,7 +768,7 @@ class ExactMatchingIndex:
             dump(dd, fp, compress=True)
 
 
-class InverseIndex:
+class InverseIndexOld:
     def __init__(
         self, metadata_dir=None, file_path=None, n_jobs=1, dtype: np.dtype = np.uint16
     ) -> None:
@@ -893,3 +904,274 @@ class InverseIndex:
             dump(dd, fp, compress=True)
 
         return path_mdata
+
+
+class InverseIndex:
+    def __init__(
+        self,
+        metadata_dir: str | Path = None,
+        file_path: str | Path = None,
+        binary: bool = True,
+        n_jobs: int = 1,
+    ) -> None:
+        self.index_name = "inverse_index"
+        if file_path is not None:
+            if Path(file_path).exists():
+                with open(file_path, "rb") as fp:
+                    raise NotImplementedError
+            else:
+                raise FileNotFoundError
+        else:
+            if metadata_dir is None:
+                raise ValueError
+            if not Path(metadata_dir).exists():
+                raise FileNotFoundError
+
+            self.data_dir = Path(metadata_dir)
+            self.n_jobs = n_jobs
+            self.binary = binary
+
+            self.schema_mapping = self._prepare_schema_mapping()
+
+            self.vocab, self.keys, self.mat = self._prepare_data_structures()
+
+    def _prepare_matrix(self, path: Path, col_keys: dict):
+        with open(path, "r") as fp:
+            mdata_dict = json.load(fp)
+        table_path = mdata_dict["full_path"]
+        # Selecting only string columns
+        table = pl.read_parquet(table_path)
+        if len(table) == 0:
+            return None
+        ds_hash = mdata_dict["hash"]
+        table.columns = [f"{ds_hash}__{k}" for k in table.columns]
+
+        data = []
+        i_arr = []
+        j_arr = []
+
+        for col, key in col_keys.items():
+            if not self.binary:
+                values, counts = table[col].drop_nulls().value_counts()
+            else:
+                values = table[col].drop_nulls().unique()
+                counts = np.ones_like(values, dtype=np.uint8)
+            i = np.array(
+                [murmurhash3_32(val, positive=True) for val in values], dtype=np.uint32
+            )
+
+            j = key * np.ones_like(i, dtype=np.uint32)
+
+            data.append(counts)
+            i_arr.append(i)
+            j_arr.append(j)
+
+        return (
+            col_keys,
+            (np.concatenate(data), (np.concatenate(i_arr), np.concatenate(j_arr))),
+        )
+
+    @profile
+    def _prepare_schema_mapping(self):
+        schema_mapping = {}
+        tot_col = 0
+        for idx, p in enumerate(self.data_dir.glob("**/*.json")):
+            with open(p, "r") as fp:
+                mdata_dict = json.load(fp)
+            table_path = mdata_dict["full_path"]
+            ds_hash = mdata_dict["hash"]
+            schema = pl.read_parquet_schema(table_path)
+            schema = {f"{ds_hash}__{k}": v for k, v in schema.items() if v == pl.String}
+            schema_mapping[p] = dict(
+                zip(schema.keys(), range(tot_col, tot_col + len(schema.keys())))
+            )
+            tot_col += len(schema)
+
+        return schema_mapping
+
+    @profile
+    def _prepare_data_structures(self):
+        result = []
+        for p in self.data_dir.glob("**/*.json"):
+            r = self._prepare_matrix(p, self.schema_mapping[p])
+            if r is not None:
+                result.append(r)
+
+            # r = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            #     delayed(self._prepare_single_table)(
+            #         fpath,
+            #     )
+            #     for fpath in tqdm(
+            #         mdata_path.glob("*.json"),
+            #         position=0,
+            #         leave=False,
+            #         total=sum(1 for _ in mdata_path.glob("*.json")),
+            #     )
+            # )
+
+        result = list(zip(*result))
+        keys = {v: k for d in self.schema_mapping.values() for k, v in d.items()}
+        mats = result[1]
+        new_data = np.concatenate([m[0] for m in mats])
+        new_coord = np.concatenate([m[1] for m in mats], axis=1)
+        i = new_coord[0, :]
+        j = new_coord[1, :]
+        self.mapping = {k: idx for idx, k in enumerate(i)}
+        i = [self.mapping[_] for _ in i]
+
+        mat = csc_array((new_data, (i, j)), dtype=np.uint32)
+        # coo = coo_array(
+        #     (new_data, (new_coord[0, :], new_coord[1, :])), dtype=np.uint32
+        # )
+        # vocab = np.unique(coo.row)
+        vocab = set(new_coord[0, :])
+        # vocab = set(coo.row)
+        # mat = coo.tocsc()
+        # del coo
+
+        return vocab, keys, mat
+
+    @profile
+    def query_index(self, query: list, top_k: int = 200):
+        q_in = [self.mapping.get(murmurhash3_32(_, positive=True), None) for _ in query]
+        q_in = set(filter(lambda x: x is not None, q_in))
+        intersection = list(self.vocab.intersection(set(q_in)))
+        r = np.array(self.mat[intersection].sum(axis=0)).squeeze()
+        r = r / len(intersection)
+        res = [(self.keys[_], r[_]) for _ in np.flatnonzero(r)]
+        df_r = pl.from_records(res, schema=["candidate", "similarity_score"])
+        if top_k == -1:
+            return df_r.sort("similarity_score", descending=True)
+        else:
+            return df_r.top_k(by="similarity_score", k=top_k)
+
+
+class InverseIndex2:
+    def __init__(
+        self,
+        metadata_dir: str | Path = None,
+        file_path: str | Path = None,
+        binary: bool = True,
+        n_jobs: int = 1,
+    ) -> None:
+        self.index_name = "inverse_index"
+        if file_path is not None:
+            if Path(file_path).exists():
+                with open(file_path, "rb") as fp:
+                    raise NotImplementedError
+            else:
+                raise FileNotFoundError
+        else:
+            if metadata_dir is None:
+                raise ValueError
+            if not Path(metadata_dir).exists():
+                raise FileNotFoundError
+
+            self.data_dir = Path(metadata_dir)
+            self.n_jobs = n_jobs
+            self.binary = binary
+
+            self.schema_mapping = self._prepare_schema_mapping()
+
+            # self.vocab,
+            self.keys, self.mat = self._prepare_data_structures()
+
+    # @profile
+    def _prepare_matrix(self, path: Path, col_keys: dict):
+        with open(path, "r") as fp:
+            mdata_dict = json.load(fp)
+        table_path = mdata_dict["full_path"]
+        # Selecting only string columns
+        table = pl.read_parquet(table_path)
+        if len(table) == 0:
+            return None
+        ds_hash = mdata_dict["hash"]
+        table.columns = [f"{ds_hash}__{k}" for k in table.columns]
+
+        data = []
+        i_arr = []
+        j_arr = []
+
+        for idx, (col, key) in enumerate(col_keys.items()):
+            if not self.binary:
+                values, counts = table[col].drop_nulls().value_counts()
+            else:
+                values = table[col].drop_nulls().unique()
+                counts = np.ones_like(values, dtype=np.uint8)
+            i = np.array(
+                [murmurhash3_32(val, positive=True) for val in values], dtype=np.uuint32
+            )
+
+            j = idx * np.ones_like(i, dtype=np.uuint32)
+
+            data.append(counts)
+            i_arr.append(i)
+            j_arr.append(j)
+
+        m = coo_array(
+            (np.concatenate(data), (np.concatenate(i_arr), np.concatenate(j_arr))),
+            shape=(MAX_SIZE, len(col_keys)),
+        )
+
+        print(m.getnnz())
+
+        return (col_keys, m)
+
+    @profile
+    def _prepare_schema_mapping(self):
+        schema_mapping = {}
+        tot_col = 0
+        for idx, p in enumerate(self.data_dir.glob("**/*.json")):
+            with open(p, "r") as fp:
+                mdata_dict = json.load(fp)
+            table_path = mdata_dict["full_path"]
+            ds_hash = mdata_dict["hash"]
+            table = pl.read_parquet(table_path)
+            if len(table) == 0:
+                continue
+            schema = table.schema
+
+            # schema = pl.read_parquet_schema(table_path)
+            schema = {f"{ds_hash}__{k}": v for k, v in schema.items() if v == pl.String}
+            schema_mapping[p] = dict(
+                zip(schema.keys(), range(tot_col, tot_col + len(schema.keys())))
+            )
+            tot_col += len(schema)
+
+        return schema_mapping
+
+    @profile
+    def _prepare_data_structures(self):
+        result = []
+        for p in self.data_dir.glob("**/*.json"):
+            if p not in self.schema_mapping:
+                continue
+            r = self._prepare_matrix(p, self.schema_mapping[p])
+            if r is not None:
+                result.append(r)
+        result = list(zip(*result))
+        keys = {v: k for d in self.schema_mapping.values() for k, v in d.items()}
+        mats = result[1]
+
+        # mat = hstack(mats, dtype=np.uuint32).tocsr()
+        mat = hstack(mats, dtype=np.uuint32)
+        # raise NotImplementedError
+        mat = mat.tocsc()
+        print(mat.shape)
+        print(mat.getnnz())
+
+        return keys, mat
+        # return vocab, keys, mat
+
+    @profile
+    def query_index(self, query: list, top_k: int = 200):
+        q_in = [murmurhash3_32(_, positive=True) for _ in query]
+        intersection = list(self.vocab.intersection(set(q_in)))
+        r = np.array(self.mat[intersection].sum(axis=0)).squeeze()
+        r = r / len(intersection)
+        res = [(self.keys[_], r[_]) for _ in np.flatnonzero(r)]
+        df_r = pl.from_records(res, schema=["candidate", "similarity_score"])
+        if top_k == -1:
+            return df_r.sort("similarity_score", descending=True)
+        else:
+            return df_r.top_k(by="similarity_score", k=top_k)
