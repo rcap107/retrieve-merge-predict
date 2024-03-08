@@ -364,19 +364,19 @@ def aggregate_table(
     return aggr_table
 
 
-def aggregate_mean(target_table, target_columns):
+def aggregate_mean(target_table, aggr_columns):
     """Deduplicate all values in `target_table` that are in columns other than
-    `target_columns`. Values typed as strings are replaced by the mode of each
+    `aggr_columns`. Values typed as strings are replaced by the mode of each
     group; values typed as numbers are replaced by the mean.
 
     Args:
         target_table (pl.DataFrame): Table to deduplicate.
-        target_columns (list): List of columns to group by when deduplicating.
+        aggr_columns (list): List of columns to group by when deduplicating.
 
     Returns:
         pl.DataFrame: Deduplicated dataframe.
     """
-    df_dedup = target_table.groupby(target_columns).agg(
+    df_dedup = target_table.groupby(aggr_columns).agg(
         cs.string().mode().sort(descending=True).first(), cs.numeric().mean()
     )
     return df_dedup
@@ -384,11 +384,11 @@ def aggregate_mean(target_table, target_columns):
 
 def aggregate_first(target_table: pl.DataFrame, aggr_columns):
     """Deduplicate all values in `target_table` that are in columns other than
-    `target_columns`. For all duplicated rows, keep only the first occurrence.
+    `aggr_columns`. For all duplicated rows, keep only the first occurrence.
 
     Args:
         target_table (pl.DataFrame): Table to deduplicate.
-        target_columns (list): List of columns to group by when deduplicating.
+        aggr_columns (list): List of columns to group by when deduplicating.
 
     Returns:
         pl.DataFrame: Deduplicated dataframe.
