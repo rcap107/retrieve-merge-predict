@@ -317,6 +317,7 @@ def test_group_stats(
         enumerate(query_result.candidates.items()),
         total=len(query_result.candidates),
         position=2,
+        desc="Candidate: ",
     ):
         _, cnd_md, left_on, right_on = cand.get_join_information()
         this_cand = pl.read_parquet(cnd_md["full_path"])
@@ -326,6 +327,7 @@ def test_group_stats(
 
         dict_stats = {
             col: {
+                "data_lake_version": data_lake_version,
                 "table_name": table_name,
                 "cand_hash": cnd_md["hash"],
                 "cand_table": cnd_md["df_name"],
@@ -339,7 +341,9 @@ def test_group_stats(
             for col in cat_cols
         }
 
-        for col in tqdm(cat_cols, total=len(cat_cols), position=1, leave=False):
+        for col in tqdm(
+            cat_cols, total=len(cat_cols), position=1, leave=False, desc="Column: "
+        ):
             if col in right_on:
                 continue
             subtable = cand_table.select(right_on + [col])
@@ -350,50 +354,51 @@ def test_group_stats(
                 "unique": [],
                 "grp_size": [],
             }
+            n_gr = subtable.select(pl.col(right_on).n_unique()).item()
             for gidx, group in tqdm(
                 subtable.group_by(right_on),
                 position=0,
-                total=len(cand_table),
+                total=n_gr,
                 leave=False,
+                desc="Group: ",
             ):
-                _stats = (
-                    group.lazy()
-                    .with_columns(
-                        pl.col(col).null_count().alias("nulls"),
-                    )
-                    .fill_null(f"null_{gidx[0]}")
-                    .with_columns(
-                        pl.col(col).mode().first().alias("mode"),
-                        pl.col(col).first().alias("first"),
-                        (
-                            pl.col(col)
-                            .value_counts(sort=True)
-                            .struct.rename_fields(["val", "count"])
-                            .struct.field("count")
-                            / len(group)
-                        ).alias("in_mode"),
-                        pl.col(col).n_unique().alias("unique"),
-                        pl.lit(len(group)).alias("grp_size"),
-                    )
-                    .with_columns(
-                        (pl.col("mode") == pl.col("first")).alias("equal_aggr")
-                    )
-                    .select(["in_mode", "unique", "nulls", "equal_aggr", "grp_size"])
-                    .collect()
-                    .to_dict(as_series=False)
-                )
-                for key in this_col_stats:
-                    this_col_stats[key] += _stats[key]
+                _stats = {}
+                _stats["nulls"] = group.select(pl.col(col).null_count()).item()
+                group = group.fill_null(f"null_{gidx[0]}")
+                _eq = group.select(
+                    pl.col(col).mode().first().alias("mode")
+                    == pl.col(col).first().alias("first")
+                ).item()
+                _stats["equal_aggr"] = _eq
+                _stats["in_mode"] = group.select(
+                    pl.col(col)
+                    .value_counts(sort=True)
+                    .struct.rename_fields(["val", "count"])
+                    .struct.field("count")
+                    .first()
+                    / len(group)
+                ).item()
+                _stats["unique"] = group.select(
+                    pl.col(col).n_unique().alias("unique")
+                ).item()
+                _stats["grp_size"] = len(group)
+
+                for key, val in this_col_stats.items():
+                    val.append(_stats[key])
+
+                # for key in this_col_stats:
+                #     this_col_stats[key].append(_stats[key])
             dict_stats[col].update(
                 {key: np.mean(value) for key, value in this_col_stats.items()}
             )
         list_stats += list(dict_stats.values())
-    print(f"{data_lake_version} {table_name} {top_k} {total_time:.2f}")
+
     return list_stats
 
 
 if __name__ == "__main__":
-    data_lake_version = "wordnet_full"
+    data_lake_version = "binary_update"
+    print("Data lake: ", data_lake_version)
     query_column = "col_to_embed"
     top_k = 0
     index_names = [
@@ -406,33 +411,37 @@ if __name__ == "__main__":
     mode = "group_stats"
 
     version = "yadl"  # or open_data_us
+    # version = "yadl"  # or open_data_us
     base_path = Path(f"data/source_tables/{version}")
 
-    queries = [
-        ("company_employees", "col_to_embed"),
-        ("housing_prices", "col_to_embed"),
-        ("us_elections", "col_to_embed"),
-        ("movies", "col_to_embed"),
-        # ("movies_vote", "col_to_embed"),
-        ("us_accidents", "col_to_embed"),
-    ]
-    # queries = [
-    #     ("company_employees", "name"),
-    #     ("housing_prices", "County"),
-    #     ("us_elections", "county_name"),
-    #     ("movies", "title"),
-    #     ("movies_vote", "title"),
-    #     ("us_accidents", "County"),
-    #     ("schools", "col_to_embed"),
-    # ]
+    queries = {
+        "open_data_us": [
+            ("company_employees", "name"),
+            ("housing_prices", "County"),
+            ("us_elections", "county_name"),
+            ("movies", "title"),
+            ("us_accidents", "County"),
+            ("schools", "col_to_embed"),
+        ],
+        "yadl": [
+            ("company_employees", "col_to_embed"),
+            ("housing_prices", "col_to_embed"),
+            ("us_elections", "col_to_embed"),
+            ("movies", "col_to_embed"),
+            # ("movies_vote", "col_to_embed"),
+            ("us_accidents", "col_to_embed"),
+        ],
+    }
 
-    for query in queries:
+    for query in queries[version]:
         for iname in index_names:
             print(iname)
-            for k in [5]:
+            for k in [30]:
                 aggr = "first"
                 tab, query_column = query
-                table_name = f"{tab}-yadl"
+                # table_name = f"{tab}-open_data"
+                table_name = f"{tab}-yadl-depleted"
+                print(f"{data_lake_version} {table_name}")
                 # for aggr in ["first", "mean"]:
                 base_table = pl.read_parquet(
                     Path(f"data/source_tables/{version}/{table_name}.parquet")
