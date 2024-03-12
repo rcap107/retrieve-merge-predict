@@ -155,8 +155,11 @@ def execute_join_with_aggregation(
             raise ValueError(
                 "If `on` is provided, `left_on` and `right_on` should be left as None."
             )
-    if aggregation == "dfs":
 
+    # TODO: this will probably break when right_on contains more than one column, but I don't care for now
+    right_table = right_table.filter(pl.col(right_on).is_in(left_table[left_on]))
+
+    if aggregation == "dfs":
         merged = prepare_dfs_table(
             left_table,
             right_table,
