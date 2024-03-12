@@ -83,32 +83,3 @@ def measure_containment_new(unique_base_table, candidate_table: pl.DataFrame, ri
     ) / len(unique_base_table)
     # b = candidate_table.select(pl.col(right_on).unique()).to_series().implode()
     # return len(unique_base_table.implode().list.set_intersection(b).explode())/len(unique_base_table)
-
-
-# # %%
-# left_on = ["col_to_embed"]
-# right_on = ["subject"]
-
-# # %%
-# %%timeit -n 10 -r 10
-# unique_base_table = set(
-#                 base_table["col_to_embed"].unique().to_list()
-#             )
-# measure_containment(unique_base_table, cd, right_on)
-
-# # %%
-# %%timeit -n 10 -r 10
-# unique_base_table = base_table["col_to_embed"].unique()
-# measure_containment_new(unique_base_table, cd, right_on)
-
-# # %%
-# %%timeit -n 10 -r 10
-# unique_base_table = base_table["col_to_embed"].unique()
-# measure_containment_new(unique_base_table, cd, right_on)
-
-# # %%
-# a = base_table.select(pl.col(left_on).unique()).to_series()
-# b = cd.select(pl.col(right_on).unique()).to_series()
-
-# # %%
-# len(a.implode().list.set_intersection(b.implode()).explode())/len(a)

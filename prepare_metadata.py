@@ -19,8 +19,7 @@ def parse_args():
         help="If provided, do not proceed recursively and only consider parquet files found in the main folder.",
     )
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def prepare_metadata_from_case(data_folder, flat=False):

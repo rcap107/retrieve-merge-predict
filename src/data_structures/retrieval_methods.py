@@ -261,6 +261,14 @@ class MinHashIndex:
             dump(self.ensembles, fp)
 
     def save_index(self, output_dir: str | Path):
+        """Persist the index on disk in the given `output_dir`.
+
+        Args:
+            output_dir (str | Path): Path where the index will be saved.
+
+        Returns:
+            Path: Destination path of the saved index.
+        """
         if self.no_tag:
             index_name = "minhash_index"
         else:
@@ -678,22 +686,12 @@ class ExactMatchingIndex:
 
         return unique_keys
 
-    # TODO: uncomment to use the better method
-    # def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
-    #     return len(
-    #         self.unique_base_table
-    #         .list.set_intersection(
-    #             candidate_table.select(pl.col(right_on).unique()).to_series().implode()
-    #         )
-    #         .explode()
-    #     ) / len(self.unique_base_table)
-
     def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
-        unique_cand = self.find_unique_keys(candidate_table, right_on)
-
-        s1 = self.unique_base_table
-        s2 = set(unique_cand[right_on].to_series().to_list())
-        return len(s1.intersection(s2)) / len(s1)
+        return len(
+            self.unique_base_table.list.set_intersection(
+                candidate_table.select(pl.col(right_on).unique()).to_series().implode()
+            ).explode()
+        ) / len(self.unique_base_table)
 
     def _prepare_single_table(self, fpath):
         overlap_dict = {}
@@ -768,144 +766,6 @@ class ExactMatchingIndex:
             dump(dd, fp, compress=True)
 
 
-class InverseIndexOld:
-    def __init__(
-        self, metadata_dir=None, file_path=None, n_jobs=1, dtype: np.dtype = np.uint16
-    ) -> None:
-        self.index_name = "inverse_index"
-        self.sep = "|" * 3
-        if file_path is not None:
-            if Path(file_path).exists():
-                with open(file_path, "rb") as fp:
-                    mdata = load(fp)
-                    self.data_dir = mdata["data_dir"]
-                    self.keys = mdata["keys"]
-                    self.n_jobs = 0
-                    self.count_matrix = self._load_count_matrix(
-                        mdata["path_count_matrix"]
-                    )
-                    self.vocabulary = mdata["vocabulary"]
-                    # self.count_vectorizer = mdata["count_vectorizer"]
-                # self.count_vectorizer = None
-            else:
-                raise FileNotFoundError
-        else:
-            if metadata_dir is None:
-                raise ValueError
-            if not Path(metadata_dir).exists():
-                raise FileNotFoundError
-
-            self.data_dir = Path(metadata_dir)
-            self.count_vectorizer = CountVectorizer(
-                token_pattern=r"(?u)([^|]*)[|]{3}", binary=True, dtype=dtype
-            )
-            self.n_jobs = n_jobs
-            self.count_matrix, self.keys = self._build_count_matrix()
-            self.vocabulary = self.count_vectorizer.vocabulary_
-
-    # @profile
-    def _prepare_single_table(self, path):
-        with open(path, "r") as fp:
-            mdata_dict = json.load(fp)
-        table_path = mdata_dict["full_path"]
-        # Selecting only string columns
-        table = pl.read_parquet(table_path).select(cs.string())
-        ds_hash = mdata_dict["hash"]
-        res = []
-        for col in table.select(cs.string()).columns:
-            # values = self.sep.join(_ for _ in table[col] if _ is not None)
-            values = self.sep.join(_ for _ in table[col].unique() if _ is not None)
-            values += self.sep
-            key = f"{ds_hash}__{col}"
-            res.append((key, values))
-        return res
-
-    def _get_values(self, list_values):
-        s = self.sep.join(list_values) + self.sep
-        return [s]
-
-    @profile
-    def _build_count_matrix(self):
-        total = sum(1 for _ in self.data_dir.glob("*.json"))
-        # glb = list(self.data_dir.glob("*.json"))[:1000]
-        partial_result = Parallel(n_jobs=self.n_jobs, verbose=0)(
-            delayed(self._prepare_single_table)(pth)
-            for pth in tqdm(self.data_dir.glob("*.json"), total=total)
-        )
-        result = [
-            col_tup for table_result in partial_result for col_tup in table_result
-        ]
-        keys = np.array([_[0] for _ in result])
-        print("fitting")
-        count_matrix = self.count_vectorizer.fit_transform(
-            col_tup[1] for col_tup in result
-        )
-        return count_matrix, keys
-
-    def _load_count_matrix(self, path_matrix):
-        if Path(path_matrix).exists():
-            mat = load_npz(path_matrix)
-            return mat
-
-        raise FileNotFoundError
-
-    def _save_count_matrix(self, path_matrix):
-        save_npz(path_matrix, self.count_matrix)
-
-    def query_index(self, query: list, top_k=200):
-        q_ = set(_.lower() for _ in query)
-        key_pos = [
-            self.vocabulary.get(_) for _ in q_ if self.vocabulary.get(_) is not None
-        ]
-
-        qm = self.count_matrix[:, key_pos]
-        # qm = qm.cast
-        a = np.array(qm.sum(axis=1)) / len(q_)
-        ranking = pl.from_dict(
-            {"key": self.keys.squeeze(), "containment": a.squeeze()},
-            schema=["key", "containment"],
-        )
-        ranking = (
-            ranking.with_columns(
-                pl.col("key")
-                .str.split("__")
-                .list.to_struct()
-                .struct.rename_fields(["hash", "col"])
-            )
-            .unnest("key")
-            .sort("containment", descending=True)
-        )
-
-        if top_k == -1:
-            return ranking.rows()
-        return ranking.filter(pl.col("containment") > 0)[:top_k].rows()
-
-    def save_index(self, output_dir):
-        path_mdata = Path(
-            output_dir,
-            "reverse_index.pickle",
-        )
-        self.count_vectorizer.stop_words_ = None
-        path_matrix = Path(
-            output_dir,
-            "count_matrix.npz",
-        )
-        self._save_count_matrix(path_matrix)
-
-        dd = {
-            "index_name": self.index_name,
-            "data_dir": self.data_dir,
-            "keys": self.keys,
-            # "count_matrix": self.count_matrix,
-            "path_count_matrix": path_matrix,
-            "vocabulary": self.vocabulary,
-        }
-        with open(path_mdata, "wb") as fp:
-            dump(dd, fp, compress=True)
-
-        return path_mdata
-
-
 class InvertedIndex:
     def __init__(
         self,
@@ -958,6 +818,8 @@ class InvertedIndex:
             else:
                 values = table[col].drop_nulls().unique()
                 counts = np.ones_like(values, dtype=np.uint8)
+
+            # TODO: maybe I can keep this as a list and concatenate to lists
             i = np.array(
                 [murmurhash3_32(val, positive=True) for val in values], dtype=np.uint32
             )
@@ -974,7 +836,6 @@ class InvertedIndex:
             (np.concatenate(data), (np.concatenate(i_arr), np.concatenate(j_arr))),
         )
 
-    # @profile
     def _prepare_schema_mapping(self):
         schema_mapping = {}
         tot_col = 0
@@ -993,7 +854,6 @@ class InvertedIndex:
 
         return schema_mapping
 
-    # @profile
     def _prepare_data_structures(self):
         r = Parallel(n_jobs=self.n_jobs, verbose=0)(
             delayed(self._prepare_matrix)(fpath, self.schema_mapping[fpath])
@@ -1026,7 +886,6 @@ class InvertedIndex:
 
         return keys, mat
 
-    # @profile
     def query_index(self, query: list, top_k: int = 200):
         dedup_query = set(query)
         q_in = [
@@ -1036,137 +895,6 @@ class InvertedIndex:
         q_in = set(filter(lambda x: x is not None, q_in))
         r = np.array(self.mat[list(q_in)].sum(axis=0)).squeeze()
         r = r / len(dedup_query)
-        res = [(self.keys[_], r[_]) for _ in np.flatnonzero(r)]
-        df_r = pl.from_records(res, schema=["candidate", "similarity_score"])
-        if top_k == -1:
-            return df_r.sort("similarity_score", descending=True)
-        else:
-            return df_r.top_k(by="similarity_score", k=top_k)
-
-
-class InverseIndex2:
-    def __init__(
-        self,
-        metadata_dir: str | Path = None,
-        file_path: str | Path = None,
-        binary: bool = True,
-        n_jobs: int = 1,
-    ) -> None:
-        self.index_name = "inverse_index"
-        if file_path is not None:
-            if Path(file_path).exists():
-                with open(file_path, "rb") as fp:
-                    raise NotImplementedError
-            else:
-                raise FileNotFoundError
-        else:
-            if metadata_dir is None:
-                raise ValueError
-            if not Path(metadata_dir).exists():
-                raise FileNotFoundError
-
-            self.data_dir = Path(metadata_dir)
-            self.n_jobs = n_jobs
-            self.binary = binary
-
-            self.schema_mapping = self._prepare_schema_mapping()
-
-            # self.vocab,
-            self.keys, self.mat = self._prepare_data_structures()
-
-    # @profile
-    def _prepare_matrix(self, path: Path, col_keys: dict):
-        with open(path, "r") as fp:
-            mdata_dict = json.load(fp)
-        table_path = mdata_dict["full_path"]
-        # Selecting only string columns
-        table = pl.read_parquet(table_path)
-        if len(table) == 0:
-            return None
-        ds_hash = mdata_dict["hash"]
-        table.columns = [f"{ds_hash}__{k}" for k in table.columns]
-
-        data = []
-        i_arr = []
-        j_arr = []
-
-        for idx, (col, key) in enumerate(col_keys.items()):
-            if not self.binary:
-                values, counts = table[col].drop_nulls().value_counts()
-            else:
-                values = table[col].drop_nulls().unique()
-                counts = np.ones_like(values, dtype=np.uint8)
-            i = np.array(
-                [murmurhash3_32(val, positive=True) for val in values], dtype=np.uuint32
-            )
-
-            j = idx * np.ones_like(i, dtype=np.uuint32)
-
-            data.append(counts)
-            i_arr.append(i)
-            j_arr.append(j)
-
-        m = coo_array(
-            (np.concatenate(data), (np.concatenate(i_arr), np.concatenate(j_arr))),
-            shape=(MAX_SIZE, len(col_keys)),
-        )
-
-        print(m.getnnz())
-
-        return (col_keys, m)
-
-    @profile
-    def _prepare_schema_mapping(self):
-        schema_mapping = {}
-        tot_col = 0
-        for idx, p in enumerate(self.data_dir.glob("**/*.json")):
-            with open(p, "r") as fp:
-                mdata_dict = json.load(fp)
-            table_path = mdata_dict["full_path"]
-            ds_hash = mdata_dict["hash"]
-            table = pl.read_parquet(table_path)
-            if len(table) == 0:
-                continue
-            schema = table.schema
-
-            # schema = pl.read_parquet_schema(table_path)
-            schema = {f"{ds_hash}__{k}": v for k, v in schema.items() if v == pl.String}
-            schema_mapping[p] = dict(
-                zip(schema.keys(), range(tot_col, tot_col + len(schema.keys())))
-            )
-            tot_col += len(schema)
-
-        return schema_mapping
-
-    @profile
-    def _prepare_data_structures(self):
-        result = []
-        for p in self.data_dir.glob("**/*.json"):
-            if p not in self.schema_mapping:
-                continue
-            r = self._prepare_matrix(p, self.schema_mapping[p])
-            if r is not None:
-                result.append(r)
-        result = list(zip(*result))
-        keys = {v: k for d in self.schema_mapping.values() for k, v in d.items()}
-        mats = result[1]
-
-        # mat = hstack(mats, dtype=np.uuint32).tocsr()
-        mat = hstack(mats, dtype=np.uuint32)
-        # raise NotImplementedError
-        mat = mat.tocsc()
-        print(mat.shape)
-        print(mat.getnnz())
-
-        return keys, mat
-        # return vocab, keys, mat
-
-    @profile
-    def query_index(self, query: list, top_k: int = 200):
-        q_in = [murmurhash3_32(_, positive=True) for _ in query]
-        intersection = list(self.vocab.intersection(set(q_in)))
-        r = np.array(self.mat[intersection].sum(axis=0)).squeeze()
-        r = r / len(intersection)
         res = [(self.keys[_], r[_]) for _ in np.flatnonzero(r)]
         df_r = pl.from_records(res, schema=["candidate", "similarity_score"])
         if top_k == -1:

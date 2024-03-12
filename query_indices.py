@@ -6,7 +6,6 @@ import toml
 from tqdm import tqdm
 
 from src.data_structures.loggers import SimpleIndexLogger
-from src.data_structures.metadata import MetadataIndex
 from src.data_structures.retrieval_methods import ExactMatchingIndex
 from src.utils.indexing import (
     DEFAULT_INDEX_DIR,
@@ -20,8 +19,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", action="store")
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def prepare_dirtree():
