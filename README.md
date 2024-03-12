@@ -37,6 +37,8 @@ YADL is derived from YAGO3 [source](https://yago-knowledge.org/getting-started) 
 Datasets were pre-processed before they were used in our experiments. Pre-processing steps are reported in the [preparation 
 repository](https://github.com/rcap107/YADL) and the [pipeline repository](https://github.com/rcap107/benchmark-join-suggestions)
 
+**Important**: in the current version of the code, all base tables are expected to include a column named `target` that contains the variable that should
+be predicted by the ML model. Please process any new input table so that the prediction column is named `target`. 
 
 
 
