@@ -26,63 +26,6 @@ DEFAULT_INDEX_DIR = Path("data/metadata/_indices")
 DEFAULT_QUERY_RESULT_DIR = Path("results/query_results")
 
 
-def prepare_default_configs(data_dir, selected_indices=None):
-    """Prepare default configurations for various indexing methods and provide the
-    data directory that contains the metadata of the tables to be indexed.
-
-    Args:
-        data_dir (str): Path to the directory that contains the metadata.
-        selected_indices (str, optional): If provided, prepare and run only the selected indices.
-
-    Raises:
-        IOError: Raise IOError if `data_dir` is incorrect.
-
-    Returns:
-        dict: Configuration dictionary
-    """
-    if Path(data_dir).exists():
-        configs = {
-            "lazo": {
-                "data_dir": data_dir,
-                "partition_size": 50_000,
-                "host": "localhost",
-                "port": 15449,
-            },
-            "minhash": {
-                "data_dir": data_dir,
-                "thresholds": [20],
-                "oneshot": True,
-                "num_perm": 128,
-                "n_jobs": -1,
-            },
-            "count_vectorizer": {
-                "data_dir": data_dir,
-            },
-        }
-        if selected_indices is not None:
-            return {
-                index_name: config
-                for index_name, config in configs.items()
-                if index_name in selected_indices
-            }
-        else:
-            return configs
-    else:
-        raise IOError(f"Invalid path {data_dir}")
-
-
-def get_candidates(query_table, query_column, indices):
-    """Given query table and column, query the required indices and produce the
-    candidates. Used for debugging.
-
-    Args:
-        query_table (_type_): _description_
-        query_column (_type_): _description_
-        indices (_type_): _description_
-    """
-    pass
-
-
 def save_single_table(dataset_path, dataset_source, metadata_dest):
     ds = RawDataset(dataset_path, dataset_source, metadata_dest)
     ds.save_metadata_to_json()

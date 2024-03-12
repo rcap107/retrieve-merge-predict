@@ -10,16 +10,7 @@ from datasketch import LeanMinHash, MinHash, MinHashLSHEnsemble
 from joblib import Parallel, delayed, dump, load
 from lazo_index_service.errors import LazoError
 from memory_profiler import profile
-from scipy.sparse import (
-    coo_array,
-    coo_matrix,
-    csc_array,
-    csr_array,
-    hstack,
-    load_npz,
-    save_npz,
-    vstack,
-)
+from scipy.sparse import csr_array, load_npz, save_npz
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.utils import murmurhash3_32
 from tqdm import tqdm
@@ -519,7 +510,7 @@ class CountVectorizerIndex:
                 [base_table_path is None, query_column is None, metadata_dir is None]
             ):
                 raise ValueError
-            if not Path(metadata_dir).exists() or not (Path(base_table_path).exists()):
+            if not Path(metadata_dir).exists() or not Path(base_table_path).exists():
                 raise FileNotFoundError
 
             self.data_dir = Path(metadata_dir)
@@ -648,7 +639,7 @@ class ExactMatchingIndex:
                 raise ValueError
             if not Path(metadata_dir).exists():
                 raise FileNotFoundError
-            if not (Path(base_table_path).exists()):
+            if not Path(base_table_path).exists():
                 raise FileNotFoundError
 
             self.metadata_dir = Path(metadata_dir)
@@ -662,7 +653,7 @@ class ExactMatchingIndex:
                 self.base_table[query_column].unique().to_list()
             )
 
-            # self.unique_base_table = self.base_table[query_column].unique().implode()
+            self.unique_base_table = self.base_table[query_column].unique().implode()
             self.counts = self._build_count_matrix(self.metadata_dir)
 
     @staticmethod
