@@ -29,18 +29,18 @@ stepwise_greedy_join.epsilon=[0.0]
 stepwise_greedy_join.ranking_metric="containment"
 
 
+#### Exact matching
 # Company employees
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/company_employees-open_data.parquet"
 query_column="name"
 
-
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
 query_column="name"
@@ -48,14 +48,14 @@ query_column="name"
 # Housing prices
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
 query_column="County"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
@@ -64,7 +64,7 @@ query_column="County"
 # US elections
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_elections-open_data.parquet"
@@ -72,7 +72,7 @@ query_column="county_name"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
@@ -81,7 +81,7 @@ query_column="county_name"
 # Movies
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
@@ -89,7 +89,7 @@ query_column="title"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies-open_data.parquet"
@@ -99,7 +99,7 @@ query_column="title"
 # Movies vote
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies_vote-open_data.parquet"
@@ -107,7 +107,7 @@ query_column="title"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
@@ -117,7 +117,7 @@ query_column="title"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_accidents-open_data.parquet"
@@ -125,7 +125,211 @@ query_column="County"
 
 [["query_cases"]]
 top_k=30
-join_discovery_method=["exact_matching", "minhash", "minhash_hybrid"]
+join_discovery_method="exact_matching"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"
+query_column="County"
+
+#### Minhash
+# Company employees
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+table_path="data/source_tables/open_data/company_employees-open_data.parquet"
+query_column="name"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
+query_column="name"
+
+# Housing prices
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
+query_column="County"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
+query_column="County"
+
+# US elections
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_elections-open_data.parquet"
+query_column="county_name"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
+query_column="county_name"
+
+# Movies
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
+query_column="title"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies-open_data.parquet"
+query_column="title"
+
+
+# Movies vote
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies_vote-open_data.parquet"
+query_column="title"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
+query_column="title"
+
+# US Accidents
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_accidents-open_data.parquet"
+query_column="County"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"
+query_column="County"
+
+#### Minhash hybrid
+# Company employees
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+table_path="data/source_tables/open_data/company_employees-open_data.parquet"
+query_column="name"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
+query_column="name"
+
+# Housing prices
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
+query_column="County"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
+query_column="County"
+
+# US elections
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_elections-open_data.parquet"
+query_column="county_name"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
+query_column="county_name"
+
+# Movies
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
+query_column="title"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies-open_data.parquet"
+query_column="title"
+
+
+# Movies vote
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies_vote-open_data.parquet"
+query_column="title"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
+query_column="title"
+
+# US Accidents
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
+data_lake="open_data_us"
+
+table_path="data/source_tables/open_data/us_accidents-open_data.parquet"
+query_column="County"
+
+[["query_cases"]]
+top_k=30
+join_discovery_method="minhash_hybrid"
 data_lake="open_data_us"
 
 table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"

@@ -9,11 +9,23 @@ import polars.selectors as cs
 from datasketch import LeanMinHash, MinHash, MinHashLSHEnsemble
 from joblib import Parallel, delayed, dump, load
 from lazo_index_service.errors import LazoError
-from scipy.sparse import load_npz, save_npz
+from memory_profiler import profile
+from scipy.sparse import (
+    coo_array,
+    coo_matrix,
+    csc_array,
+    csr_array,
+    hstack,
+    load_npz,
+    save_npz,
+    vstack,
+)
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.utils import murmurhash3_32
 from tqdm import tqdm
 
 LAZO_MESSAGE_SIZE_LIMIT = 4194304
+MAX_SIZE = np.iinfo(np.uint32).max
 
 
 class BaseIndex:
@@ -50,14 +62,14 @@ class MinHashIndex:
 
     def __init__(
         self,
-        metadata_dir=None,
-        thresholds=[20],
-        num_perm=128,
-        num_part=32,
-        oneshot=True,
-        index_file=None,
+        metadata_dir: str | Path = None,
+        thresholds: int | list = 20,
+        num_perm: int = 128,
+        num_part: int = 32,
+        oneshot: bool = True,
+        index_file: str | Path = None,
         n_jobs=1,
-        compute_exact=False,
+        no_tag: bool = True,
     ) -> None:
         """
         If `index_file` is provided, the data structures required for the index are loaded from the given
@@ -70,7 +82,7 @@ class MinHashIndex:
 
         Args:
             metadata_dir (str, optional): Path to the dir that contains the metadata of the target tables.
-            thresholds (list, optional): List of thresholds to be used by the ensemble. Defaults to [20].
+            thresholds (int | list, optional): Threshold or list of thresholds to be used by the ensemble. Defaults to 20.
             num_perm (int, optional): Number of hash permutations. Defaults to 128.
             num_part (int, optional): Number of partitions. Defaults to 32.
             oneshot (bool, optional): If False, index will have to be finalized by the user. Defaults to True.
@@ -81,11 +93,15 @@ class MinHashIndex:
         self.hash_index = []
         self.num_perm = num_perm
         self.num_part = num_part
-        self.thresholds = sorted(thresholds)
+        self.no_tag = no_tag
+        if isinstance(thresholds, list):
+            self.thresholds = sorted(thresholds)
+        else:
+            self.thresholds = [thresholds]
+        self.single_threshold = len(self.thresholds) == 1
         self.initialized = False
         self.ensembles = {}
         self.n_jobs = n_jobs
-        self.compute_exact = compute_exact
 
         if index_file is not None:
             self.load_index(index_file)
@@ -184,7 +200,7 @@ class MinHashIndex:
             result_dict[(table, column)] = threshold
         return result_dict
 
-    def query_index(self, query, threshold=None, to_dataframe=False):
+    def query_index(self, query, threshold=None, to_dataframe=False, top_k=200):
         """Query the index with a list of values and return a dictionary that contains all columns
         that satisfy the query for each threshold.
 
@@ -210,17 +226,16 @@ class MinHashIndex:
             query_dict = {}
 
             if threshold is not None:
-                if any([th not in self.ensembles for th in threshold]):
-                    raise ValueError(f"Invalid thresholds in the provided list.")
-                else:
-                    for th in sorted(threshold):
-                        ens = self.ensembles[th]
-                        res = list(ens.query(m_query, len(query)))
-                        query_dict.update(self.prepare_result(res, threshold))
-            else:
-                for threshold, ens in self.ensembles.items():
+                if any(th not in self.ensembles for th in threshold):
+                    raise ValueError("Invalid thresholds in the provided list.")
+                for th in sorted(threshold):
+                    ens = self.ensembles[th]
                     res = list(ens.query(m_query, len(query)))
                     query_dict.update(self.prepare_result(res, threshold))
+            else:
+                for th, ens in self.ensembles.items():
+                    res = list(ens.query(m_query, len(query)))
+                    query_dict.update(self.prepare_result(res, th))
 
             if to_dataframe:
                 query_results = pl.from_records(
@@ -230,11 +245,9 @@ class MinHashIndex:
                 query_results = []
                 for k, v in query_dict.items():
                     query_results.append((k[0], k[1], v))
-
-            if self.compute_exact:
-                query_results = self.measure_exact_overlap(query_results)
-
-            return query_results
+            if top_k == -1:
+                return query_results
+            return query_results[:top_k]
         else:
             raise RuntimeError("Ensembles are not initialized.")
 
@@ -247,7 +260,26 @@ class MinHashIndex:
         with open(output_path, "wb") as fp:
             dump(self.ensembles, fp)
 
-    def save_index(self, output_dir):
+    def save_index(self, output_dir: str | Path):
+        """Persist the index on disk in the given `output_dir`.
+
+        Args:
+            output_dir (str | Path): Path where the index will be saved.
+
+        Returns:
+            Path: Destination path of the saved index.
+        """
+        if self.no_tag:
+            index_name = "minhash_index"
+        else:
+            if self.single_threshold:
+                index_name = f"minhash_index_{self.thresholds[0]}"
+            else:
+                index_name = (
+                    f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}"
+                )
+            self.index_name = index_name
+
         out_dict = {
             "index_name": self.index_name,
             "hash_index": self.hash_index,
@@ -257,17 +289,20 @@ class MinHashIndex:
             "ensembles": self.ensembles,
         }
 
-        # TODO: clean this up
+        index_path = Path(
+            output_dir,
+            index_name + ".pickle",
+        )
         with open(
-            Path(
-                output_dir,
-                f"minhash_index_{'_'.join([str(_) for _ in self.thresholds])}.pickle",
-            ),
+            index_path,
             "wb",
         ) as fp:
             dump(out_dict, fp)
+        return index_path
 
-    def load_index(self, index_file=None, index_dict=None):
+    def load_index(
+        self, index_file: str | Path | None = None, index_dict: dict | None = None
+    ):
         if index_file is not None:
             if Path(index_file).exists():
                 with open(index_file, "rb") as fp:
@@ -277,7 +312,7 @@ class MinHashIndex:
                     self.num_part = index_dict["num_part"]
                     self.thresholds = index_dict["thresholds"]
                     self.ensembles = index_dict["ensembles"]
-                    self.compute_exact = index_dict["compute_exact"]
+                    self.index_name = index_dict["index_name"]
                     self.initialized = True
             else:
                 raise FileNotFoundError(f"File `{index_file}` not found.")
@@ -287,7 +322,6 @@ class MinHashIndex:
             self.num_part = index_dict["num_part"]
             self.thresholds = index_dict["thresholds"]
             self.ensembles = index_dict["ensembles"]
-            # self.compute_exact = index_dict["compute_exact"]
             self.initialized = True
         else:
             raise ValueError("Either `index_file` or `index_dict` must be provided.")
@@ -627,6 +661,8 @@ class ExactMatchingIndex:
             self.unique_base_table = set(
                 self.base_table[query_column].unique().to_list()
             )
+
+            # self.unique_base_table = self.base_table[query_column].unique().implode()
             self.counts = self._build_count_matrix(self.metadata_dir)
 
     @staticmethod
@@ -651,11 +687,11 @@ class ExactMatchingIndex:
         return unique_keys
 
     def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
-        unique_cand = self.find_unique_keys(candidate_table, right_on)
-
-        s1 = self.unique_base_table
-        s2 = set(unique_cand[right_on].to_series().to_list())
-        return len(s1.intersection(s2)) / len(s1)
+        return len(
+            self.unique_base_table.list.set_intersection(
+                candidate_table.select(pl.col(right_on).unique()).to_series().implode()
+            ).explode()
+        ) / len(self.unique_base_table)
 
     def _prepare_single_table(self, fpath):
         overlap_dict = {}
@@ -688,8 +724,8 @@ class ExactMatchingIndex:
         overlap_dict = {key: val for result in r for key, val in result.items()}
         df_overlap = pl.from_dict(
             {
-                "key": list(overlap_dict.keys()),
-                "containment": list(overlap_dict.values()),
+                "key": overlap_dict.keys(),
+                "containment": overlap_dict.values(),
             }
         )
         df_overlap = (
@@ -728,3 +764,140 @@ class ExactMatchingIndex:
         }
         with open(path_mdata, "wb") as fp:
             dump(dd, fp, compress=True)
+
+
+class InvertedIndex:
+    def __init__(
+        self,
+        metadata_dir: str | Path = None,
+        file_path: str | Path = None,
+        binary: bool = True,
+        n_jobs: int = 1,
+    ) -> None:
+        self.index_name = "inverted_index"
+        if file_path is not None:
+            if Path(file_path).exists():
+                with open(file_path, "rb") as fp:
+                    raise NotImplementedError
+            else:
+                raise FileNotFoundError
+        else:
+            if metadata_dir is None:
+                raise ValueError
+            if not Path(metadata_dir).exists():
+                raise FileNotFoundError
+
+            self.data_dir = Path(metadata_dir)
+            self.n_jobs = n_jobs
+            self.binary = binary
+
+            self.schema_mapping = self._prepare_schema_mapping()
+            self.key_mapping = None
+
+            self.keys, self.mat = self._prepare_data_structures()
+
+    def _prepare_matrix(self, path: Path, col_keys: dict):
+        with open(path, "r") as fp:
+            mdata_dict = json.load(fp)
+        table_path = mdata_dict["full_path"]
+        # Selecting only string columns
+        table = pl.read_parquet(table_path)
+        if len(table) == 0:
+            return None
+        ds_hash = mdata_dict["hash"]
+        table.columns = [f"{ds_hash}__{k}" for k in table.columns]
+
+        data = []
+        i_arr = []
+        j_arr = []
+
+        for col, key in col_keys.items():
+            if not self.binary:
+                raise NotImplementedError
+                values, counts = table[col].drop_nulls().value_counts()
+            else:
+                values = table[col].drop_nulls().unique()
+                counts = np.ones_like(values, dtype=np.uint8)
+
+            # TODO: maybe I can keep this as a list and concatenate to lists
+            i = np.array(
+                [murmurhash3_32(val, positive=True) for val in values], dtype=np.uint32
+            )
+
+            j = key * np.ones_like(i, dtype=np.uint32)
+
+            data.append(counts)
+            i_arr.append(i)
+            j_arr.append(j)
+
+        # TODO: maybe this can be optimized?
+        return (
+            col_keys,
+            (np.concatenate(data), (np.concatenate(i_arr), np.concatenate(j_arr))),
+        )
+
+    def _prepare_schema_mapping(self):
+        schema_mapping = {}
+        tot_col = 0
+        print("Preparing schema mapping")
+        for idx, p in enumerate(self.data_dir.glob("**/*.json")):
+            with open(p, "r") as fp:
+                mdata_dict = json.load(fp)
+            table_path = mdata_dict["full_path"]
+            ds_hash = mdata_dict["hash"]
+            schema = pl.read_parquet_schema(table_path)
+            schema = {f"{ds_hash}__{k}": v for k, v in schema.items() if v == pl.String}
+            schema_mapping[p] = dict(
+                zip(schema.keys(), range(tot_col, tot_col + len(schema.keys())))
+            )
+            tot_col += len(schema)
+
+        return schema_mapping
+
+    def _prepare_data_structures(self):
+        r = Parallel(n_jobs=self.n_jobs, verbose=0)(
+            delayed(self._prepare_matrix)(fpath, self.schema_mapping[fpath])
+            for fpath in tqdm(
+                self.data_dir.glob("**/*.json"),
+                position=0,
+                leave=False,
+                total=sum(1 for _ in self.data_dir.glob("**/*.json")),
+            )
+        )
+        result = list(filter(lambda x: x is not None, r))
+
+        result = list(zip(*result))
+        keys = {v: k for d in self.schema_mapping.values() for k, v in d.items()}
+
+        mats = result[1]
+        print("concatenating data")
+        data = np.concatenate([m[0] for m in mats])
+        print("concatenating coordinates")
+        coordinates = np.concatenate([m[1] for m in mats], axis=1)
+        i = coordinates[0, :]
+        j = coordinates[1, :]
+        # Creating a mapping between the hash and the index to reduce the memory footprint
+        self.key_mapping = {k: idx for idx, k in enumerate(i)}
+        i = [self.key_mapping[_] for _ in i]
+
+        # Creating a csc matrix by concatenating the data entries
+        print("Building csr array")
+        mat = csr_array((data, (i, j)), dtype=np.uint32)
+
+        return keys, mat
+
+    def query_index(self, query: list, top_k: int = 200):
+        dedup_query = set(query)
+        q_in = [
+            self.key_mapping.get(murmurhash3_32(_, positive=True), None)
+            for _ in dedup_query
+        ]
+        q_in = set(filter(lambda x: x is not None, q_in))
+        r = np.array(self.mat[list(q_in)].sum(axis=0)).squeeze()
+        r = r / len(dedup_query)
+        res = [(self.keys[_], r[_]) for _ in np.flatnonzero(r)]
+        df_r = pl.from_records(res, schema=["candidate", "similarity_score"])
+        if top_k == -1:
+            return df_r.sort("similarity_score", descending=True)
+        else:
+            return df_r.top_k(by="similarity_score", k=top_k)

@@ -2,10 +2,11 @@ import datetime
 import pickle
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
-import seaborn as sns
+import polars.selectors as cs
 from joblib import load
+from tqdm import tqdm
 
 from src.utils.joining import execute_join_with_aggregation
 
@@ -39,13 +40,16 @@ def load_exact_matching(data_lake_version, table_name, column_name):
 
 
 def test_joining(
-    data_lake_version, index_name, table_name, query_column, top_k, aggregation
+    data_lake_version,
+    index_name,
+    table_name,
+    base_table,
+    query_column,
+    top_k,
+    aggregation,
 ):
     query_result = load_query_result(
         data_lake_version, index_name, table_name, query_column, 0
-    )
-    base_table = pl.read_parquet(
-        f"data/source_tables/open_data_us/{table_name}.parquet"
     )
     df_counts = load_exact_matching(
         data_lake_version=data_lake_version,
@@ -108,51 +112,172 @@ def test_joining(
     return list_stats
 
 
+def test_group_stats(
+    data_lake_version: str,
+    index_name: str,
+    table_name: str,
+    base_table: pl.DataFrame,
+    query_column: str,
+    top_k: int,
+):
+    query_result = load_query_result(
+        data_lake_version, index_name, table_name, query_column, 0
+    )
+    query_result.select_top_k(top_k)
+    total_time = 0
+
+    list_stats = []
+
+    for rank, (c_id, cand) in tqdm(
+        enumerate(query_result.candidates.items()),
+        total=len(query_result.candidates),
+        position=2,
+        desc="Candidate: ",
+    ):
+        _, cnd_md, left_on, right_on = cand.get_join_information()
+        this_cand = pl.read_parquet(cnd_md["full_path"])
+        cand_table = this_cand.filter(pl.col(right_on).is_in(base_table[left_on]))
+        cat_cols = cand_table.select(cs.string()).columns
+        cat_cols = [_ for _ in cat_cols if _ not in right_on]
+
+        dict_stats = {
+            col: {
+                "data_lake_version": data_lake_version,
+                "table_name": table_name,
+                "cand_hash": cnd_md["hash"],
+                "cand_table": cnd_md["df_name"],
+                "col_name": col,
+                "in_mode": 0,
+                "equal_aggr": 0,
+                "nulls": 0,
+                "unique": 0,
+                "grp_size": 0,
+            }
+            for col in cat_cols
+        }
+
+        for col in tqdm(
+            cat_cols, total=len(cat_cols), position=1, leave=False, desc="Column: "
+        ):
+            if col in right_on:
+                continue
+            subtable = cand_table.select(right_on + [col])
+            this_col_stats = {
+                "in_mode": [],
+                "equal_aggr": [],
+                "nulls": [],
+                "unique": [],
+                "grp_size": [],
+            }
+            n_gr = subtable.select(pl.col(right_on).n_unique()).item()
+            for gidx, group in tqdm(
+                subtable.group_by(right_on),
+                position=0,
+                total=n_gr,
+                leave=False,
+                desc="Group: ",
+            ):
+                _stats = {}
+                _stats["nulls"] = group.select(pl.col(col).null_count()).item()
+                group = group.fill_null(f"null_{gidx[0]}")
+                _eq = group.select(
+                    pl.col(col).mode().first().alias("mode")
+                    == pl.col(col).first().alias("first")
+                ).item()
+                _stats["equal_aggr"] = _eq
+                _stats["in_mode"] = group.select(
+                    pl.col(col)
+                    .value_counts(sort=True)
+                    .struct.rename_fields(["val", "count"])
+                    .struct.field("count")
+                    .first()
+                    / len(group)
+                ).item()
+                _stats["unique"] = group.select(
+                    pl.col(col).n_unique().alias("unique")
+                ).item()
+                _stats["grp_size"] = len(group)
+
+                for key, val in this_col_stats.items():
+                    val.append(_stats[key])
+
+                # for key in this_col_stats:
+                #     this_col_stats[key].append(_stats[key])
+            dict_stats[col].update(
+                {key: np.mean(value) for key, value in this_col_stats.items()}
+            )
+        list_stats += list(dict_stats.values())
+
+    return list_stats
+
+
 if __name__ == "__main__":
-    data_lake_version = "open_data_us"
-    query_column = "col_to_embed"
-    top_k = 0
+    data_lake_version = "binary_update"
+    print("Data lake: ", data_lake_version)
     index_names = [
-        "minhash_hybrid",
+        "exact_matching"
+        # "minhash", "minhash_hybrid", "exact_matching"
     ]
-    #    "minhash_hybrid"]
     keys = ["index_name", "tab_name", "top_k", "join_time", "avg_cont"]
     results = []
 
-    # queries = [
-    #     ("company_employees", "col_to_embed"),
-    #     ("housing_prices", "col_to_embed"),
-    #     ("us_elections", "col_to_embed"),
-    #     ("movies", "col_to_embed"),
-    #     ("movies_vote", "col_to_embed"),
-    #     ("us_accidents", "col_to_embed"),
-    # ]
-    queries = [
-        ("company_employees", "name"),
-        ("housing_prices", "County"),
-        ("us_elections", "county_name"),
-        ("movies", "title"),
-        ("movies_vote", "title"),
-        ("us_accidents", "County"),
-        ("schools", "col_to_embed"),
-    ]
+    mode = "group_stats"
 
-    for query in queries:
-        for i in index_names:
-            print(i)
-            for k in [200]:
+    version = "yadl"  # or open_data_us
+    base_path = Path(f"data/source_tables/{version}")
+
+    queries = {
+        "open_data_us": [
+            ("company_employees", "name"),
+            ("housing_prices", "County"),
+            ("us_elections", "county_name"),
+            ("movies", "title"),
+            ("us_accidents", "County"),
+            ("schools", "col_to_embed"),
+        ],
+        "yadl": [
+            ("company_employees", "col_to_embed"),
+            ("housing_prices", "col_to_embed"),
+            ("us_elections", "col_to_embed"),
+            ("movies", "col_to_embed"),
+            ("us_accidents", "col_to_embed"),
+        ],
+    }
+
+    for query in queries[version]:
+        for iname in index_names:
+            print(iname)
+            for k in [30]:
                 aggr = "first"
                 tab, query_column = query
-                tab_name = f"{tab}-open_data"
+                # table_name = f"{tab}-open_data"
+                table_name = f"{tab}-yadl-depleted"
+                print(f"{data_lake_version} {table_name}")
                 # for aggr in ["first", "mean"]:
-                this_res = test_joining(
-                    data_lake_version,
-                    i,
-                    tab_name,
-                    query_column,
-                    k,
-                    aggregation=aggr,
+                base_table = pl.read_parquet(
+                    Path(f"data/source_tables/{version}/{table_name}.parquet")
                 )
-                results += this_res
+
+                params = {
+                    "data_lake_version": data_lake_version,
+                    "index_name": iname,
+                    "table_name": table_name,
+                    "base_table": base_table,
+                    "query_column": query_column,
+                    "top_k": k,
+                }
+
+                if mode == "stats":
+                    params.update({"aggregation": aggr})
+                    this_res = test_joining(**params)
+                    results += this_res
+                elif mode == "group_stats":
+                    col_stats = test_group_stats(**params)
+                    results += col_stats
+
     df = pl.from_dicts(results)
-    df.write_csv(open(f"analysis_query_results_{data_lake_version}_hybrid.csv", "a"))
+    out_path = Path(f"analysis_query_results_{data_lake_version}_{mode}_all.csv")
+    if out_path.exists():
+        df.write_csv(open(out_path, "a"), include_header=False)
+    else:
+        df.write_csv(open(out_path, "w"))

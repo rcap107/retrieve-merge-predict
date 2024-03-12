@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 import pprint
 from datetime import datetime as dt
@@ -7,20 +6,7 @@ from datetime import datetime as dt
 import toml
 
 from src.pipeline import prepare_config_dict, single_run
-from src.utils.logging import (
-    archive_experiment,
-    get_exp_name,
-    setup_run_logging,
-)
-
-# logger_sh = logging.getLogger("pipeline")
-# # console handler for info
-# ch = logging.StreamHandler()
-# ch.setLevel(logging.INFO)
-# # set formatter
-# ch_formatter = logging.Formatter("'%(asctime)s - %(message)s'")
-# ch.setFormatter(ch_formatter)
-# logger_sh.addHandler(ch)
+from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
 
 
 def parse_args():
@@ -47,8 +33,7 @@ def parse_args():
         help="If specified, skip writing logging.",
     )
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 if __name__ == "__main__":

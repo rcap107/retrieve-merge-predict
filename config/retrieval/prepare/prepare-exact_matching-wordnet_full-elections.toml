@@ -1,0 +1,21 @@
+# wordnet_full
+# [["exact_matching"]]
+# metadata_dir="data/metadata/wordnet_full"
+# base_table_path="data/source_tables/yadl/us_elections-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# metadata_dir="data/metadata/wordnet_full"
+# base_table_path="data/source_tables/yadl/us_elections_dems-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# metadata_dir="data/metadata/wordnet_full"
+# base_table_path="data/source_tables/yadl/us_elections_dems-yadl.parquet"
+# query_column="col_to_embed"
+
+[["exact_matching"]]
+metadata_dir="data/metadata/wordnet_full"
+base_table_path="data/source_tables/yadl/us_elections_dems-yadl-depleted.parquet"
+query_column="col_to_embed"
+n_jobs=1
