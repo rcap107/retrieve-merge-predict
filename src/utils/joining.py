@@ -66,6 +66,7 @@ def prepare_dfs_table(
     Returns:
         pl.DataFrame: The new table.
     """
+    # Optimizing imports: these take a long time and are only used when DFS is needed
     import featuretools as ft
     from woodwork.logical_types import Categorical, Double
 
@@ -83,9 +84,8 @@ def prepare_dfs_table(
         isinstance(right_on, list) and len(right_on) > 1
     ):
         raise NotImplementedError("Many-to-many joins are not supported")
-    else:
-        left_on = left_on[0]
-        right_on = right_on[0]
+    left_on = left_on[0]
+    right_on = right_on[0]
 
     # DFS does not support joining on columns that include duplicated values.
     left_table_dedup = left_table.unique(left_on).to_pandas()
@@ -141,11 +141,11 @@ def prepare_dfs_table(
 def execute_join_with_aggregation(
     left_table: pl.DataFrame,
     right_table: pl.DataFrame,
-    on=None,
-    left_on=None,
-    right_on=None,
+    on: list[str] = None,
+    left_on: list[str] = None,
+    right_on: list[str] = None,
     how="left",
-    aggregation=None,
+    aggregation: str = None,
     suffix="_right",
 ):
     if on is not None:
@@ -182,14 +182,16 @@ def execute_join_with_aggregation(
     return merged
 
 
-def execute_join_all_candidates(source_table, index_cand, aggregation):
+def execute_join_all_candidates(
+    source_table: pl.DataFrame, index_cand: dict, aggregation: str
+):
     """Execute a full join on `source_table` by chain-joining and aggregating
     all the candidates in `index_cand`, using the aggregation method specified
     in `aggregation`.
 
     Args:
         source_table (pl.DataFrame): Source table to join on.
-        index_cand (_type_): Index containing info on the candidate tables.
+        index_cand (dict): Index containing info on the candidate tables.
         aggregation (str): Aggregation function, can be either `first`, `mean`
         or `dfs`.
 
@@ -198,7 +200,6 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
     """
     merged = source_table.clone()
     hashes = []
-    # for hash_, mdata in index_cand.items():
     for hash_, mdata in tqdm(
         index_cand.items(),
         total=len(index_cand),
@@ -275,18 +276,18 @@ def execute_join(
         if any(  # if any of the following two conditions is false, raise an exception
             [
                 all(
-                    [c in left_table.columns for c in on]
+                    c in left_table.columns for c in on
                 ),  # all columns in c must be in left_table.columns
                 all(
-                    [c in right_table.columns for c in on]
+                    c in right_table.columns for c in on
                 ),  # all columns in c must be in left_table.columns
             ]
         ):
             raise KeyError("Columns in `on` were not found.")
-        else:
-            joined_table = (
-                left_table.lazy().join(right_table.lazy(), on=on, how=how).collect()
-            )
+
+        joined_table = (
+            left_table.lazy().join(right_table.lazy(), on=on, how=how).collect()
+        )
 
     elif left_on is not None and right_on is not None:
         if not all(c in left_table.columns for c in left_on):
@@ -399,21 +400,3 @@ def aggregate_first(target_table: pl.DataFrame, aggr_columns):
 
     df_dedup = target_table.unique(aggr_columns, keep="first")
     return df_dedup
-
-
-def encode_candidate_name(candidate_name: str | list):
-    if type(candidate_name) == str:
-        to_encode = candidate_name
-    elif type(candidate_name) == list:
-        to_encode = "|".join(candidate_name)
-    enc = base64.b64encode(to_encode, altchars=None)
-    return enc
-
-
-def decode_candidate_name(encoded_name):
-    decoded = base64.b64decode(encoded_name)
-    split = decoded.split("|")
-    if len(split) == 1:
-        return split[0]
-    else:
-        return split
