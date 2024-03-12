@@ -43,22 +43,21 @@ def prepare_dirtree():
     os.makedirs("data/metadata/queries", exist_ok=True)
 
 
-def convert_to_list(item):
+def convert_to_list(item: dict | list | str):
     if isinstance(item, dict):
         return {k: convert_to_list(v) for k, v in item.items()}
-    elif isinstance(item, list):
+    if isinstance(item, list):
         return item
-    else:
-        return [item]
+    return [item]
 
 
-def get_comb(config_dict):
+def get_comb(config_dict: dict):
     keys, values = zip(*config_dict.items())
     run_variants = [dict(zip(keys, v)) for v in itertools.product(*values)]
     return run_variants
 
 
-def flatten(key, this_dict):
+def flatten(key: str, this_dict: dict):
     flattened_dict = {}
     for k, v in this_dict.items():
         if key == "":
@@ -72,7 +71,7 @@ def flatten(key, this_dict):
     return flattened_dict
 
 
-def pack(dict_to_pack):
+def pack(dict_to_pack: dict):
     packed = {}
     for key, value in dict_to_pack.items():
         splits = key.split(".")
@@ -195,7 +194,7 @@ def validate_configuration(run_config: dict):
     )
 
 
-def single_run(run_config, run_name=None):
+def single_run(run_config: dict, run_name=None):
     estim_parameters = run_config["estimators"]
     model_parameters = run_config["evaluation_models"]
     join_parameters = run_config["join_parameters"]
