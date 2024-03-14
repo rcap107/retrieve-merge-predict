@@ -610,6 +610,9 @@ class SimpleIndexLogger:
 
     def write_to_json(self, root_path="results/profiling/"):
         res_dict = copy.deepcopy(vars(self))
+        res_dict["index_parameters"] = {
+            k: str(v) for k, v in res_dict["index_parameters"].items()
+        }
         res_dict["timestamps"] = {
             k: v.isoformat()
             for k, v in res_dict["timestamps"].items()
