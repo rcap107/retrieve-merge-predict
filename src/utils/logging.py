@@ -64,14 +64,6 @@ def get_exp_name(debug=False):
     return exp_name
 
 
-def read_log_dir(exp_name):
-    pass
-
-
-def read_log_tar(exp_name):
-    pass
-
-
 def read_logs(exp_name=None, exp_path=None):
     if exp_name is not None:
         path_target_run = Path("results/logs/", exp_name)

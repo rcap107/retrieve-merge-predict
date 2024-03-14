@@ -591,8 +591,7 @@ class CountVectorizerIndex:
         ]
         if top_k == -1:
             return ranking
-        else:
-            return ranking[:top_k]
+        return ranking[:top_k]
 
     def save_index(self, output_dir):
         path_mdata = Path(
@@ -769,6 +768,7 @@ class InvertedIndex:
         if file_path is not None:
             if Path(file_path).exists():
                 with open(file_path, "rb") as fp:
+                    # TODO: actually implement this method
                     raise NotImplementedError
             else:
                 raise FileNotFoundError
