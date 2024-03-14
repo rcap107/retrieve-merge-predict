@@ -1,5 +1,8 @@
-import argparse
 import os
+
+os.environ["POLARS_MAX_THREADS"] = "32"
+
+import argparse
 import pprint
 from datetime import datetime as dt
 
