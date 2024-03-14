@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 from memory_profiler import memory_usage, profile
 from sklearn.model_selection import ParameterGrid
+from tqdm import tqdm
 
 from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import QueryResult, RawDataset
@@ -13,15 +14,16 @@ from src.data_structures.retrieval_methods import (
     InvertedIndex,
     MinHashIndex,
 )
-from src.utils.indexing import get_metadata_index, load_index, query_index
+from src.utils.indexing import get_metadata_index
 
 
 def wrapper_prepare_exact_matching(queries, method_config, index_dir):
     time_save = 0
     time_create = 0
-    for query_case in queries:
-        method_config.update("base_table_path", query_case[0])
-        method_config.update("query_column", query_case[1])
+    for query_case in tqdm(queries, position=1, total=len(queries)):
+        method_config.update({"base_table_path": query_case[0]})
+        method_config.update({"query_column": query_case[1]})
+
         start = dt.datetime.now()
         this_index = ExactMatchingIndex(**method_config)
         end = dt.datetime.now()
@@ -80,7 +82,6 @@ def wrapper_query_exact_matching(queries, index_dir, data_lake_version):
 
         index_path = Path(
             index_dir,
-            data_lake_version,
             f"em_index_{tname}_{query_column}.pickle",
         )
 
@@ -110,23 +111,22 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
     rerank = index_config.pop("rerank", False)
 
     if index_name == "minhash":
-        # index_logger.start_time("create")
-        # mem_usage, this_index = memory_usage(
-        #     (
-        #         MinHashIndex,
-        #         [],
-        #         index_config,
-        #     ),
-        #     timestamps=True,
-        #     max_iterations=1,
-        #     retval=True,
-        # )
-        # index_logger.end_time("create")
-        # index_logger.mark_memory(mem_usage, label="create")
-        # index_logger.start_time("save")
-        # index_path = this_index.save_index(index_dir)
-        # index_logger.end_time("save")
-        index_path = f"data/metadata/_indices/profiling/wordnet_full/minhash_index_{index_config['thresholds']}.pickle"
+        index_logger.start_time("create")
+        mem_usage, this_index = memory_usage(
+            (
+                MinHashIndex,
+                [],
+                index_config,
+            ),
+            timestamps=True,
+            max_iterations=1,
+            retval=True,
+        )
+        index_logger.end_time("create")
+        index_logger.mark_memory(mem_usage, label="create")
+        index_logger.start_time("save")
+        index_path = this_index.save_index(index_dir)
+        index_logger.end_time("save")
 
         mem_usage, (time_load, time_query) = memory_usage(
             (
@@ -156,11 +156,9 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         )
         index_logger.end_time("create")
         index_logger.mark_memory(mem_usage, label="create")
-        # index_logger.start_time("save")
-        # index_path = this_index.save_index(index_dir)
-        # index_logger.end_time("save")
-
-        index_path = f"/home/soda/rcappuzz/work/benchmark-join-suggestions/data/metadata/_indices/profiling/{data_lake_version}/inverted_index.pickle"
+        index_logger.start_time("save")
+        index_path = this_index.save_index(index_dir)
+        index_logger.end_time("save")
 
         mem_usage, (time_load, time_query) = memory_usage(
             (
@@ -183,9 +181,23 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
             max_iterations=1,
             retval=True,
         )
-        index_logger.mark_memory(mem_usage, label="query")
+        index_logger.mark_memory(mem_usage, label="create")
         index_logger.durations["time_create"] = time_create
         index_logger.durations["time_save"] = time_save
+
+        mem_usage, (time_load, time_query) = memory_usage(
+            (
+                wrapper_query_exact_matching,
+                [queries, index_dir, data_lake_version],
+                {},
+            ),
+            timestamps=True,
+            max_iterations=1,
+            retval=True,
+        )
+        index_logger.mark_memory(mem_usage, label="query")
+        index_logger.durations["time_load"] = time_load
+        index_logger.durations["time_query"] = time_query
 
     index_logger.to_logfile()
     index_logger.write_to_json("results/profiling/retrieval")
@@ -196,9 +208,11 @@ if __name__ == "__main__":
     os.makedirs("data/metadata/_indices/profiling", exist_ok=True)
     os.makedirs("results/profiling/retrieval", exist_ok=True)
 
-    data_lake_version = "binary_update"
+    data_lake_version = "wordnet_full"
 
     base_table_root = "data/source_tables/yadl/"
+
+    retrieval_method = "minhash"
 
     queries = [
         (
@@ -212,24 +226,31 @@ if __name__ == "__main__":
         (Path(base_table_root, "us_accidents-yadl-depleted.parquet"), "col_to_embed"),
     ]
 
-    # Minhash
-    # method_config = {
-    #     "metadata_dir": [f"data/metadata/{data_lake_version}"],
-    #     "n_jobs": [16],
-    #     # "thresholds": [60],
-    #     "thresholds": [20, 60, 80],
-    #     "no_tag": [False],
-    #     "rerank": [True],
-    # }
-    # cases = ParameterGrid(method_config)
-    # for config in cases:
-    #     test_retrieval_method(data_lake_version, "minhash", queries, config)
-
-    # Inverted index
-    method_config = {
-        "metadata_dir": [f"data/metadata/{data_lake_version}"],
-        "n_jobs": [16],
-    }
-    cases = ParameterGrid(method_config)
-    for config in cases:
-        test_retrieval_method(data_lake_version, "inverted_index", queries, config)
+    if retrieval_method == "exact_matching":
+        method_config = {
+            "metadata_dir": [f"data/metadata/{data_lake_version}"],
+            "n_jobs": [16],
+        }
+        cases = ParameterGrid(method_config)
+        for config in cases:
+            test_retrieval_method(data_lake_version, retrieval_method, queries, config)
+    elif retrieval_method == "minhash":
+        method_config = {
+            "metadata_dir": [f"data/metadata/{data_lake_version}"],
+            "n_jobs": [16],
+            # "thresholds": [60],
+            "thresholds": [20, 60, 80],
+            "no_tag": [False],
+            "rerank": [True],
+        }
+        cases = ParameterGrid(method_config)
+        for config in cases:
+            test_retrieval_method(data_lake_version, "minhash", queries, config)
+    elif retrieval_method == "inverted_index":
+        method_config = {
+            "metadata_dir": [f"data/metadata/{data_lake_version}"],
+            "n_jobs": [16],
+        }
+        cases = ParameterGrid(method_config)
+        for config in cases:
+            test_retrieval_method(data_lake_version, "inverted_index", queries, config)
