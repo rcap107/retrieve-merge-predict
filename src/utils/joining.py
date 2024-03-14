@@ -1,5 +1,3 @@
-import base64
-
 import polars as pl
 import polars.selectors as cs
 from tqdm import tqdm
@@ -398,5 +396,5 @@ def aggregate_first(target_table: pl.DataFrame, aggr_columns):
         pl.DataFrame: Deduplicated dataframe.
     """
 
-    df_dedup = target_table.unique(aggr_columns, keep="first")
+    df_dedup = target_table.unique(aggr_columns, keep="any")
     return df_dedup
