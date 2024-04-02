@@ -892,3 +892,67 @@ class InvertedIndex:
             return df_r.sort("similarity_score", descending=True)
         else:
             return df_r.top_k(by="similarity_score", k=top_k)
+
+
+class StarmieWrapper:
+    def __init__(
+        self,
+        import_path: str | Path = None,
+        base_table_path: str | Path = None,
+        file_path: str | Path = None,
+    ) -> None:
+        self.index_name = "starmie"
+        if file_path is not None:
+            if Path(file_path).exists():
+                with open(file_path, "rb") as fp:
+                    mdata = load(fp)
+                    self.base_table_path = Path(mdata["base_table_path"])
+                    self.ranking = mdata["ranking"]
+            else:
+                raise FileNotFoundError(f"STARMIE index file {file_path} not found.")
+        elif import_path is not None:
+            if Path(import_path).exists():
+                import_df = pl.read_parquet(import_path)
+                import_df = import_df.with_columns(
+                    pl.col("join_columns")
+                    .list.to_struct()
+                    .struct.rename_fields(["left_on", "right_on"])
+                ).unnest("join_columns")
+                self.ranking = import_df.clone()
+                self.base_table_path = Path(base_table_path)
+            else:
+                raise FileNotFoundError(f"Import file {import_path} not found.")
+        else:
+            raise ValueError("Either import_path or file_path must be provided.")
+
+    def query_index(
+        self,
+        query_column=None,
+        top_k=200,
+    ):
+        if query_column is None:
+            raise ValueError("Invalid value provided for query_column")
+        query_results = (
+            self.ranking.filter(
+                (pl.col("left_on") == query_column) & (pl.col("similarity") > 0)
+            )
+            .sort("similarity", descending=True)
+            .drop("left_on")
+        )
+
+        if top_k > 0:
+            return query_results.top_k(top_k, by="similarity").rows()
+        return query_results.rows()
+
+    def save_index(self, output_dir):
+        path_mdata = Path(
+            output_dir,
+            f"starmie_index_{self.base_table_path.stem}.pickle",
+        )
+        dd = {
+            "index_name": self.index_name,
+            "base_table_path": self.base_table_path,
+            "ranking": self.ranking,
+        }
+        with open(path_mdata, "wb") as fp:
+            dump(dd, fp, compress=True)
