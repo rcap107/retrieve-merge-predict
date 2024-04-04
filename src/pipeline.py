@@ -177,7 +177,6 @@ def validate_configuration(run_config: dict):
 
     # Check query parameters
     # TODO: fix this so it can be generalized
-    assert query_info["data_lake"] in ["open_data_us", "binary_update", "wordnet_full"]
     assert query_info["join_discovery_method"] in [
         "exact_matching",
         "minhash_hybrid",
