@@ -15,6 +15,7 @@ telegram_*
 .nfs*
 .DS_Store
 _site/
+results
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
