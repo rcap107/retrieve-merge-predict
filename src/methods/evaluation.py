@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import src.utils.joining as ju
 from src.data_structures.loggers import RunLogger, ScenarioLogger
-from src.methods.join_estimators import (
+from src.methods.join_selectors import (
     BestSingleJoin,
     FullJoin,
     HighestContainmentJoin,
