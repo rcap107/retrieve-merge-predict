@@ -19,6 +19,7 @@ def parse_args():
         "input_path",
         action="store",
         help="Path of the config file to be used.",
+        type=argparse.FileType("r"),
     )
 
     parser.add_argument(
