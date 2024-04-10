@@ -17,6 +17,7 @@ from src.methods.join_selectors import (
     HighestContainmentJoin,
     NoJoin,
     StepwiseGreedyJoin,
+    TopKFullJoin,
 )
 
 logger_sh = logging.getLogger("pipeline")
@@ -107,6 +108,8 @@ def prepare_estimator(
     estimator_parameters["join_parameters"] = join_parameters
     estimator_parameters.update({"candidate_joins": join_candidates})
 
+    if estimator_name == "top_k_full_join":
+        return TopKFullJoin(**estimator_parameters)
     if estimator_name == "highest_containment":
         return HighestContainmentJoin(**estimator_parameters)
     if estimator_name == "best_single_join":

@@ -1,6 +1,7 @@
 import datetime as dt
 import random
 from collections import deque
+from itertools import islice
 
 import numpy as np
 import pandas as pd
@@ -810,6 +811,53 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             "left_on": "",
             "right_on": "",
             "n_joined_columns": self.n_joined_columns,
+        }
+
+
+class TopKFullJoin(FullJoin):
+    def __init__(
+        self,
+        scenario_logger: ScenarioLogger = None,
+        candidate_joins: dict = None,
+        target_column: str = None,
+        model_parameters: dict = None,
+        join_parameters: dict = None,
+        top_k: int = 1,
+        task: str = "regression",
+    ) -> None:
+        """This selector extends the FullJoin selector adding a parameter k to limit the full
+        join to the first k candidates provided. The selector assumes that candidates have been
+        sorted and no additional sorting is carried out.
+
+        Args:
+            scenario_logger (ScenarioLogger, optional): The ScenarioLogger used to track information
+            about the experiments.
+            candidate_joins (dict, optional): The (already sorted) candidate joins.
+            target_column (str, optional): The target column to be used for training the supervised model. Defaults to None.
+            model_parameters (dict, optional): Additional parameters to be passed to the evaluation model (catboost or linear).
+            join_parameters (dict, optional): Additional parameters to be considered when executing the join.
+            top_k (int, optional): The number of candidates to be used during the full join. Defaults to 1.
+            task (str, optional): The task to be executed. Either "classification" or "regression". Defaults to "regression".
+
+        Raises:
+            ValueError: _description_
+        """
+        super().__init__(
+            scenario_logger,
+            candidate_joins,
+            target_column,
+            model_parameters,
+            join_parameters,
+            task,
+        )
+        if top_k < 1:
+            raise ValueError(f"k must be >= 1, found {top_k}.")
+        self.top_k = top_k
+        self.name = "top_k_full_join"
+        self.candidate_joins = {
+            k: v
+            for k, v in self.candidate_joins.items()
+            if k in islice(self.candidate_joins, top_k)
         }
 
 
