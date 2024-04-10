@@ -6,7 +6,7 @@ import toml
 from tqdm import tqdm
 
 from src.data_structures.loggers import SimpleIndexLogger
-from src.data_structures.retrieval_methods import ExactMatchingIndex
+from src.data_structures.retrieval_methods import ExactMatchingIndex, StarmieWrapper
 from src.utils.indexing import (
     DEFAULT_INDEX_DIR,
     get_metadata_index,
@@ -14,10 +14,15 @@ from src.utils.indexing import (
     query_index,
 )
 
+PREFIX = {
+    "exact_matching": "em_index",
+    "starmie": "starmie_index",
+}
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", action="store")
+    parser.add_argument("config_file", action="store", type=argparse.FileType("r"))
 
     return parser.parse_args()
 
@@ -68,7 +73,7 @@ if __name__ == "__main__":
                 elif jd_method == "exact_matching":
                     # Otherwise, the index is loaded once for each query and the logger is created with it.
                     index_logger = SimpleIndexLogger(
-                        index_name="exact_matching",
+                        index_name=jd_method,
                         step="query",
                         data_lake_version=data_lake_version,
                         log_path="results/query_logging.txt",
@@ -76,13 +81,32 @@ if __name__ == "__main__":
                     index_path = Path(
                         DEFAULT_INDEX_DIR,
                         data_lake_version,
-                        f"em_index_{tname}_{query_column}.pickle",
+                        f"{PREFIX[jd_method]}_{tname}_{query_column}.pickle",
                     )
                     index_logger.start_time("load")
-                    index = ExactMatchingIndex(file_path=index_path)
+                    if jd_method == "exact_matching":
+                        index = ExactMatchingIndex(file_path=index_path)
+                    else:
+                        index = StarmieWrapper(file_path=index_path)
+                    index_logger.end_time("load")
+
+                elif jd_method == "starmie":
+                    index_logger = SimpleIndexLogger(
+                        index_name=jd_method,
+                        step="query",
+                        data_lake_version=data_lake_version,
+                        log_path="results/query_logging.txt",
+                    )
+                    index_path = Path(
+                        DEFAULT_INDEX_DIR,
+                        data_lake_version,
+                        f"{PREFIX[jd_method]}-{tname}.pickle",
+                    )
+                    index_logger.start_time("load")
+                    index = StarmieWrapper(file_path=index_path)
                     index_logger.end_time("load")
                 else:
-                    raise ValueError
+                    raise ValueError(f"Unknown jd_method {jd_method}")
                 index_logger.update_query_parameters(tname, query_column)
                 query_result, index_logger = query_index(
                     index,

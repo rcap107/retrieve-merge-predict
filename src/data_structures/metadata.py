@@ -318,8 +318,10 @@ class QueryResult:
 
         if self.query_column not in df.columns:
             raise pl.ColumnNotFoundError()
-        query = df[self.query_column].drop_nulls()
-
+        if index.index_name != "starmie":
+            query = df[self.query_column].drop_nulls()
+        else:
+            query = self.query_column
         query_result = index.query_index(query, top_k=top_k)
 
         tmp_cand = {}

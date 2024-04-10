@@ -28,7 +28,10 @@ if __name__ == "__main__":
         print(f"Reading configuration from file {config_file_path}")
         from src.utils.indexing import prepare_retrieval_methods
 
-        for _ in range(args.repeats):
+        if args.repeats > 1:
+            for _ in range(args.repeats):
+                prepare_retrieval_methods(config)
+        else:
             prepare_retrieval_methods(config)
     else:
         raise FileNotFoundError

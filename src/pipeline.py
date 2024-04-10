@@ -177,11 +177,11 @@ def validate_configuration(run_config: dict):
 
     # Check query parameters
     # TODO: fix this so it can be generalized
-    assert query_info["join_discovery_method"] in [
-        "exact_matching",
-        "minhash_hybrid",
-        "minhash",
-    ]
+    # assert query_info["join_discovery_method"] in [
+    #     "exact_matching",
+    #     "minhash_hybrid",
+    #     "minhash",
+    # ]
 
     # Check query existence
     load_query_result(

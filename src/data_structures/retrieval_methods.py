@@ -927,8 +927,8 @@ class StarmieWrapper:
 
     def query_index(
         self,
-        query_column=None,
-        top_k=200,
+        query_column: str = None,
+        top_k: int = 200,
     ):
         if query_column is None:
             raise ValueError("Invalid value provided for query_column")
@@ -944,11 +944,12 @@ class StarmieWrapper:
             return query_results.top_k(top_k, by="similarity").rows()
         return query_results.rows()
 
-    def save_index(self, output_dir):
+    def save_index(self, output_dir: str | Path):
         path_mdata = Path(
             output_dir,
             f"starmie_index_{self.base_table_path.stem}.pickle",
         )
+        print(f"{path_mdata}")
         dd = {
             "index_name": self.index_name,
             "base_table_path": self.base_table_path,
