@@ -101,7 +101,8 @@ def pack(dict_to_pack: dict):
     return packed
 
 
-def prepare_config_dict(base_config: dict):
+def prepare_config_dict(base_config: dict, debug=False):
+    base_config["run_parameters"]["debug"] = debug
     converted_ = convert_to_list(base_config)
 
     flattened_ = flatten("", converted_)
