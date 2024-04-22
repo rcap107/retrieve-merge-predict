@@ -1,6 +1,6 @@
 ["run_parameters"]
 task = "regression"
-debug = true
+debug = false
 n_splits = [2]
 test_size = 0.2
 split_kind = "group_shuffle"

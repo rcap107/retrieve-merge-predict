@@ -25,14 +25,16 @@ stepwise_greedy_join.active = true
 highest_containment.active = true
 best_single_join.active = true
 full_join.active = true
+top_k_full_join.active = true
+top_k_full_join.top_k = 1
 stepwise_greedy_join.budget_type = "iterations"
 stepwise_greedy_join.budget_amount = [30]
 stepwise_greedy_join.epsilon = [0.0]
 stepwise_greedy_join.ranking_metric = "containment"
 
 ["query_cases"]
-data_lake = ["binary_update","wordnet_vldb_3", "wordnet_vldb_10"]
-join_discovery_method = ["starmie", "exact_matching", "minhash"]
+data_lake = ["wordnet_vldb_50"]
+join_discovery_method = ["exact_matching", "minhash", "minhash_hybrid"]
 table_path = [
     "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
     "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",

@@ -1,5 +1,5 @@
 join_discovery_method=["starmie"]
-data_lake="wordnet_vldb_3"
+data_lake="wordnet_full"
 iterations=1
 
 [["query_cases"]]
