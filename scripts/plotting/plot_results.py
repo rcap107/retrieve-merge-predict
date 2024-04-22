@@ -1,3 +1,6 @@
+"""
+Main script for figure 3: plot the comparison between different methods.
+"""
 import polars as pl
 
 import src.utils.plotting as plotting
@@ -22,6 +25,9 @@ def get_cases(df: pl.DataFrame, keep_nojoin: bool = False) -> dict:
 
 if __name__ == "__main__":
     result_path = "results/overall/overall_first.parquet"
+
+    save_figures = False
+
     df_results = pl.read_parquet(result_path)
     results_full, results_depleted = read_and_process(df_results)
 
@@ -69,7 +75,7 @@ if __name__ == "__main__":
         scatterplot_dimension=scatter_d,
         figsize=(10, 2.5),
         scatter_mode="split",
-        savefig=True,
+        savefig=save_figures,
         savefig_type=["png", "pdf"],
         case=case,
         colormap_name="Set1",
@@ -88,7 +94,7 @@ if __name__ == "__main__":
         scatterplot_dimension=scatter_d,
         figsize=(10, 2.1),
         scatter_mode="split",
-        savefig=True,
+        savefig=save_figures,
         savefig_type=["png", "pdf"],
         case=case,
         colormap_name="Set1",
@@ -107,7 +113,7 @@ if __name__ == "__main__":
         scatterplot_dimension=scatter_d,
         figsize=(8, 1),
         scatter_mode="split",
-        savefig=True,
+        savefig=save_figures,
         savefig_type=["png", "pdf"],
         case=case,
         colormap_name="Set1",

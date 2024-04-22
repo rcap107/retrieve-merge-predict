@@ -1,3 +1,6 @@
+"""
+Figure 7: distribution of the containment of the top-100 candidates by JC.
+"""
 # %%
 # cd ~/bench
 

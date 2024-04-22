@@ -1,3 +1,6 @@
+"""
+Figure 6: Comparison of time spent in different sections of the code.
+"""
 #%%
 # %cd ~/bench
 #%%

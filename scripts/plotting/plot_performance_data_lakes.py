@@ -1,3 +1,6 @@
+"""
+Figure 4: prediction performance by data lake.
+"""
 #%%
 # %cd ~/bench
 

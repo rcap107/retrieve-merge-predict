@@ -1,3 +1,7 @@
+"""
+Figure 8: Breakdown of where time is spent for each selector.
+"""
+
 # %%
 # %cd ~/bench
 # %load_ext autoreload

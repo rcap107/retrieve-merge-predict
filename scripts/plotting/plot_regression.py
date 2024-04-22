@@ -1,3 +1,6 @@
+"""
+Figure 5(b): prediction performance with respect to containment, with regression plot.
+"""
 #%%
 # %cd ~/bench
 import matplotlib.pyplot as plt

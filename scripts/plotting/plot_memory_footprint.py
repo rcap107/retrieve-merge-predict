@@ -1,3 +1,7 @@
+"""
+Figure 11 in the paper: peak memory usage by ML model.
+"""
+
 # #%%
 # %cd ~/bench
 #%%

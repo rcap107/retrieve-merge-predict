@@ -1,3 +1,7 @@
+"""
+This script is used to prepare the special case of aggregation in figure 3(c) in the paper.
+"""
+
 #%%
 # %cd ~/bench
 #%%

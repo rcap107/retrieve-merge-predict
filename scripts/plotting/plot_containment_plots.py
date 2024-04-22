@@ -1,3 +1,8 @@
+"""
+This script is used to prepare figure 5(a) and 5(b) in the paper.
+"""
+
+
 # # %%
 # %cd ~/bench
 
