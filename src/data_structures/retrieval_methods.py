@@ -947,7 +947,7 @@ class StarmieWrapper:
     def save_index(self, output_dir: str | Path):
         path_mdata = Path(
             output_dir,
-            f"starmie_index_{self.base_table_path.stem}.pickle",
+            f"starmie_index-{self.base_table_path.stem}.pickle",
         )
         print(f"{path_mdata}")
         dd = {
