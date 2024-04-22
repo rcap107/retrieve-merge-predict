@@ -15,7 +15,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from tqdm import tqdm
 
-import src.utils.indexing as iu
 import src.utils.joining as ju
 from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import CandidateJoin
@@ -25,7 +24,7 @@ SUPPORTED_RANKING_METHODS = ["containment"]
 
 
 def measure_containment(
-    source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on, right_on
+    source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on: list, right_on: list
 ):
     unique_source = source_table[left_on].unique()
     unique_cand = cand_table[right_on].unique()
@@ -35,7 +34,7 @@ def measure_containment(
     return len(s1.intersection(s2)) / len(s1)
 
 
-def build_containment_ranking(X, candidate_joins):
+def build_containment_ranking(X: pd.DataFrame, candidate_joins: dict):
     containment_list = []
     for hash_, mdata in tqdm(
         candidate_joins.items(),

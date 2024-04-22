@@ -249,7 +249,11 @@ def load_query_result(
             query_result.select_top_k(top_k)
         return query_result
     else:
-        assert Path(
+        query_path = Path(
             DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path
-        ).exists()
-        assert isinstance(top_k, int) and top_k >= 0
+        )
+        if not query_path.exists():
+            raise ValueError(f"Query {query_path} not found.")
+
+        if not (isinstance(top_k, int) and top_k >= 0):
+            raise ValueError(f"Value '{top_k}' is not valid for variable top_k")
