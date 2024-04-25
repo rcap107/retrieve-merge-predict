@@ -5,6 +5,8 @@ from pathlib import Path
 from pprint import pprint
 
 from joblib import load
+from memory_profiler import memory_usage
+from tqdm import tqdm
 
 from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import (
@@ -135,13 +137,40 @@ def prepare_retrieval_methods(index_configurations: dict):
 
             index_logger.start_time("create")
             if index == "lazo":
-                this_index = LazoIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (LazoIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+                # this_index = LazoIndex(**i_conf)
             elif index == "minhash":
-                this_index = MinHashIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (MinHashIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+
+                # this_index = MinHashIndex(**i_conf)
             elif index == "count_vectorizer":
-                this_index = CountVectorizerIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (CountVectorizerIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+
+                # this_index = CountVectorizerIndex(**i_conf)
             elif index == "exact_matching":
-                this_index = ExactMatchingIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (ExactMatchingIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+
+                # this_index = ExactMatchingIndex(**i_conf)
             else:
                 raise NotImplementedError
             index_logger.end_time("create")
