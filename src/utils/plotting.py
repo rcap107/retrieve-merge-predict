@@ -2,15 +2,15 @@ from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import polars as pl
 import polars.selectors as cs
 import seaborn as sns
+from matplotlib import ticker
 from matplotlib.colors import ListedColormap
 
-import src.utils.constants as constants
+from src.utils import constants
 
 plt.style.use("seaborn-v0_8-talk")
 
