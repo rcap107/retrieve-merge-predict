@@ -3,6 +3,7 @@ import os
 os.environ["POLARS_MAX_THREADS"] = "32"
 
 import argparse
+import json
 import pickle
 import pprint
 from collections import deque
@@ -63,7 +64,12 @@ if __name__ == "__main__":
 
     if args.recovery_path is not None:
         if args.recovery_path.exists():
-            run_variants = pickle.load(open(args.recovery_path, "rb"))
+            pth = args.recovery_path
+            missing_runs_path = Path(pth, "missing_runs.pickle")
+            missing_runs_config = Path(pth, pth.stem + ".cfg")
+            with open(missing_runs_config, "r") as fp:
+                base_config = json.load(fp)
+            run_variants = pickle.load(open(missing_runs_path, "rb"))
         else:
             raise IOError(f"File {args.recovery_path} not found.")
     else:
