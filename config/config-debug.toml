@@ -1,7 +1,7 @@
 ["run_parameters"]
 task = "regression"
 debug = false
-n_splits = [2]
+n_splits = [5]
 test_size = 0.2
 split_kind = "group_shuffle"
 
@@ -24,8 +24,9 @@ top_k_full_join.active = true
 best_single_join.active = false
 full_join.active = false
 stepwise_greedy_join.active = false
+highest_containment.active=true
 # Parameters
-top_k_full_join.top_k = 3
+top_k_full_join.top_k = 1
 stepwise_greedy_join.budget_type = "iterations"
 stepwise_greedy_join.budget_amount = [30]
 stepwise_greedy_join.epsilon = [0.0]
@@ -33,7 +34,7 @@ stepwise_greedy_join.ranking_metric = "containment"
 
 ["query_cases"]
 data_lake = ["wordnet_vldb_3"]
-join_discovery_method = ["exact_matching", "starmie"]
+join_discovery_method = ["exact_matching",]
 table_path = [
     # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
     "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
