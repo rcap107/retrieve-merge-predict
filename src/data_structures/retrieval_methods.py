@@ -652,7 +652,7 @@ class ExactMatchingIndex:
                 self.base_table[query_column].unique().to_list()
             )
 
-            self.unique_base_table = self.base_table[query_column].unique().implode()
+            self.unique_base_table = self.base_table[query_column].unique().implode()[0]
             self.counts = self._build_count_matrix(self.metadata_dir)
 
     @staticmethod
