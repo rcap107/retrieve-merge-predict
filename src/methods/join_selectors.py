@@ -22,6 +22,9 @@ from src.data_structures.metadata import CandidateJoin
 SUPPORTED_BUDGET_TYPES = ["iterations"]
 SUPPORTED_RANKING_METHODS = ["containment"]
 
+# For reproducibility
+CATBOOST_RANDOM_SEED = 42
+
 
 def measure_containment(
     source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on: list, right_on: list
@@ -165,6 +168,7 @@ class BaseJoinEstimator(BaseEstimator):
 
         parameters = dict(defaults)
         parameters.update(self.model_parameters)
+        parameters["random_seed"] = CATBOOST_RANDOM_SEED
         if self.task == "regression":
             self.model = CatBoostRegressor(cat_features=cat_features, **parameters)
         elif self.task == "classification":
@@ -540,6 +544,14 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
 
 class BestSingleJoin(BaseJoinWithCandidatesMethod):
+    # pylint: disable=too-many-instance-attributes
+    """
+    The `BestSingleJoin` estimator takes at init time a set of candidates that will be trained at `fit` time to
+    find the best single candidate among them.
+
+    The selection of the "best candidate" is done at fit time.
+    """
+
     def __init__(
         self,
         scenario_logger: ScenarioLogger = None,
@@ -550,11 +562,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         task: str = "regression",
         valid_size: float = 0.2,
     ) -> None:
-        """The `BestSingleJoin` estimator takes at init time a set of candidates that will be trained at `fit` time to
-        find the best single candidate among them.
-
-        The selection of the "best candidate" is done at fit time.
-
+        """
         Args:
             scenario_logger (ScenarioLogger, optional): ScenarioLogger object that contains the parameters relative to this run
             candidate_joins (dict, optional): Dictionary that includes all generated candidate joins
@@ -781,7 +789,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             self._end_time("model_train")
         self.n_joined_columns = len(merged_train.columns)
 
-    def predict(self, X):
+    def predict(self, X: pd.DataFrame):
         self._start_time("join_predict")
         merged_test = pl.from_pandas(X).clone().lazy()
         merged_test = ju.execute_join_all_candidates(
@@ -814,6 +822,17 @@ class FullJoin(BaseJoinWithCandidatesMethod):
 
 
 class TopKFullJoin(FullJoin):
+    """
+    The `TopKFullJoin` selector extends the `FullJoin` selector adding a parameter `k` to limit the full
+    join to the first `k` candidates provided. The selector assumes that candidates are already
+    sorted: no further sorting is carried out.
+
+    This selector should be used for testing the ranking strategies employed by a retrieval method.
+
+    If `k=1` and `retrieval_method="exact_matching"`, this is equivalent to `HighestContainmentJoin`.
+
+    """
+
     def __init__(
         self,
         scenario_logger: ScenarioLogger = None,
@@ -824,10 +843,7 @@ class TopKFullJoin(FullJoin):
         top_k: int = 1,
         task: str = "regression",
     ) -> None:
-        """This selector extends the FullJoin selector adding a parameter k to limit the full
-        join to the first k candidates provided. The selector assumes that candidates have been
-        sorted and no additional sorting is carried out.
-
+        """
         Args:
             scenario_logger (ScenarioLogger, optional): The ScenarioLogger used to track information
             about the experiments.
