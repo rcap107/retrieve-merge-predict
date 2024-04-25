@@ -127,9 +127,12 @@ def validate_configuration(run_config: dict):
     path_bt = Path(query_info["table_path"])
     tab_name = path_bt.stem
     print(f"Validating table {tab_name}")
-    assert path_bt.exists()
+    if not path_bt.exists():
+        raise IOError(f"Base table file {path_bt} not found.")
+
     suffix = path_bt.suffix
-    assert suffix in [".parquet", ".csv"]
+    if not suffix in [".parquet", ".csv"]:
+        raise ValueError(f"Extension {suffix} not supported.")
 
     if suffix == ".parquet":
         df = pl.read_parquet(path_bt)
@@ -138,16 +141,24 @@ def validate_configuration(run_config: dict):
     else:
         raise ValueError(f"Base table type {suffix} not supported.")
 
-    assert query_info["query_column"] in df.columns
+    if not query_info["query_column"] in df.columns:
+        raise ValueError(
+            f"Query column {query_info['query_column']} not in {df.columns}."
+        )
 
-    assert run_parameters.get("target_column", "target") in df.columns
+    _tgt = run_parameters.get("target_column", "target")
+    if not _tgt in df.columns:
+        raise ValueError(f"Target column {_tgt} not in {df.columns}.")
 
     # Check run parameters
-    assert run_parameters["task"] in ["regression", "classification"]
+    assert run_parameters["task"] in [
+        "regression",
+        "classification",
+    ], f"Task {run_parameters['task']} not supported"
     assert run_parameters["debug"] in [True, False]
     assert (
         isinstance(run_parameters["n_splits"], int) and run_parameters["n_splits"] > 0
-    )
+    ), f"Incorrect value {run_parameters['n_splits']} for n_splits."
     assert (
         isinstance(run_parameters["test_size"], float)
         and 0 < run_parameters["test_size"] < 1
