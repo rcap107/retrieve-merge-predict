@@ -85,12 +85,14 @@ if __name__ == "__main__":
 
     pth_missing_runs = Path("results/logs/", exp_name, "missing_runs.pickle")
 
-    progress_bar = tqdm(total=len(run_variants), position=2)
+    progress_bar = tqdm(total=len(run_variants), position=0, desc="Overall progress: ")
     while len(run_queue) > 0:
         this_config = run_queue.pop()
-        with open(pth_missing_runs, "wb") as fp:
-            pickle.dump(list(run_queue), fp)
-        pprint.pprint(this_config)
+        if not args.debug:
+            with open(pth_missing_runs, "wb") as fp:
+                pickle.dump(list(run_queue), fp)
+        pprint_config = pprint.pformat(this_config)
+        tqdm.write(pprint_config)
         single_run(this_config, exp_name)
         progress_bar.update(1)
     progress_bar.close()
