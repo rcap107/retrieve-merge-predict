@@ -652,7 +652,7 @@ class ExactMatchingIndex:
                 self.base_table[query_column].unique().to_list()
             )
 
-            self.unique_base_table = self.base_table[query_column].unique().implode()[0]
+            self.unique_base_table = set(self.base_table[query_column].unique())
             self.counts = self._build_count_matrix(self.metadata_dir)
 
     @staticmethod
@@ -677,11 +677,19 @@ class ExactMatchingIndex:
         return unique_keys
 
     def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
-        return len(
-            self.unique_base_table.list.set_intersection(
-                candidate_table.select(pl.col(right_on).unique()).to_series().implode()
-            ).explode()
-        ) / len(self.unique_base_table)
+        unique_cand = self.find_unique_keys(candidate_table, right_on)
+
+        s1 = self.unique_base_table
+        s2 = set(unique_cand[right_on].to_series())
+        return len(s1.intersection(s2)) / len(s1)
+
+    # def _measure_containment(self, candidate_table: pl.DataFrame, right_on):
+    #     cloned = self.unique_base_table.clone()
+    #     return len(
+    #         cloned.list.set_intersection(
+    #             candidate_table.select(pl.col(right_on).unique()).to_series().implode()
+    #         ).explode()
+    #     ) / len(self.unique_base_table)
 
     def _prepare_single_table(self, fpath):
         overlap_dict = {}
