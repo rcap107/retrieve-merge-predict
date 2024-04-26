@@ -206,7 +206,7 @@ def validate_configuration(run_config: dict):
 
 
 def single_run(run_config: dict, run_name=None):
-    estim_parameters = run_config["estimators"]
+    selector_parameters = run_config["estimators"]
     model_parameters = run_config["evaluation_models"]
     join_parameters = run_config["join_parameters"]
     run_parameters = run_config["run_parameters"]
@@ -253,7 +253,7 @@ def single_run(run_config: dict, run_name=None):
         # TODO: generalize this
         target_column=run_parameters.get("target_column", "target"),
         group_column=query_info["query_column"],
-        estim_parameters=estim_parameters,
+        estim_parameters=selector_parameters,
         join_parameters=join_parameters,
         model_parameters=model_parameters,
         run_parameters=run_parameters,
@@ -269,5 +269,5 @@ def single_run(run_config: dict, run_name=None):
     scl.add_process_time()
 
     scl.finish_run()
-    logger_scn.debug(scl.to_string())
+    # logger_scn.debug(scl.to_string())
     logger.info("Run end.")

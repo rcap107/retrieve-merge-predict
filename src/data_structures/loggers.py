@@ -8,6 +8,7 @@ from time import process_time
 
 import polars as pl
 from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
+from tqdm import tqdm
 
 import src.utils.logging as log
 from src.utils.logging import HEADER_RUN_LOGFILE
@@ -123,11 +124,30 @@ class ScenarioLogger:
 
         return str_res.rstrip(",")
 
+    def print_results(self):
+        self.tqdm_print()
+        summary = self.results.group_by(["estimator"]).agg(
+            pl.mean("r2"), pl.mean("rmse")
+        )
+        print(summary)
+
     def pretty_print(self):
-        print(f"Run name: {self.exp_name}")
         print(f"Scenario ID: {self.scenario_id}")
+        print(f"Run name: {self.exp_name}")
         print(f"Base table: {self.base_table_name}")
         print(f"DL Variant: {self.target_dl}")
+        print(f"Retrieval method: {self.jd_method}")
+        print(f"Aggregation: {self.aggregation}")
+        print(f"ML model: {self.chosen_model}")
+
+    def tqdm_print(self):
+        tqdm.write(f"Scenario ID: {self.scenario_id}")
+        tqdm.write(f"Run name: {self.exp_name}")
+        tqdm.write(f"Base table: {self.base_table_name}")
+        tqdm.write(f"DL Variant: {self.target_dl}")
+        tqdm.write(f"Retrieval method: {self.jd_method}")
+        tqdm.write(f"Aggregation: {self.aggregation}")
+        tqdm.write(f"ML model: {self.chosen_model}")
 
     def write_to_log(self, out_path):
         if Path(out_path).parent.exists():

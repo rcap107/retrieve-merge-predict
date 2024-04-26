@@ -165,7 +165,7 @@ def evaluate_joins(
         total=len(splits),
         desc="CV progress: ",
         position=1,
-        leave=True,
+        leave=False,
     ):
         base_table_train = base_table[train_split]
         base_table_test = base_table[test_split]
@@ -265,4 +265,4 @@ def evaluate_joins(
 
     scenario_logger.additional_info = add_info_dict
     scenario_logger.results = pl.from_dicts(res_list)
-    print(scenario_logger.results)
+    scenario_logger.print_results()

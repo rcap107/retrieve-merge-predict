@@ -110,9 +110,8 @@ def prepare_retrieval_methods(index_configurations: dict):
     """
 
     for index, config in index_configurations.items():
-        for i_conf in config:
+        for i_conf in tqdm(config, total=len(config), position=1):
             metadata_dir = Path(i_conf["metadata_dir"])
-            pprint(i_conf, indent=2)
             data_lake_version = metadata_dir.stem
             if "thresholds" in i_conf:
                 data_lake_version += f"_{i_conf['thresholds']}"
@@ -126,6 +125,7 @@ def prepare_retrieval_methods(index_configurations: dict):
             )
 
             if "base_table_path" in i_conf:
+                tqdm.write(f"Table: {Path(i_conf['base_table_path']).stem}")
                 logger.info(
                     "Index creation start: %s - %s - %s"
                     % (data_lake_version, index, i_conf["base_table_path"])

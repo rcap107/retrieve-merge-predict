@@ -203,6 +203,7 @@ def execute_join_all_candidates(
         total=len(index_cand),
         leave=False,
         desc="Full Join",
+        position=2,
     ):
         cnd_md = mdata.candidate_metadata
         hashes.append(cnd_md["hash"])

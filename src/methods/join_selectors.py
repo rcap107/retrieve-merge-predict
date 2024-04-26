@@ -44,7 +44,7 @@ def build_containment_ranking(X: pd.DataFrame, candidate_joins: dict):
         total=len(candidate_joins),
         leave=False,
         desc="Building Containment Ranking: ",
-        position=0,
+        position=2,
     ):
         _, cnd_md, left_on, right_on = mdata.get_join_information()
         cnd_table = pl.read_parquet(cnd_md["full_path"])
@@ -609,7 +609,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             total=self.n_candidates,
             leave=False,
             desc="BestSingleJoin",
-            position=0,
+            position=2,
         ):
             self._start_time("join_train")
             _, cnd_md, left_on, right_on = cjoin.get_join_information()
@@ -956,6 +956,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
             total=self.budget_amount,
             desc="StepwiseGreedyJoin - Iterating: ",
             leave=False,
+            position=2,
         ):
             self._start_time("prepare")
             cjoin = self._get_candidate()
