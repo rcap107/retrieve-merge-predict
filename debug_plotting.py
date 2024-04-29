@@ -1,4 +1,4 @@
-# # %%
+# %%
 # %cd ~/bench
 # #%%
 # %load_ext autoreload
@@ -38,12 +38,15 @@ if case == "dep":
 
 elif case == "full":
     current_results = results_full.clone()
-
-# %%
-var = "jd_method"
+#%%
+_d = current_results.filter(
+    (pl.col("estimator") != "top_k_full_join")
+    & (pl.col("target_dl") != "wordnet_vldb_50")
+)
+var = "estimator"
 scatter_d = "case"
 plotting.draw_pair_comparison(
-    current_results,
+    _d,
     var,
     form_factor="multi",
     scatterplot_dimension=scatter_d,
@@ -52,7 +55,26 @@ plotting.draw_pair_comparison(
     savefig=False,
     savefig_type=["png", "pdf"],
     case=case,
-    colormap_name="Set1",
+    # colormap_name="Set1",
+)
+#%%
+_d = current_results.filter(
+    (pl.col("estimator") == "top_k_full_join")
+    & (pl.col("target_dl") != "wordnet_vldb_50")
+)
+var = "jd_method"
+scatter_d = "base_table"
+plotting.draw_pair_comparison(
+    _d,
+    grouping_dimension=var,
+    form_factor="multi",
+    scatterplot_dimension=scatter_d,
+    figsize=(10, 3),
+    scatter_mode="split",
+    savefig=False,
+    savefig_type=["png", "pdf"],
+    case=case,
+    # colormap_name="Set1",
 )
 
 # %%
