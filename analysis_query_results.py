@@ -1,3 +1,12 @@
+"""
+This script executes an exhaustive analysis of the query results produced by each retrieval method on the given data lake
+to measure the overall statistics of the candidates returned by each.
+
+The results of this script are saved in results/stats/ and are used for some of the plotting scripts.
+
+Author: Riccardo Cappuzzo
+"""
+
 import datetime
 import pickle
 from pathlib import Path
@@ -76,7 +85,9 @@ def test_joining(
         "cnd_ncols": "",
         "join_time": "",
     }
-    for rank, (c_id, cand) in enumerate(query_result.candidates.items()):
+    for rank, (c_id, cand) in tqdm(
+        enumerate(query_result.candidates.items()), total=len(query_result.candidates)
+    ):
         r_dict = dict(base_results)
         _, cnd_md, left_on, right_on = cand.get_join_information()
         cand_table = pl.read_parquet(cnd_md["full_path"])
@@ -120,6 +131,20 @@ def test_group_stats(
     query_column: str,
     top_k: int,
 ):
+    """This function has the objective of estimating whether aggregation methods `first` and `mean` return the same results
+    or if there is a noticeable difference between the aggregations.
+
+    Args:
+        data_lake_version (str): The label of the data lake to evaluate.
+        index_name (str): Which retrieval method to use.
+        table_name (str): The name of the base table.
+        base_table (pl.DataFrame): The base table itself.
+        query_column (str): The column to be used as query and join key
+        top_k (int): How many candidates should be considered.
+
+    Returns:
+        list: A list containing the statistics for each candidate.
+    """
     query_result = load_query_result(
         data_lake_version, index_name, table_name, query_column, 0
     )
@@ -212,48 +237,55 @@ def test_group_stats(
 
 
 if __name__ == "__main__":
-    data_lake_version = "binary_update"
+    data_lake_version = "open_data_us"
     print("Data lake: ", data_lake_version)
-    index_names = [
-        "exact_matching"
-        # "minhash", "minhash_hybrid", "exact_matching"
-    ]
-    keys = ["index_name", "tab_name", "top_k", "join_time", "avg_cont"]
-    results = []
 
-    mode = "group_stats"
-
-    version = "yadl"  # or open_data_us
-    base_path = Path(f"data/source_tables/{version}")
-
-    queries = {
-        "open_data_us": [
+    if data_lake_version == "open_data_us":
+        queries = [
             ("company_employees", "name"),
             ("housing_prices", "County"),
             ("us_elections", "county_name"),
             ("movies", "title"),
             ("us_accidents", "County"),
-            ("schools", "col_to_embed"),
-        ],
-        "yadl": [
+            # ("schools", "col_to_embed"),
+        ]
+        base_path = Path("data/source_tables/open_data_us")
+        version = "open_data_us"
+        table_tag = "-open_data"
+    else:
+        queries = [
             ("company_employees", "col_to_embed"),
             ("housing_prices", "col_to_embed"),
             ("us_elections", "col_to_embed"),
             ("movies", "col_to_embed"),
             ("us_accidents", "col_to_embed"),
-        ],
-    }
+        ]
+        base_path = base_path = Path("data/source_tables/yadl")
+        version = "yadl"
+        table_tag = "-yadl-depleted"
 
-    for query in queries[version]:
-        for iname in index_names:
-            print(iname)
+    index_names = [
+        "minhash",
+        "minhash_hybrid",
+        "exact_matching",
+        # "starmie",
+    ]
+    keys = ["index_name", "tab_name", "top_k", "join_time", "avg_cont"]
+    results = []
+
+    mode = "stats"
+
+    for query in tqdm(queries, total=len(queries), position=0, desc="Testing query: "):
+        tab, query_column = query
+        tqdm.write(tab)
+        for iname in tqdm(
+            index_names, total=len(index_names), position=1, desc="Testing index: "
+        ):
+            tqdm.write(iname)
             for k in [30]:
                 aggr = "first"
-                tab, query_column = query
-                # table_name = f"{tab}-open_data"
-                table_name = f"{tab}-yadl-depleted"
+                table_name = f"{tab}{table_tag}"
                 print(f"{data_lake_version} {table_name}")
-                # for aggr in ["first", "mean"]:
                 base_table = pl.read_parquet(
                     Path(f"data/source_tables/{version}/{table_name}.parquet")
                 )
@@ -276,7 +308,9 @@ if __name__ == "__main__":
                     results += col_stats
 
     df = pl.from_dicts(results)
-    out_path = Path(f"analysis_query_results_{data_lake_version}_{mode}_all.csv")
+    out_path = Path(
+        "results/stats", f"analysis_query_results_{data_lake_version}_{mode}_all.csv"
+    )
     if out_path.exists():
         df.write_csv(open(out_path, "a"), include_header=False)
     else:
