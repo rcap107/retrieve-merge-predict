@@ -406,3 +406,6 @@ class QueryResult:
 
         with open(output_path, "wb") as fp:
             pickle.dump(self, fp)
+
+    def __len__(self):
+        return len(self.candidates)

@@ -266,23 +266,24 @@ def load_query_result(
             query_column,
         )
     )
-    if not validate:
-        with open(
-            Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path),
-            # Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
-            "rb",
-        ) as fp:
-            query_result = pickle.load(fp)
 
-        if top_k > 0:
-            query_result.select_top_k(top_k)
-        return query_result
-    else:
-        query_path = Path(
-            DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path
+    query_path = Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path)
+    if not query_path.exists():
+        raise ValueError(f"Query {query_path} not found.")
+
+    if not (isinstance(top_k, int) and top_k >= 0):
+        raise ValueError(f"Value '{top_k}' is not valid for variable top_k")
+    with open(
+        Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path),
+        # Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
+        "rb",
+    ) as fp:
+        query_result = pickle.load(fp)
+
+    if len(query_result) < 1:
+        raise ValueError(
+            f"Found no candidates for query: {data_lake_version} - {index_name} - {query_column}."
         )
-        if not query_path.exists():
-            raise ValueError(f"Query {query_path} not found.")
-
-        if not (isinstance(top_k, int) and top_k >= 0):
-            raise ValueError(f"Value '{top_k}' is not valid for variable top_k")
+    if top_k > 0:
+        query_result.select_top_k(top_k)
+    return query_result
