@@ -1,7 +1,7 @@
 ["run_parameters"]
 task = "regression"
 debug = false
-n_splits = [5]
+n_splits = [2]
 test_size = 0.2
 split_kind = "group_shuffle"
 
@@ -24,7 +24,7 @@ top_k_full_join.active = true
 best_single_join.active = false
 full_join.active = false
 stepwise_greedy_join.active = false
-highest_containment.active=true
+highest_containment.active=false
 # Parameters
 top_k_full_join.top_k = 1
 stepwise_greedy_join.budget_type = "iterations"

@@ -1,0 +1,99 @@
+# wordnet_vldb_10
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/movies_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/wordnet_vldb_10"
+base_table_path="data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet"
+query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/wordnet_vldb_10"
+base_table_path="data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet"
+query_column="col_to_embed"
+
+# wordnet_full
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_full"
+# base_table_path="data/source_tables/yadl/movies_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_full"
+# base_table_path="data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/wordnet_full"
+base_table_path="data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet"
+query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/wordnet_full"
+base_table_path="data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet"
+query_column="col_to_embed"
+
+# binary_update
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/binary_update"
+# base_table_path="data/source_tables/yadl/movies_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/binary_update"
+# base_table_path="data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/binary_update"
+base_table_path="data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet"
+query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/binary_update"
+base_table_path="data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet"
+query_column="col_to_embed"
+
+# wordnet_vldb_50
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_50"
+# base_table_path="data/source_tables/yadl/movies_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_50"
+# base_table_path="data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/wordnet_vldb_50"
+base_table_path="data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet"
+query_column="col_to_embed"
+
+[["exact_matching"]]
+n_jobs=16
+metadata_dir="data/metadata/wordnet_vldb_50"
+base_table_path="data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet"
+query_column="col_to_embed"
