@@ -1,196 +1,248 @@
 """
-This script is used to prepare figure 5(a) and 5(b) in the paper.
+Figure 5(b): prediction performance with respect to containment, with regression plot.
 """
 
-
-# # %%
+# %%
 # %cd ~/bench
-
-# #%%
 # %load_ext autoreload
 # %autoreload 2
-
-import pickle
+# %%
 from pathlib import Path
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
+from sklearn.linear_model import LinearRegression
 
 import src.utils.plotting as plotting
 from src.utils.constants import LABEL_MAPPING
 
-#%%
+# %%
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
 
-DEFAULT_QUERY_RESULT_DIR = Path("results/query_results")
+cfg = pl.Config()
+cfg.set_fmt_str_lengths(150)
+
+STATS_DIR = Path("results/stats")
 
 
-def load_query_result(yadl_version, index_name, tab_name, query_column, top_k):
-    query_result_path = "{}__{}__{}__{}.pickle".format(
-        yadl_version,
-        index_name,
-        tab_name,
-        query_column,
+# %%
+### PREPARE REGRESSION
+def plot_reg(X, y, ax, label):
+    model = LinearRegression()
+    model.fit(X, y)
+    ax.scatter(
+        X + plotting.prepare_jitter(X.shape, offset_value=0, factor=0.0),
+        y,
+        alpha=0.7,
+        edgecolors="k",
+        linewidths=0.5,
+    )
+    ax.plot(X, model.predict(X), label=label)
+    ax.set_ylabel("Prediction score")
+    ax.set_xlabel("Containment")
+
+
+def prepare_data(df_raw, df_analysis):
+    df_agg = (
+        df_analysis.filter(pl.col("top_k") == 30)
+        .group_by(
+            [
+                "retrieval_method",
+                "data_lake_version",
+                "table_name",
+                "query_column",
+                "aggregation",
+            ]
+        )
+        .agg(
+            pl.col("containment").mean().alias("avg_containment"),
+        )
+        .sort("retrieval_method", "table_name")
     )
 
-    with open(Path(DEFAULT_QUERY_RESULT_DIR, query_result_path), "rb") as fp:
-        query_result = pickle.load(fp)
-
-    query_result.select_top_k(top_k)
-    return query_result
-
-
-# %%
-df_query = pl.read_csv("results/query_logging.txt")
-df_index = pl.read_csv("results/index_logging.txt")
-df_query.with_columns(
-    pl.when(pl.col("index_name") == "exact_matching")
-    .then(pl.lit("exact"))
-    .otherwise(pl.lit("minhash"))
-)
-df_minhash = df_index.filter(pl.col("index_name") == "minhash").join(
-    df_query, on=["data_lake_version", "index_name"]
-)
-
-# %%
-df_timings = df_query.join(
-    df_index, on=["data_lake_version", "index_name", "base_table", "query_column"]
-)
-# %%
-df_raw = pl.read_parquet("results/overall/open_data_general_first.parquet")
-df_raw = df_raw.filter(pl.col("estimator") != "nojoin")
-# %%
-df = pl.read_csv("analysis_query_results_open_data_us-fixed.csv")
-df = df.with_columns(
-    (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
-)
-
-# %%
-df_agg = (
-    df.filter(pl.col("top_k") == 200)
-    .group_by(
-        [
-            "retrieval_method",
+    res = df_raw.join(
+        df_agg,
+        left_on=["target_dl", "jd_method", "base_table", "query_column"],
+        right_on=[
             "data_lake_version",
+            "retrieval_method",
             "table_name",
             "query_column",
-            "aggregation",
+        ],
+    )
+
+    f = {"jd_method": "exact_matching", "chosen_model": "catboost"}
+    r = res.filter(**f)
+    X = r.select("avg_containment").to_numpy()
+    y = r["r2score"].to_numpy()
+    return X, y
+
+
+def get_open_data():
+    df_raw = pl.read_parquet("results/overall/open_data_us-first.parquet")
+    df_raw = df_raw.filter(
+        (pl.col("estimator") != "nojoin")
+        & (~pl.col("base_table").str.contains("schools"))
+        & (pl.col("base_table").str.contains("depleted"))
+    ).with_columns(
+        base_table=pl.col("base_table")
+        .str.split("-")
+        .list.gather([0, 2])
+        .list.join("-")
+    )
+
+    df_analysis = pl.read_csv(
+        "results/stats/analysis_query_results_open_data_us_stats_all.csv"
+    )
+    df_analysis = df_analysis.with_columns(
+        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
+    ).with_columns(
+        containment=(
+            pl.when(pl.col("containment") > 1)
+            .then(pl.col("containment") / pl.col("src_nrows"))
+            .otherwise(pl.col("containment"))
+        )
+    )
+    return df_raw, df_analysis
+
+
+def get_wordnet_10():
+    df_raw = pl.read_parquet("results/overall/wordnet-10k_first.parquet")
+    df_raw = df_raw.filter(pl.col("estimator") != "nojoin")
+
+    df_analysis = pl.read_csv(
+        "results/stats/analysis_query_results_wordnet_vldb_10_stats_all.csv"
+    )
+    df_analysis = df_analysis.with_columns(
+        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
+    ).with_columns(
+        containment=(
+            pl.when(pl.col("containment") > 1)
+            .then(pl.col("containment") / pl.col("src_nrows"))
+            .otherwise(pl.col("containment"))
+        )
+    )
+    return df_raw, df_analysis
+
+
+def get_wordnet_base():
+    df_raw = pl.read_parquet("results/overall/old-versions_first.parquet")
+    df_raw = df_raw.filter(
+        (pl.col("estimator") != "nojoin") & (pl.col("target_dl") == "wordnet_full")
+    )
+
+    df_analysis = pl.read_csv(
+        "results/stats/analysis_query_results_wordnet_full_stats_all.csv"
+    )
+    df_analysis = df_analysis.with_columns(
+        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
+    )
+    return df_raw, df_analysis
+
+
+# %%
+def prepare_regression(fig, ax):
+    df_raw_od, df_analysis_od = get_open_data()
+    df_raw_10, df_analysis_10 = get_wordnet_10()
+    df_raw_wn, df_analysis_wn = get_wordnet_base()
+
+    # fig, ax = plt.subplots(squeeze=True, figsize=(4, 3), layout="constrained")
+    X, y = prepare_data(df_raw_wn, df_analysis_wn)
+    plot_reg(X, y, ax, "YADL Base")
+    X, y = prepare_data(df_raw_od, df_analysis_od)
+    plot_reg(X, y, ax, "Open Data")
+    X, y = prepare_data(df_raw_10, df_analysis_10)
+    plot_reg(X, y, ax, "YADL 10k")
+    # h, labels = ax.get_legend_handles_labels()
+    # fig.legend(
+    #     h,
+    #     labels,
+    #     loc="upper left",
+    #     fontsize=10,
+    #     ncols=3,
+    #     bbox_to_anchor=(0, 1.0, 1, 0.1),
+    #     mode="expand",
+    # )
+    ax.axhline(alpha=0.3)
+
+
+# fig.savefig("images/regplot.pdf", bbox_inches="tight")
+# fig.savefig("images/regplot.png", bbox_inches="tight")
+
+
+# %%
+# PREPARE CONTAINMENT PLOT
+def prepare_containment_plot(fig, ax):
+    df_opendata = pl.read_csv(
+        STATS_DIR / "analysis_query_results_open_data_us_stats_all.csv"
+    )
+    df_wordnet = pl.read_csv(
+        STATS_DIR / "analysis_query_results_wordnet_full_stats_all.csv"
+    )
+    df_vldb_10 = pl.read_csv(
+        STATS_DIR / "analysis_query_results_wordnet_vldb_10_stats_all.csv"
+    )
+    df = pl.concat(
+        [
+            df_wordnet,
+            df_opendata,
+            df_vldb_10,
         ]
+    ).filter(pl.col("top_k") == 30)
+    df = df.with_columns(
+        containment=(
+            pl.when(pl.col("containment") > 1)
+            .then(pl.col("containment") / pl.col("src_nrows"))
+            .otherwise(pl.col("containment"))
+        )
     )
-    .agg(
-        pl.col("containment").mean().alias("avg_containment"),
-        pl.col("containment").median().alias("median_containment"),
-        pl.col("containment").top_k(30).mean().alias("top_30_avg_containment"),
-        pl.col("containment").top_k(30).median().alias("top_30_median_containment"),
-        pl.col("cnd_nrows").mean().alias("avg_cnd_nrows"),
-        pl.col("cnd_nrows").median().alias("median_cnd_nrows"),
-        pl.col("join_time").mean().alias("avg_join_time"),
-        pl.col("join_time").median().alias("median_join_time"),
-        pl.col("matched_rows").mean().alias("avg_matched_rows"),
-        pl.col("matched_rows").median().alias("median_matched_rows"),
+    order = ["minhash", "minhash_hybrid", "exact_matching", "starmie"]
+    # fig, ax = plt.subplots(squeeze=True, figsize=(4, 3), layout="constrained")
+    sns.boxplot(
+        data=df.to_pandas(),
+        x="containment",
+        y="retrieval_method",
+        hue="data_lake_version",
+        ax=ax,
+        order=order,
     )
-    .sort("retrieval_method", "table_name")
-)
 
-# %%
-order = ["minhash", "minhash_hybrid", "exact_matching"]
-fig, ax = plt.subplots(squeeze=True, figsize=(5, 3), layout="constrained")
-sns.boxplot(
-    data=df.to_pandas(),
-    x="containment",
-    y="retrieval_method",
-    hue="top_k",
-    ax=ax,
-    order=order,
-)
-ax.get_legend().remove()
-fig.legend(loc="lower left", title="Top-k")
-ax.set_yticklabels(
-    [LABEL_MAPPING["jd_method"][x.get_text()] for x in ax.get_yticklabels()]
-)
-ax.set_xlabel("Containment")
-ax.set_ylabel("")
-# fig.savefig("images/containment-topk.pdf")
-# fig.savefig("images/containment-topk.png")
+    mapping = {
+        "wordnet_full": "YADL Comb.",
+        "open_data_us": "Open Data US",
+        "wordnet_vldb_10": "YADL 10k",
+    }
 
+    h, l = ax.get_legend_handles_labels()
+    labels = [mapping[_] for _ in l]
+    ax.get_legend().remove()
 
-# %%
-res = df_raw.join(
-    df_agg,
-    left_on=["target_dl", "jd_method", "base_table", "query_column"],
-    right_on=["data_lake_version", "retrieval_method", "table_name", "query_column"],
-)
-
-f = {"jd_method": "exact_matching", "chosen_model": "catboost"}
+    fig.legend(
+        h,
+        labels,
+        loc="upper left",
+        fontsize=10,
+        ncols=3,
+        bbox_to_anchor=(0, 1.0, 1, 0.1),
+        mode="expand",
+    )
+    ax.set_yticklabels(
+        [LABEL_MAPPING["jd_method"][x.get_text()] for x in ax.get_yticklabels()]
+    )
+    ax.set_xlabel("")
+    # ax.set_xlabel("Containment")
+    ax.set_ylabel("")
+    fig.savefig("images/containment-barplot-datalake.pdf", bbox_inches="tight")
+    fig.savefig("images/containment-barplot-datalake.png", bbox_inches="tight")
 
 
 # %%
-from sklearn.linear_model import LinearRegression
-
-r = res.filter(**f)
-X = r.select("avg_containment").to_numpy()
-y = r["r2score"].to_numpy()
-
-model = LinearRegression()
-model.fit(X, y)
-fig, ax = plt.subplots(squeeze=True, figsize=(4, 3), layout="constrained")
-ax.scatter(
-    X + plotting.prepare_jitter(X.shape, offset_value=0, factor=0.0),
-    y,
-    alpha=0.7,
-    edgecolors="k",
-    linewidths=0.5,
-)
-ax.plot(X, model.predict(X), color="k")
-ax.set_ylabel("R2 score")
-ax.set_xlabel("Containment")
-
-# fig.savefig("images/regplot.pdf")
-# fig.savefig("images/regplot.png")
-
-# %%
-cmap = mpl.colormaps["Set1"](range(2))
-fig, ax = plt.subplots(figsize=(6, 3), layout="constrained")
-
-order = (
-    res.filter(**f)
-    .group_by(["base_table"])
-    .agg(pl.median("r2score"))
-    .sort("r2score")["base_table"]
-    .to_numpy()
+fig, ax = plt.subplots(
+    2, 1, squeeze=True, figsize=(5, 6), layout="constrained", sharex=True
 )
 
-_d = res.filter(**f).select(["base_table", "r2score"]).melt(id_vars=["base_table"])
-sns.boxplot(
-    data=_d.to_pandas(), y="base_table", x="value", ax=ax, color=cmap[0], order=order
-)
-_d = (
-    res.filter(**f)
-    .select(["base_table", "avg_containment"])
-    .melt(id_vars=["base_table"])
-)
-ax2 = ax.twiny()
-ax2.set_xlim(ax.get_xlim())
-sns.pointplot(
-    data=_d.to_pandas(),
-    y="base_table",
-    x="value",
-    ax=ax2,
-    label="Avg. containment",
-    color=cmap[1],
-    order=order,
-)
-# ax.legend(loc="lower left")
-ax.set_xlabel("R2 score", color=cmap[0])
-# ax2.legend(loc="lower left")
-ax2.set_xlabel("Avg containment", color=cmap[1])
-ax.set_ylabel(None)
-ax.set_yticklabels(
-    [LABEL_MAPPING["base_table"][x.get_text()] for x in ax.get_yticklabels()]
-)
-# fig.savefig("images/r2score_containment_boxplot.pdf")
-# fig.savefig("images/r2score_containment_boxplot.png")
+prepare_containment_plot(fig, ax[0])
+prepare_regression(fig, ax[1])
 # %%

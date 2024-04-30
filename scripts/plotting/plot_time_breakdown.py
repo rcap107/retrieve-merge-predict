@@ -150,7 +150,7 @@ mapping_times = {
 }
 
 
-df_raw = pl.read_parquet("results/overall/wordnet_general_first.parquet")
+df_raw = pl.read_parquet("results/overall/wordnet-10k_first.parquet")
 df_raw = df_raw.fill_null(0)
 grouping_variable = "estimator"
 fig, axs = plt.subplots(
@@ -185,7 +185,7 @@ fig, axs = plt.subplots(
     1,
     1,
     layout="constrained",
-    figsize=(5, 2.2),
+    figsize=(5, 2.5),
 )
 # fig, axs = plt.subplots(1,2, layout="constrained", sharey=True, figsize=(8,2))
 prepare_subplot(df_raw, axs, grouping_variable, "relative")
@@ -211,7 +211,7 @@ fig, ax_tot = plt.subplots(
     1,
     1,
     layout="constrained",
-    figsize=(5, 2.2),
+    figsize=(5, 2.5),
 )
 # fig, ax_tot = plt.subplots(1,2, layout="constrained", sharey=True, figsize=(8,2))
 prepare_subplot(df_raw, ax_tot, grouping_variable, "total")
