@@ -32,6 +32,7 @@ LEGEND_LABELS = {
 ORDER_MAPPING = {
     "estimator": [
         "nojoin",
+        "top_k_full_join",
         "highest_containment",
         "best_single_join",
         "full_join",
@@ -132,8 +133,10 @@ LABEL_MAPPING = {
     "estimator": {
         "full_join": "Full Join",
         "best_single_join": "Best Single Join",
-        "stepwise_greedy_join": "Stepwise Greedy\nJoin",
-        "highest_containment": "Highest Cont.\nJoin",
+        "stepwise_greedy_join": "Step. Greedy Join",
+        # "stepwise_greedy_join": "Stepwise Greedy\nJoin",
+        # "highest_containment": "Highest Cont.\nJoin",
+        "highest_containment": "Highest JC Join",
         "nojoin": "No Join",
         "top_k_full_join": r"Top-$1$ Join",
     },
