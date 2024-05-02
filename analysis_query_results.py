@@ -237,17 +237,18 @@ def test_group_stats(
 
 
 if __name__ == "__main__":
-    data_lake_version = "open_data_us"
+    data_lake_version = "binary_update"
     print("Data lake: ", data_lake_version)
 
     if data_lake_version == "open_data_us":
         queries = [
-            ("company_employees", "name"),
-            ("housing_prices", "County"),
-            ("us_elections", "county_name"),
-            ("movies", "title"),
-            ("us_accidents", "County"),
-            # ("schools", "col_to_embed"),
+            # ("company_employees", "name"),
+            # ("housing_prices", "County"),
+            # ("us_elections", "county_name"),
+            ("movies_large-depleted", "title"),
+            ("us_accidents_2021", "County"),
+            ("us_accidents_large", "County"),
+            ("schools", "col_to_embed"),
         ]
         base_path = Path("data/source_tables/open_data_us")
         version = "open_data_us"
@@ -257,8 +258,9 @@ if __name__ == "__main__":
             ("company_employees", "col_to_embed"),
             ("housing_prices", "col_to_embed"),
             ("us_elections", "col_to_embed"),
-            ("movies", "col_to_embed"),
-            ("us_accidents", "col_to_embed"),
+            ("movies_large", "col_to_embed"),
+            ("us_accidents_large", "col_to_embed"),
+            ("us_accidents_2021", "col_to_embed"),
         ]
         base_path = base_path = Path("data/source_tables/yadl")
         version = "yadl"
@@ -282,10 +284,10 @@ if __name__ == "__main__":
             index_names, total=len(index_names), position=1, desc="Testing index: "
         ):
             tqdm.write(iname)
-            for k in [30]:
+            for k in [200]:
                 aggr = "first"
                 table_name = f"{tab}{table_tag}"
-                print(f"{data_lake_version} {table_name}")
+                tqdm.write(f"{data_lake_version} {table_name}")
                 base_table = pl.read_parquet(
                     Path(f"data/source_tables/{version}/{table_name}.parquet")
                 )
