@@ -126,7 +126,7 @@ LABEL_MAPPING = {
     "jd_method": {
         "exact_matching": "Exact",
         "minhash": "MinHash",
-        "starmie": "STARMIE",
+        "starmie": "Starmie",
         "minhash_hybrid": "Hybrid\nMinHash",
     },
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
