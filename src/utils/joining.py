@@ -127,13 +127,13 @@ def prepare_dfs_table(
     # The following step is needed to keep the number of samples in `left_table`
     # constant.
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
-    augmented_table = left_table.to_pandas().merge(
-        new_df[feat_columns].reset_index(), how="left", on=left_on
+
+    right = pl.from_pandas(new_df[feat_columns].reset_index()).with_columns(
+        pl.col("col_to_embed").cast(str)
     )
+    augmented_table = left_table.join(right, how="left", on=left_on)
 
-    pl_df = pl.from_pandas(augmented_table)
-
-    return pl_df
+    return augmented_table
 
 
 def execute_join_with_aggregation(
