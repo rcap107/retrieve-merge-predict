@@ -1,5 +1,5 @@
 """
-Figure 11 in the paper: peak memory usage by ML model.
+Figure 11 in the pre-print: peak memory usage by ML model.
 """
 
 # #%%
