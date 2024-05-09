@@ -1,3 +1,4 @@
+import argparse
 import datetime as dt
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ from src.utils.indexing import get_metadata_index
 def wrapper_prepare_exact_matching(queries, method_config, index_dir):
     time_save = 0
     time_create = 0
-    for query_case in tqdm(queries, position=1, total=len(queries)):
+    for query_case in tqdm(queries, position=1, total=len(queries), desc="Query: "):
         method_config.update({"base_table_path": query_case[0]})
         method_config.update({"query_column": query_case[1]})
 
@@ -101,14 +102,19 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
     index_dir = Path(f"data/metadata/_indices/profiling/{data_lake_version}")
     os.makedirs(Path(index_dir), exist_ok=True)
 
+    rerank = index_config.pop("rerank", False)
+
+    if index_name == "minhash" and rerank:
+        logger_name = "minhash_hybrid"
+    else:
+        logger_name = index_name
+
     index_logger = SimpleIndexLogger(
-        index_name=index_name,
+        index_name=logger_name,
         step="create",
         data_lake_version=data_lake_version,
         index_parameters=index_config,
     )
-
-    rerank = index_config.pop("rerank", False)
 
     if index_name == "minhash":
         index_logger.start_time("create")
@@ -203,33 +209,109 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
     index_logger.write_to_json("results/profiling/retrieval")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_lake_version", action="store")
+    parser.add_argument("--retrieval_method", action="store")
+    parser.add_argument("--rerank", action="store_true")
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
 
+    args = parse_args()
     os.makedirs("data/metadata/_indices/profiling", exist_ok=True)
     os.makedirs("results/profiling/retrieval", exist_ok=True)
 
-    data_lake_version = "wordnet_full"
+    data_lake_version = args.data_lake_version
 
-    base_table_root = "data/source_tables/yadl/"
+    if data_lake_version == "open_data_us":
+        base_table_root = "data/source_tables/open_data_us"
+        queries = [
+            (
+                Path(
+                    base_table_root, "company_employees-depleted_name-open_data.parquet"
+                ),
+                "name",
+            ),
+            (
+                Path(
+                    base_table_root, "housing_prices-depleted_County-open_data.parquet"
+                ),
+                "County",
+            ),
+            (
+                Path(
+                    base_table_root,
+                    "us_elections-depleted_county_name-open_data.parquet",
+                ),
+                "county_name",
+            ),
+            (
+                Path(base_table_root, "movies_large-depleted-open_data.parquet"),
+                "original_title",
+            ),
+            (
+                Path(
+                    base_table_root,
+                    "us_accidents_2021-depleted-open_data_County.parquet",
+                ),
+                "County",
+            ),
+            (
+                Path(
+                    base_table_root,
+                    "us_accidents_large-depleted-open_data_County.parquet",
+                ),
+                "County",
+            ),
+            (
+                Path(base_table_root, "schools-depleted-open_data.parquet"),
+                "col_to_embed",
+            ),
+        ]
 
-    retrieval_method = "minhash"
+    else:
+        base_table_root = "data/source_tables/yadl/"
+        queries = [
+            (
+                Path(base_table_root, "company_employees-yadl-depleted.parquet"),
+                "col_to_embed",
+            ),
+            (
+                Path(base_table_root, "housing_prices-yadl-depleted.parquet"),
+                "col_to_embed",
+            ),
+            (
+                Path(base_table_root, "us_elections-yadl-depleted.parquet"),
+                "col_to_embed",
+            ),
+            (
+                Path(base_table_root, "movies_large-yadl-depleted.parquet"),
+                "col_to_embed",
+            ),
+            (
+                Path(base_table_root, "us_accidents_2021-yadl-depleted.parquet"),
+                "col_to_embed",
+            ),
+            (
+                Path(base_table_root, "us_accidents_large-yadl-depleted.parquet"),
+                "col_to_embed",
+            ),
+            (
+                Path(base_table_root, "us_county_population-yadl-depleted.parquet"),
+                "col_to_embed",
+            ),
+        ]
 
-    queries = [
-        (
-            Path(base_table_root, "company_employees-yadl-depleted.parquet"),
-            "col_to_embed",
-        ),
-        (Path(base_table_root, "housing_prices-yadl-depleted.parquet"), "col_to_embed"),
-        (Path(base_table_root, "us_elections-yadl-depleted.parquet"), "col_to_embed"),
-        (Path(base_table_root, "movies-yadl-depleted.parquet"), "col_to_embed"),
-        (Path(base_table_root, "movies_vote-yadl-depleted.parquet"), "col_to_embed"),
-        (Path(base_table_root, "us_accidents-yadl-depleted.parquet"), "col_to_embed"),
-    ]
+    # retrieval_method = "minhash"
+    retrieval_method = args.retrieval_method
 
     if retrieval_method == "exact_matching":
         method_config = {
             "metadata_dir": [f"data/metadata/{data_lake_version}"],
-            "n_jobs": [16],
+            "n_jobs": [32],
         }
         cases = ParameterGrid(method_config)
         for config in cases:
@@ -237,11 +319,11 @@ if __name__ == "__main__":
     elif retrieval_method == "minhash":
         method_config = {
             "metadata_dir": [f"data/metadata/{data_lake_version}"],
-            "n_jobs": [16],
-            # "thresholds": [60],
-            "thresholds": [20, 60, 80],
+            "n_jobs": [32],
+            "thresholds": [20],
+            # "thresholds": [20, 60, 80],
             "no_tag": [False],
-            "rerank": [True],
+            "rerank": [args.rerank],
         }
         cases = ParameterGrid(method_config)
         for config in cases:
