@@ -115,6 +115,7 @@ def prepare_dfs_table(
         target_dataframe_name="source_table",
         drop_contains=["target"],
         return_types="all",
+        n_jobs=1,
     )
     new_df = feature_matrix.copy()
     cat_cols = new_df.select_dtypes(exclude="number").columns
@@ -129,7 +130,7 @@ def prepare_dfs_table(
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
 
     right = pl.from_pandas(new_df[feat_columns].reset_index()).with_columns(
-        pl.col("col_to_embed").cast(str)
+        pl.col(left_on).cast(str)
     )
     augmented_table = left_table.join(right, how="left", on=left_on)
 
