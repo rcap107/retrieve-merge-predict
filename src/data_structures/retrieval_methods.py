@@ -147,7 +147,8 @@ class MinHashIndex:
             for _, path in tqdm(
                 enumerate(paths),
                 total=total_files,
-                desc="Loading metadata in index",
+                desc="Minhash: Loading metadata in index",
+                leave=False,
             )
         )
 
