@@ -27,9 +27,6 @@ result_path = "results/overall/overall_first.parquet"
 df_results = pl.read_parquet(result_path)
 
 results_full, results_depleted = read_and_process(df_results)
-
-
-# %%
 case = "dep"
 
 if case == "dep":
@@ -41,8 +38,25 @@ elif case == "full":
 #%%
 _d = current_results.filter(
     (pl.col("estimator") != "top_k_full_join")
-    & (pl.col("target_dl") != "wordnet_vldb_50")
+    & (pl.col("jd_method") != "starmie")
+    # & (~pl.col("target_dl").is_in(["wordnet_vldb_50","open_data_us"]) )
 )
+
+var = "jd_method"
+scatter_d = "case"
+plotting.draw_pair_comparison(
+    _d,
+    var,
+    form_factor="multi",
+    scatterplot_dimension=scatter_d,
+    figsize=(10, 3),
+    scatter_mode="split",
+    savefig=False,
+    savefig_type=["png", "pdf"],
+    case=case,
+    # colormap_name="Set1",
+)
+
 var = "estimator"
 scatter_d = "case"
 plotting.draw_pair_comparison(
@@ -57,16 +71,12 @@ plotting.draw_pair_comparison(
     case=case,
     # colormap_name="Set1",
 )
-#%%
-_d = current_results.filter(
-    (pl.col("estimator") == "top_k_full_join")
-    & (pl.col("target_dl") != "wordnet_vldb_50")
-)
-var = "jd_method"
-scatter_d = "base_table"
+
+var = "chosen_model"
+scatter_d = "case"
 plotting.draw_pair_comparison(
     _d,
-    grouping_dimension=var,
+    var,
     form_factor="multi",
     scatterplot_dimension=scatter_d,
     figsize=(10, 3),
@@ -78,3 +88,23 @@ plotting.draw_pair_comparison(
 )
 
 # %%
+_d = current_results.filter(
+    (pl.col("estimator") == "top_k_full_join")
+    & (pl.col("jd_method") != "starmie")
+    # & (~pl.col("target_dl").is_in(["wordnet_vldb_50","open_data_us"]) )
+)
+#%%
+var = "jd_method"
+scatter_d = "case"
+plotting.draw_pair_comparison(
+    _d,
+    var,
+    form_factor="multi",
+    scatterplot_dimension=scatter_d,
+    figsize=(10, 3),
+    scatter_mode="split",
+    savefig=False,
+    savefig_type=["png", "pdf"],
+    case=case,
+    # colormap_name="Set1",
+)
