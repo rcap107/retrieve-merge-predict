@@ -718,7 +718,7 @@ def draw_pair_comparison(
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
     plot_df = [df_rel_r2, df_time]
-    for idx, var in enumerate(plotting_variables[::], start=0):
+    for idx, var_to_plot in enumerate(plotting_variables[::], start=0):
         ax = axes[idx]
         # ax.grid(which="both", axis="x", alpha=0.3)
         h, l = prepare_case_subplot(
@@ -726,10 +726,10 @@ def draw_pair_comparison(
             plot_df[idx],
             grouping_dimension,
             scatterplot_dimension,
-            var,
+            plotting_variable=var_to_plot,
             scatterplot_mapping=scatterplot_mapping,
             scatter_mode=scatter_mode,
-            xtick_format=formatting_dict[var]["xtick_format"],
+            xtick_format=formatting_dict[var_to_plot]["xtick_format"],
             kind="box",
             jitter_factor=jitter_factor,
             qle=qle,
