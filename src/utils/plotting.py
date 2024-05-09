@@ -144,7 +144,7 @@ def prepare_scatterplot_mapping_general(
     return scatterplot_mapping
 
 
-def format_xaxis(ax, case, limits, xmax=1):
+def format_xaxis(ax, case, limits, xmax=1, symlog_ticks=None):
     """Formatting x-axes for the pair plots. Values are assigned manually based
     on "what looks best".
 
@@ -190,6 +190,8 @@ def format_xaxis(ax, case, limits, xmax=1):
                 r"$1.5x$",
                 r"$2x$",
                 r"$3x$",
+                r"$4x$",
+                r"$5x$",
             ]
         )
         ax.xaxis.set_major_formatter(major_formatter)
@@ -207,18 +209,25 @@ def format_xaxis(ax, case, limits, xmax=1):
         ax.set_xscale("symlog", base=2)
         major_locator = ticker.SymmetricalLogLocator(
             base=2,
-            linthresh=0.25,
+            linthresh=0.025,
         )
-        major_locator = ticker.FixedLocator([0.5, 1, 1.5, 2, 3])
-        major_formatter = ticker.FixedFormatter(
-            [
+
+        if symlog_ticks is None:
+            locations = [0.5, 1, 1.5, 2, 3, 5, 10]
+            labels = [
                 r"$0.5x$",
                 r"$1x$",
                 r"$1.5x$",
                 r"$2x$",
                 r"$3x$",
+                r"$5x$",
             ]
-        )
+        else:
+            locations = symlog_ticks[0]
+            labels = symlog_ticks[1]
+
+        major_locator = ticker.FixedLocator(locations)
+        major_formatter = ticker.FixedFormatter(labels)
         ax.xaxis.set_major_locator(major_locator)
         ax.xaxis.set_major_formatter(major_formatter)
         # ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
@@ -326,6 +335,7 @@ def prepare_case_subplot(
     xmax: float = 1,
     sorting_variable: str = "r2score",
     qle: float = 0.05,
+    symlog_ticks=None,
 ):
     # TODO: add option/replace with manual ordering
     # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
@@ -496,7 +506,7 @@ def prepare_case_subplot(
         )
 
     ax.set_xlim(limits)
-    ax = format_xaxis(ax, xtick_format, limits, xmax=xmax)
+    ax = format_xaxis(ax, xtick_format, limits, xmax=xmax, symlog_ticks=symlog_ticks)
 
     xlim = ax.get_xlim()
 
