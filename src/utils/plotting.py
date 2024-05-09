@@ -333,35 +333,46 @@ def prepare_case_subplot(
     scatterplot_marker_size: float = 3,
     box_width: float = 0.9,
     xmax: float = 1,
+    sorting_method: str = "prediction",
     sorting_variable: str = "r2score",
     qle: float = 0.05,
     symlog_ticks=None,
 ):
-    # TODO: add option/replace with manual ordering
-    # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
-    if sorting_variable == plotting_variable:
-        data = (
-            df.select(grouping_dimension, sorting_variable)
-            .group_by(grouping_dimension)
-            .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
-            .sort("sort_col")
-            .to_dict()
-        )
-    else:
-        data = (
-            df.select(grouping_dimension, plotting_variable, sorting_variable)
-            .group_by(grouping_dimension)
-            .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
-            .sort("sort_col")
-            .select(grouping_dimension, plotting_variable)
-            .to_dict()
-        )
+    if sorting_method == "prediction":
+        if sorting_variable == plotting_variable:
+            data = (
+                df.select(grouping_dimension, sorting_variable)
+                .group_by(grouping_dimension)
+                .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+                .sort("sort_col")
+                .to_dict()
+            )
+        else:
+            data = (
+                df.select(grouping_dimension, plotting_variable, sorting_variable)
+                .group_by(grouping_dimension)
+                .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+                .sort("sort_col")
+                .select(grouping_dimension, plotting_variable)
+                .to_dict()
+            )
 
-    # If no scatterplot mapping is provided, build one based on the scatterplot dimension
-    if scatterplot_mapping is None:
-        scatterplot_mapping = prepare_scatterplot_mapping_general(
-            df, scatterplot_dimension, plotting_variable, colormap_name=colormap_name
+    elif sorting_method == "manual":
+        order_mapping = constants.ORDER_MAPPING[sorting_variable]
+
+        data = (
+            df.with_columns(
+                pl.col(grouping_dimension)
+                .map_elements(order_mapping.index)
+                .alias("order")
+            )
+            .sort("order", descending=True)
+            .select(grouping_dimension, plotting_variable)
+            .group_by(grouping_dimension, maintain_order=True)
+            .agg(pl.all())
+            .to_dict()
         )
+    # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
 
     # Axis limits are set manually based on the quantile. The value of qle depends on the variable
     limits = (
