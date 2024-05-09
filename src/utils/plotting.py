@@ -322,8 +322,8 @@ def prepare_case_subplot(
     ax,
     df: pl.DataFrame,
     grouping_dimension: str,
-    scatterplot_dimension: str,
-    plotting_variable: str,
+    scatterplot_dimension: str = None,
+    plotting_variable: str = None,
     kind: str = "box",
     xtick_format: str = "percentage",
     scatter_mode: str = "overlapping",
@@ -425,67 +425,78 @@ def prepare_case_subplot(
     median_d = dict(zip(*df_medians.to_dict().values()))
 
     facecolors = ["grey", "white"]
-    for _i, _d in enumerate(data[plotting_variable]):
-        # Add an horizontal span to split the different cases by color
-        ax.axhspan(
-            _i + 0.5, _i + 1.5, facecolor=facecolors[_i % 2], zorder=0, alpha=0.10
-        )
 
-        # Add a white dot to highlight the median
-        median = np.median(_d)
-        ax.scatter(
-            median,
-            [_i + 1],
-            marker="o",
-            color="white",
-            s=30,
-            zorder=3.5,
-            edgecolors="black",
-        )
-
-        # Split the points in the scatter plot to reduce overlap
-        if scatter_mode == "split":
-            offset = (
-                np.linspace(
-                    -box_width / 2
-                    + jitter_factor,  # needed to stay within the bounds of the plot
-                    box_width / 2 - jitter_factor,
-                    len(scatterplot_mapping),
-                )
-            ) * 0.8
-        elif scatter_mode == "overlapping":
-            offset = np.zeros(len(scatterplot_mapping))
-
-        # Plot only one set of points at a time
-        for _, label in enumerate(scatterplot_mapping):
-            this_label = constants.LABEL_MAPPING[scatterplot_dimension][label]
-
-            # Needed to avoid replicating labels
-            if _i > 0:
-                this_label = "_" + str(this_label)
-
-            # Selecting only the points that belong to the case in the current iteration
-            filter_dict = {
-                scatterplot_dimension: label,
-                grouping_dimension: data[grouping_dimension][_i],
-            }
-            values = df.filter(**filter_dict)[plotting_variable].to_numpy()
-
-            # Plotting the points after adding jitter.
-            ax.scatter(
-                values,
-                _i
-                + 1
-                + prepare_jitter(
-                    len(values), offset_value=offset[_], factor=jitter_factor
-                ),
-                color=scatterplot_mapping[label],
-                marker="o",
-                s=scatterplot_marker_size,
-                alpha=0.7,
-                label=this_label,
-                zorder=2.5,
+    if scatterplot_dimension is not None:
+        # If no scatterplot mapping is provided, build one based on the scatterplot dimension
+        if scatterplot_mapping is None:
+            scatterplot_mapping = prepare_scatterplot_mapping_general(
+                df,
+                scatterplot_dimension,
+                plotting_variable,
+                colormap_name=colormap_name,
             )
+
+        for _i, _d in enumerate(data[plotting_variable]):
+            # Add an horizontal span to split the different cases by color
+            ax.axhspan(
+                _i + 0.5, _i + 1.5, facecolor=facecolors[_i % 2], zorder=0, alpha=0.10
+            )
+
+            # Add a white dot to highlight the median
+            median = np.median(_d)
+            ax.scatter(
+                median,
+                [_i + 1],
+                marker="o",
+                color="white",
+                s=30,
+                zorder=3.5,
+                edgecolors="black",
+            )
+
+            # Split the points in the scatter plot to reduce overlap
+            if scatter_mode == "split":
+                offset = (
+                    np.linspace(
+                        -box_width / 2
+                        + jitter_factor,  # needed to stay within the bounds of the plot
+                        box_width / 2 - jitter_factor,
+                        len(scatterplot_mapping),
+                    )
+                ) * 0.8
+            elif scatter_mode == "overlapping":
+                offset = np.zeros(len(scatterplot_mapping))
+
+            # Plot only one set of points at a time
+            for _, label in enumerate(scatterplot_mapping):
+                this_label = constants.LABEL_MAPPING[scatterplot_dimension][label]
+
+                # Needed to avoid replicating labels
+                if _i > 0:
+                    this_label = "_" + str(this_label)
+
+                # Selecting only the points that belong to the case in the current iteration
+                filter_dict = {
+                    scatterplot_dimension: label,
+                    grouping_dimension: data[grouping_dimension][_i],
+                }
+                values = df.filter(**filter_dict)[plotting_variable].to_numpy()
+
+                # Plotting the points after adding jitter.
+                ax.scatter(
+                    values,
+                    _i
+                    + 1
+                    + prepare_jitter(
+                        len(values), offset_value=offset[_], factor=jitter_factor
+                    ),
+                    color=scatterplot_mapping[label],
+                    marker="o",
+                    s=scatterplot_marker_size,
+                    alpha=0.7,
+                    label=this_label,
+                    zorder=2.5,
+                )
     h, l = ax.get_legend_handles_labels()
     if len(data[plotting_variable]) == 1:
         # Only one value for the plotting variable (e.g., diff. between ML models)
