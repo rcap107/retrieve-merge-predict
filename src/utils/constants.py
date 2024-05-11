@@ -20,9 +20,10 @@ COLORMAP_DATALAKE_MAPPING = {
 LEGEND_LABELS = {
     "company_employees": "Company Employees",
     "housing_prices": "Housing Prices",
-    "movies": "Movie Revenue",
-    "movies_vote": "Movie Ratings",
-    "us_accidents": "US Accidents",
+    "movies_large": "Movie Revenue",
+    # "movies_vote": "Movie Ratings",
+    "us_accidents_2021": "US Accidents 2021",
+    "us_accidents_large": "US Accidents Large",
     "us_county_population": "US County Population",
     "us_elections": "US Elections",
     "schools": "Schools",
@@ -33,11 +34,18 @@ ORDER_MAPPING = {
         "nojoin",
         "top_k_full_join",
         "highest_containment",
-        "best_single_join",
         "full_join",
+        "best_single_join",
         "stepwise_greedy_join",
     ],
     "jd_method": ["exact_matching", "minhash", "minhash_hybrid", "starmie"],
+    "target_dl": [
+        "binary_update",
+        "wordnet_full",
+        "wordnet_vldb_10",
+        "wordnet_vldb_50",
+        "open_data_us",
+    ],
 }
 
 
@@ -143,7 +151,7 @@ LABEL_MAPPING = {
         "exact_matching": "Exact",
         "minhash": "MinHash",
         "starmie": "Starmie",
-        "minhash_hybrid": "Hybrid\nMinHash",
+        "minhash_hybrid": "H. MinHash",
     },
     "chosen_model": {"catboost": "CatBoost", "linear": "Linear"},
     "estimator": {
@@ -157,7 +165,7 @@ LABEL_MAPPING = {
         "top_k_full_join": r"Top-$1$ Join",
     },
     "variables": {
-        "estimator": "Estimator",
+        "estimator": "Selector",
         "jd_method": "Retrieval method",
         "chosen_model": "ML model",
         "base_table": "Base table",
@@ -166,11 +174,11 @@ LABEL_MAPPING = {
     "budget_amount": {10: 10, 30: 30, 100: 100},
     "target_dl": {
         "binary_update": "Binary",
-        "wordnet_full": "Wordnet",
+        "wordnet_full": "YADL Base",
         "open_data_us": "Open Data",
-        "wordnet_vldb_10": "Wordnet 10k",
-        "wordnet_vldb_3": "Wordnet 3k",
-        "wordnet_vldb_50": "Wordnet 50k",
+        "wordnet_vldb_10": "YADL 10k",
+        "wordnet_vldb_3": "YADL 3k",
+        "wordnet_vldb_50": "YADL 50k",
     },
     "top_k": {
         10: "10",
