@@ -1,5 +1,7 @@
 """
-Figure 5(b): prediction performance with respect to containment, with regression plot.
+Figure 7:
+(a) distribution of containment in the query results produced by regression model on each data lake
+(b) prediction performance with respect to containment, with regression plot
 """
 
 # %%
@@ -14,8 +16,8 @@ import polars as pl
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
 
-import src.utils.plotting as plotting
-from src.utils.constants import LABEL_MAPPING
+from src.utils import plotting
+from src.utils.constants import LABEL_MAPPING, LEGEND_LABELS, ORDER_MAPPING
 
 # %%
 sns.set_context("talk")
@@ -28,6 +30,18 @@ STATS_DIR = Path("results/stats")
 
 
 # %%
+def filter_df(df, data_lake):
+    target_tables = list(LEGEND_LABELS.keys())
+    filtered = df.filter(
+        (pl.col("target_dl") == data_lake)
+        & (pl.col("base_table").str.contains("depleted"))
+    ).with_columns(case=pl.col("base_table").str.split("-").list.first())
+    return filtered.filter(pl.col("case").is_in(target_tables))
+
+
+# %%
+
+
 ### PREPARE REGRESSION
 def plot_reg(X, y, ax, label):
     model = LinearRegression()
@@ -44,9 +58,9 @@ def plot_reg(X, y, ax, label):
     ax.set_xlabel("Containment")
 
 
-def prepare_data(df_raw, df_analysis):
+def prepare_data(df_raw, df_analysis, top_k=200):
     df_agg = (
-        df_analysis.filter(pl.col("top_k") == 30)
+        df_analysis.filter(pl.col("top_k") == top_k)
         .group_by(
             [
                 "retrieval_method",
@@ -76,130 +90,68 @@ def prepare_data(df_raw, df_analysis):
     f = {"jd_method": "exact_matching", "chosen_model": "catboost"}
     r = res.filter(**f)
     X = r.select("avg_containment").to_numpy()
-    y = r["r2score"].to_numpy()
+    y = r["y"].to_numpy()
     return X, y
 
 
-def get_open_data():
-    df_raw = pl.read_parquet("results/overall/open_data_us-first.parquet")
-    df_raw = df_raw.filter(
-        (pl.col("estimator") != "nojoin")
-        & (~pl.col("base_table").str.contains("schools"))
-        & (pl.col("base_table").str.contains("depleted"))
-    ).with_columns(
-        base_table=pl.col("base_table")
-        .str.split("-")
-        .list.gather([0, 2])
-        .list.join("-")
+def get_datalake_info(df, data_lake_version):
+    df_ = filter_df(df, data_lake=data_lake_version)
+    df_.filter(
+        jd_method="exact_matching",
+        estimator="stepwise_greedy_join",
+        chosen_model="catboost",
+    )
+    df_ = df_.with_columns(
+        y=pl.when(pl.col("auc") > 0).then(pl.col("auc")).otherwise(pl.col("r2score"))
     )
 
     df_analysis = pl.read_csv(
-        "results/stats/analysis_query_results_open_data_us_stats_all.csv"
-    )
-    df_analysis = df_analysis.with_columns(
-        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
-    ).with_columns(
-        containment=(
-            pl.when(pl.col("containment") > 1)
-            .then(pl.col("containment") / pl.col("src_nrows"))
-            .otherwise(pl.col("containment"))
-        )
-    )
-    return df_raw, df_analysis
-
-
-def get_wordnet_10():
-    df_raw = pl.read_parquet("results/overall/wordnet-10k_first.parquet")
-    df_raw = df_raw.filter(pl.col("estimator") != "nojoin")
-
-    df_analysis = pl.read_csv(
-        "results/stats/analysis_query_results_wordnet_vldb_10_stats_all.csv"
-    )
-    df_analysis = df_analysis.with_columns(
-        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
-    ).with_columns(
-        containment=(
-            pl.when(pl.col("containment") > 1)
-            .then(pl.col("containment") / pl.col("src_nrows"))
-            .otherwise(pl.col("containment"))
-        )
-    )
-    return df_raw, df_analysis
-
-
-def get_wordnet_base():
-    df_raw = pl.read_parquet("results/overall/old-versions_first.parquet")
-    df_raw = df_raw.filter(
-        (pl.col("estimator") != "nojoin") & (pl.col("target_dl") == "wordnet_full")
+        f"results/stats/analysis_query_results_{data_lake_version}_stats_all.csv"
     )
 
-    df_analysis = pl.read_csv(
-        "results/stats/analysis_query_results_wordnet_full_stats_all.csv"
-    )
-    df_analysis = df_analysis.with_columns(
-        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
-    )
-    return df_raw, df_analysis
+    return (df_, df_analysis)
 
 
 # %%
 def prepare_regression(fig, ax):
-    df_raw_od, df_analysis_od = get_open_data()
-    df_raw_10, df_analysis_10 = get_wordnet_10()
-    df_raw_wn, df_analysis_wn = get_wordnet_base()
+    df_overall = pl.read_parquet("results/overall/overall_first.parquet")
 
-    # fig, ax = plt.subplots(squeeze=True, figsize=(4, 3), layout="constrained")
-    X, y = prepare_data(df_raw_wn, df_analysis_wn)
-    plot_reg(X, y, ax, "YADL Base")
-    X, y = prepare_data(df_raw_od, df_analysis_od)
-    plot_reg(X, y, ax, "Open Data")
-    X, y = prepare_data(df_raw_10, df_analysis_10)
-    plot_reg(X, y, ax, "YADL 10k")
-    # h, labels = ax.get_legend_handles_labels()
-    # fig.legend(
-    #     h,
-    #     labels,
-    #     loc="upper left",
-    #     fontsize=10,
-    #     ncols=3,
-    #     bbox_to_anchor=(0, 1.0, 1, 0.1),
-    #     mode="expand",
-    # )
+    dl_names = [
+        # "binary_update",
+        "wordnet_full",
+        "wordnet_vldb_10",
+        "wordnet_vldb_50",
+        "open_data_us",
+    ]
+
+    for name in dl_names:
+        df_raw, df_analysis = get_datalake_info(df_overall, name)
+        X, y = prepare_data(df_raw, df_analysis)
+        plot_reg(X, y, ax, LABEL_MAPPING["target_dl"][name])
+
     ax.axhline(alpha=0.3)
-
-
-# fig.savefig("images/regplot.pdf", bbox_inches="tight")
-# fig.savefig("images/regplot.png", bbox_inches="tight")
+    ax.set_xlabel("")
 
 
 # %%
 # PREPARE CONTAINMENT PLOT
 def prepare_containment_plot(fig, ax):
-    df_opendata = pl.read_csv(
-        STATS_DIR / "analysis_query_results_open_data_us_stats_all.csv"
-    )
-    df_wordnet = pl.read_csv(
-        STATS_DIR / "analysis_query_results_wordnet_full_stats_all.csv"
-    )
-    df_vldb_10 = pl.read_csv(
-        STATS_DIR / "analysis_query_results_wordnet_vldb_10_stats_all.csv"
-    )
-    df = pl.concat(
-        [
-            df_wordnet,
-            df_opendata,
-            df_vldb_10,
-        ]
-    ).filter(pl.col("top_k") == 30)
-    df = df.with_columns(
-        containment=(
-            pl.when(pl.col("containment") > 1)
-            .then(pl.col("containment") / pl.col("src_nrows"))
-            .otherwise(pl.col("containment"))
-        )
-    )
-    order = ["minhash", "minhash_hybrid", "exact_matching", "starmie"]
-    # fig, ax = plt.subplots(squeeze=True, figsize=(4, 3), layout="constrained")
+    dl_names = [
+        # "binary_update",
+        "wordnet_full",
+        "wordnet_vldb_10",
+        "wordnet_vldb_50",
+        "open_data_us",
+    ]
+
+    list_df = []
+
+    for name in dl_names:
+        _df = pl.read_csv(STATS_DIR / f"analysis_query_results_{name}_stats_all.csv")
+        list_df.append(_df)
+
+    df = pl.concat(list_df).filter(pl.col("top_k") == 200)
+    order = ORDER_MAPPING["jd_method"]
     sns.boxplot(
         data=df.to_pandas(),
         x="containment",
@@ -207,14 +159,10 @@ def prepare_containment_plot(fig, ax):
         hue="data_lake_version",
         ax=ax,
         order=order,
+        fliersize=2,
     )
 
-    mapping = {
-        "wordnet_full": "YADL Comb.",
-        "open_data_us": "Open Data US",
-        "wordnet_vldb_10": "YADL 10k",
-    }
-
+    mapping = LABEL_MAPPING["target_dl"]
     h, l = ax.get_legend_handles_labels()
     labels = [mapping[_] for _ in l]
     ax.get_legend().remove()
@@ -224,7 +172,7 @@ def prepare_containment_plot(fig, ax):
         labels,
         loc="upper left",
         fontsize=10,
-        ncols=3,
+        ncols=4,
         bbox_to_anchor=(0, 1.0, 1, 0.1),
         mode="expand",
     )
@@ -234,15 +182,20 @@ def prepare_containment_plot(fig, ax):
     ax.set_xlabel("")
     # ax.set_xlabel("Containment")
     ax.set_ylabel("")
-    fig.savefig("images/containment-barplot-datalake.pdf", bbox_inches="tight")
-    fig.savefig("images/containment-barplot-datalake.png", bbox_inches="tight")
+    # fig.savefig("images/containment-barplot-datalake.pdf", bbox_inches="tight")
+    # fig.savefig("images/containment-barplot-datalake.png", bbox_inches="tight")
 
 
 # %%
 fig, ax = plt.subplots(
-    2, 1, squeeze=True, figsize=(5, 6), layout="constrained", sharex=True
+    1, 2, squeeze=True, figsize=(8, 3), layout="constrained", sharex=True
 )
 
 prepare_containment_plot(fig, ax[0])
 prepare_regression(fig, ax[1])
+
+fig.savefig("images/containment-regression.pdf", bbox_inches="tight")
+fig.savefig("images/containment-regression.png", bbox_inches="tight")
+
+
 # %%
