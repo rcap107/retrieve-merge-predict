@@ -126,9 +126,14 @@ class ScenarioLogger:
 
     def print_results(self):
         self.tqdm_print()
-        summary = self.results.group_by(["estimator"]).agg(
-            pl.mean("r2"), pl.mean("rmse")
-        )
+        if self.task == "regression":
+            summary = self.results.group_by(["estimator"]).agg(
+                pl.mean("r2"), pl.mean("rmse")
+            )
+        else:
+            summary = self.results.group_by(["estimator"]).agg(
+                pl.mean("f1"), pl.mean("auc")
+            )
         print(summary)
 
     def pretty_print(self):
