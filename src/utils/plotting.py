@@ -516,12 +516,14 @@ def prepare_case_subplot(
         if xtick_format == "percentage":
             annot_value *= 100
             annot_string = f"{annot_value:.2f}%"
+        elif xtick_format == "symlog":
+            annot_string = f"{annot_value:.2f}x"
         else:
             annot_string = f"{annot_value:.2f}"
         ax.annotate(
             annot_string,
             xy=(limits[1], _i),
-            xytext=(limits[1] + 0.03 * limits[1], _i),
+            xytext=(limits[1] + 0.03 * limits[1], _i - 0.2),
             xycoords="data",
             textcoords="data",
             fontsize=12,
