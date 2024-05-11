@@ -237,22 +237,24 @@ def test_group_stats(
 
 
 if __name__ == "__main__":
-    data_lake_version = "binary_update"
+    data_lake_version = "open_data_us"
     print("Data lake: ", data_lake_version)
 
     if data_lake_version == "open_data_us":
+        # The name of the table will not be correct, fix the errors as they come
+        raise NotImplementedError
         queries = [
-            # ("company_employees", "name"),
-            # ("housing_prices", "County"),
-            # ("us_elections", "county_name"),
-            ("movies_large-depleted", "title"),
+            ("company_employees", "name"),
+            ("housing_prices", "County"),
+            ("us_elections", "county_name"),
+            ("movies_large-depleted", "original_title"),
             ("us_accidents_2021", "County"),
             ("us_accidents_large", "County"),
             ("schools", "col_to_embed"),
         ]
         base_path = Path("data/source_tables/open_data_us")
         version = "open_data_us"
-        table_tag = "-open_data"
+        table_tag = "-depleted-open_data"
     else:
         queries = [
             ("company_employees", "col_to_embed"),
@@ -261,6 +263,7 @@ if __name__ == "__main__":
             ("movies_large", "col_to_embed"),
             ("us_accidents_large", "col_to_embed"),
             ("us_accidents_2021", "col_to_embed"),
+            ("us_county_population", "col_to_embed"),
         ]
         base_path = base_path = Path("data/source_tables/yadl")
         version = "yadl"
