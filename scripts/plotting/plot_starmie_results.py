@@ -39,11 +39,8 @@ def prep_difference(df, column_to_average, result_column):
 result_path = "results/overall/overall_first.parquet"
 
 df_results = pl.read_parquet(result_path)
+current_results = read_and_process(df_results)
 
-results_full, results_depleted = read_and_process(df_results)
-case = "dep"
-
-current_results = results_depleted.clone()
 current_results = current_results.filter(pl.col("estimator") != "nojoin")
 
 scatterplot_mapping = plotting.prepare_scatterplot_mapping_case(current_results)
