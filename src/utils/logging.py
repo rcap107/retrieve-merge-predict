@@ -213,7 +213,7 @@ def prepare_data_for_plotting(df: pl.DataFrame) -> pl.DataFrame:
 def read_and_process(df_results):
     keep_cases = [
         "us_accidents_2021-yadl-depleted",
-        "movies_vote_large-yadl-depleted",
+        # "movies_vote_large-yadl-depleted",
         "housing_prices-yadl-depleted",
         "company_employees-yadl-depleted",
         "us_accidents_large-yadl-depleted",
@@ -226,7 +226,7 @@ def read_and_process(df_results):
         "us_elections-yadl-depleted",
         "schools-depleted-open_data",
         "movies_large-depleted-open_data",
-        "movies_vote_large-depleted-open_data",
+        # "movies_vote_large-depleted-open_data",
         "us_accidents_2021-depleted-open_data_County",
         "us_accidents_large-depleted-open_data_County",
     ]
@@ -261,7 +261,7 @@ def read_and_process(df_results):
         df_.filter(pl.col("estimator") == "nojoin"),
         on=[_ for _ in GROUPING_KEYS if _ != "estimator"],
         how="left",
-    ).with_columns((pl.col("r2score") - pl.col("r2score_right")).alias("difference"))
+    ).with_columns((pl.col("y") - pl.col("y_right")).alias("difference"))
 
     projection = [
         "fold_id",
@@ -272,7 +272,7 @@ def read_and_process(df_results):
         "estimator",
         "chosen_model",
         "aggregation",
-        "r2score",
+        "y",
         "time_fit",
         "time_predict",
         "time_run",

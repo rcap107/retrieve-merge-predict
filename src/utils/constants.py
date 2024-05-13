@@ -185,4 +185,5 @@ LABEL_MAPPING = {
         30: "30",
         100: "100",
     },
+    "single_label": {"chosen_model": "Catboost\nVS Linear"},
 }

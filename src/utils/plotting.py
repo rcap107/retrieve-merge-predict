@@ -237,7 +237,7 @@ def format_xaxis(ax, case, limits, xmax=1, symlog_ticks=None):
 def base_barplot(
     df: pd.DataFrame,
     categorical_variable: str = "estimator",
-    result_variable: str = "r2score",
+    result_variable: str = "y",
     hue_variable: str = "chosen_model",
     col_variable: str = "base_table",
     horizontal: bool = True,
@@ -256,7 +256,7 @@ def base_barplot(
     Args:
         df (pd.DataFrame): Dataframe that contains the results of the experiment.
         x_variable (str, optional): Categorical variable to split results over. Defaults to "estimator".
-        y_variable (str, optional): Numerical variable to plot. Defaults to "r2score".
+        y_variable (str, optional): Numerical variable to plot. Defaults to "y".
         hue_variable (str | None, optional): If provided, color the bars by this variable. Defaults to "chosen_model".
         col_variable (str, optional): If provided, create a new subplot for each distinct value in this variable. Defaults to "base_table".
         horizontal (bool, optional): If True, plot horizontal barplots. Defaults to True.
@@ -292,7 +292,7 @@ def base_barplot(
 def base_relplot(
     df: pd.DataFrame,
     x_variable="time_run",
-    y_variable="r2score",
+    y_variable="y",
     hue_variable="chosen_model",
     style_variable="estimator",
     col_variable="base_table",
@@ -334,7 +334,7 @@ def prepare_case_subplot(
     box_width: float = 0.9,
     xmax: float = 1,
     sorting_method: str = "prediction",
-    sorting_variable: str = "r2score",
+    sorting_variable: str = "y",
     qle: float = 0.05,
     symlog_ticks=None,
 ):
@@ -493,14 +493,16 @@ def prepare_case_subplot(
                     color=scatterplot_mapping[label],
                     marker="o",
                     s=scatterplot_marker_size,
-                    alpha=0.7,
+                    alpha=0.3,
                     label=this_label,
                     zorder=2.5,
                 )
     h, l = ax.get_legend_handles_labels()
     if len(data[plotting_variable]) == 1:
         # Only one value for the plotting variable (e.g., diff. between ML models)
-        ax.set_yticks([1], [""])
+        ax.set_yticks(
+            [1], [constants.LABEL_MAPPING["single_label"][grouping_dimension]]
+        )
     else:
         # Assign the proper label based on what's in constants.py to the ticks
         ax.set_yticks(
@@ -523,7 +525,8 @@ def prepare_case_subplot(
         ax.annotate(
             annot_string,
             xy=(limits[1], _i),
-            xytext=(limits[1] + 0.03 * limits[1], _i - 0.2),
+            xytext=(limits[1] + 0.03 * limits[1], _i - 0.1),
+            # xytext=(limits[1] + 0.03 * limits[1], _i - 0.2),
             xycoords="data",
             textcoords="data",
             fontsize=12,
@@ -562,7 +565,7 @@ def draw_triple_comparison(
     assert form_factor in ["multi", "binary"]
 
     df_rel_r2 = get_difference_from_mean(
-        df, column_to_average=grouping_dimension, result_column="r2score"
+        df, column_to_average=grouping_dimension, result_column="y"
     )
     df_time = get_difference_from_mean(
         df,
@@ -586,13 +589,13 @@ def draw_triple_comparison(
 
     plotting_variables = [
         "scaled_diff",
-        f"diff_{grouping_dimension}_r2score",
+        f"diff_{grouping_dimension}_y",
         f"diff_{grouping_dimension}_time_run",
     ]
 
     formatting_dict = {
         "scaled_diff": {"xtick_format": "percentage"},
-        f"diff_{grouping_dimension}_r2score": {"xtick_format": "percentage"},
+        f"diff_{grouping_dimension}y": {"xtick_format": "percentage"},
         f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
     }
 
@@ -677,10 +680,10 @@ def draw_pair_comparison(
     jitter_factor: float = 0.03,
     qle: float = 0.05,
     add_titles: bool = True,
-    sorting_variable: str = "r2score",
+    sorting_variable: str = "y",
 ):
     df_rel_r2 = get_difference_from_mean(
-        df, column_to_average=grouping_dimension, result_column="r2score"
+        df, column_to_average=grouping_dimension, result_column="y"
     )
     df_time = get_difference_from_mean(
         df,
@@ -724,12 +727,12 @@ def draw_pair_comparison(
     axes[1].set_yticks([])
 
     plotting_variables = [
-        f"diff_{grouping_dimension}_r2score",
+        f"diff_{grouping_dimension}_y",
         f"diff_{grouping_dimension}_time_run",
     ]
 
     formatting_dict = {
-        f"diff_{grouping_dimension}_r2score": {"xtick_format": "percentage"},
+        f"diff_{grouping_dimension}_y": {"xtick_format": "percentage"},
         f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
     }
 
@@ -742,6 +745,7 @@ def draw_pair_comparison(
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
     plot_df = [df_rel_r2, df_time]
+
     for idx, var_to_plot in enumerate(plotting_variables[::], start=0):
         ax = axes[idx]
         # ax.grid(which="both", axis="x", alpha=0.3)
