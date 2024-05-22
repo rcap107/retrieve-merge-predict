@@ -1,9 +1,10 @@
-import os
-
-os.environ["POLARS_MAX_THREADS"] = "32"
+"""
+Main entrypoint for the benchmarking code.
+"""
 
 import argparse
 import json
+import os
 import pickle
 import pprint
 from collections import deque
@@ -13,11 +14,17 @@ from pathlib import Path
 import toml
 from tqdm import tqdm
 
+os.environ["POLARS_MAX_THREADS"] = "32"
 from src.pipeline import prepare_config_dict, single_run
 from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
 
 
 def parse_args():
+    """Parse arguments on the command line.
+
+    Returns:
+        argparse.Namespace: Arguments parsed on the command line.
+    """
     parser = argparse.ArgumentParser()
 
     group = parser.add_mutually_exclusive_group(required=True)
@@ -62,6 +69,8 @@ if __name__ == "__main__":
 
     start_run = dt.now()
 
+    # If args.recovery_path is provided, the script will look for the missing_runs.pickle file in the given path and
+    # try to reboot a run from there.
     if args.recovery_path is not None:
         if args.recovery_path.exists():
             pth = args.recovery_path
@@ -73,9 +82,11 @@ if __name__ == "__main__":
         else:
             raise IOError(f"File {args.recovery_path} not found.")
     else:
+        # No recovery, simply read a toml file from the given input path.
         base_config = toml.load(args.input_path)
         run_variants = prepare_config_dict(base_config, args.debug)
 
+    # Using a queue for better convenience when preparing missing runs.
     run_queue = deque(run_variants)
 
     if not args.debug:
@@ -85,9 +96,11 @@ if __name__ == "__main__":
 
     pth_missing_runs = Path("results/logs/", exp_name, "missing_runs.pickle")
 
+    # Overall progress bar for all the variants in this batch of experiments.
     progress_bar = tqdm(total=len(run_variants), position=0, desc="Overall progress: ")
     while len(run_queue) > 0:
         this_config = run_queue.pop()
+        # For each variant, overwrite the missing_runs.pickle file with the current missing runs
         if not args.debug:
             with open(pth_missing_runs, "wb") as fp:
                 pickle.dump(list(run_queue), fp)
