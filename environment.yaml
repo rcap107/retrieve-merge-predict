@@ -5,12 +5,12 @@ channels:
 dependencies:
   - python==3.10
   - pip
-  - polars==0.19.11
+  - polars==0.20.5
   - pandas==1.5.3
   - numpy==1.24.3
   - woodwork==0.24.0
   - scikit-learn==1.2.2
-  - scipy==1.10.1
+  - scipy==1.12.0
   - matplotlib==3.7.1
   - seaborn==0.12.2
   - gitpython==3.1.31
