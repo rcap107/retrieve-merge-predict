@@ -61,14 +61,14 @@ def get_difference_from_mean(
     else:
         best_method = (
             df.group_by(column_to_average)
-            .agg(pl.mean(result_column))
+            .agg(pl.median(result_column))
             .top_k(1, by=result_column)[column_to_average]
             .item()
         )
 
         prepared_df = (
             df.filter(pl.col(column_to_average) == best_method)
-            .join(df, on=this_groupby)
+            .join(df.filter(pl.col(column_to_average) != best_method), on=this_groupby)
             .filter(pl.col(column_to_average) != pl.col(column_to_average + "_right"))
             .rename({result_column + "_right": "reference_column"})
         )
@@ -681,8 +681,10 @@ def draw_pair_comparison(
     qle: float = 0.05,
     add_titles: bool = True,
     sorting_variable: str = "y",
+    sorting_method: str = "prediction",
 ):
-    df_rel_r2 = get_difference_from_mean(
+
+    df_rel_y = get_difference_from_mean(
         df, column_to_average=grouping_dimension, result_column="y"
     )
     df_time = get_difference_from_mean(
@@ -699,30 +701,13 @@ def draw_pair_comparison(
             df, scatterplot_dimension, "scaled_diff", colormap_name
         )
 
-    if form_factor == "multi":
-        fig, axes = plt.subplot_mosaic(
-            [[0, 1]],
-            layout="constrained",
-            figsize=figsize,
-            sharey=True,
-            width_ratios=(2, 2),
-        )
-    elif form_factor == "binary":
-        fig, axes = plt.subplot_mosaic(
-            [
-                [
-                    0,
-                ],
-                [
-                    1,
-                ],
-            ],
-            layout="constrained",
-            figsize=figsize,
-            sharey=False,
-            # width_ratios=(2, 2),
-        )
-
+    fig, axes = plt.subplot_mosaic(
+        [[0, 1]],
+        layout="constrained",
+        figsize=figsize,
+        sharey=True,
+        width_ratios=(2, 2),
+    )
     axes[1].sharey(axes[0])
     axes[1].set_yticks([])
 
@@ -737,14 +722,14 @@ def draw_pair_comparison(
     }
 
     subplot_titles = [
-        rf"$R^2$ difference",
+        rf"Performance difference",
         rf"Time difference",
     ]
 
     if scatter_mode is None:
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
-    plot_df = [df_rel_r2, df_time]
+    plot_df = [df_rel_y, df_time]
 
     for idx, var_to_plot in enumerate(plotting_variables[::], start=0):
         ax = axes[idx]
@@ -762,6 +747,7 @@ def draw_pair_comparison(
             jitter_factor=jitter_factor,
             qle=qle,
             sorting_variable=sorting_variable,
+            sorting_method=sorting_method,
         )
         if add_titles:
             axes[idx].set_title(subplot_titles[idx])
