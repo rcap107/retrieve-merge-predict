@@ -406,7 +406,10 @@ def prepare_case_subplot(
         medianprops = dict(linewidth=2, color="red", zorder=3)
         whiskerprops = dict(linewidth=2)
         capprops = dict(linewidth=2)
-        boxprops = dict(facecolor="white", linewidth=2)
+        if scatterplot_dimension is None:
+            boxprops = dict(facecolor="white", linewidth=2, zorder=2)
+        else:
+            boxprops = dict(facecolor="none", linewidth=2, zorder=3)
         bp = ax.boxplot(
             data[plotting_variable],
             showfliers=False,
@@ -416,7 +419,7 @@ def prepare_case_subplot(
             boxprops=boxprops,
             whiskerprops=whiskerprops,
             capprops=capprops,
-            zorder=2,
+            # zorder=3,
             patch_artist=True,
         )
 
