@@ -16,7 +16,7 @@ import polars as pl
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
 
-from src.utils import plotting
+from src.utils import logging, plotting
 from src.utils.constants import LABEL_MAPPING, LEGEND_LABELS, ORDER_MAPPING
 
 # %%
@@ -96,13 +96,10 @@ def prepare_data(df_raw, df_analysis, top_k=200):
 
 def get_datalake_info(df, data_lake_version):
     df_ = filter_df(df, data_lake=data_lake_version)
-    df_.filter(
+    df_ = df_.filter(
         jd_method="exact_matching",
         estimator="stepwise_greedy_join",
         chosen_model="catboost",
-    )
-    df_ = df_.with_columns(
-        y=pl.when(pl.col("auc") > 0).then(pl.col("auc")).otherwise(pl.col("r2score"))
     )
 
     df_analysis = pl.read_csv(
@@ -114,10 +111,15 @@ def get_datalake_info(df, data_lake_version):
 
 # %%
 def prepare_regression(fig, ax):
-    df_overall = pl.read_parquet("results/overall/overall_first.parquet")
+    result_path = "results/overall/overall_first.parquet"
+
+    df_results = pl.read_parquet(result_path)
+
+    current_results = logging.read_and_process(df_results)
+    df_overall = current_results.filter(pl.col("estimator") != "nojoin")
 
     dl_names = [
-        # "binary_update",
+        "binary_update",
         "wordnet_full",
         "wordnet_vldb_10",
         "wordnet_vldb_50",
@@ -137,7 +139,7 @@ def prepare_regression(fig, ax):
 # PREPARE CONTAINMENT PLOT
 def prepare_containment_plot(fig, ax):
     dl_names = [
-        # "binary_update",
+        "binary_update",
         "wordnet_full",
         "wordnet_vldb_10",
         "wordnet_vldb_50",
@@ -172,7 +174,7 @@ def prepare_containment_plot(fig, ax):
         labels,
         loc="upper left",
         fontsize=10,
-        ncols=4,
+        ncols=5,
         bbox_to_anchor=(0, 1.0, 1, 0.1),
         mode="expand",
     )

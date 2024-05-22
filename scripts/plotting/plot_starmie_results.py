@@ -79,7 +79,7 @@ _d = _d.join(
     ),
     on=["data_lake_version", "cat"],
 )
-
+#%%
 _df = (
     _d.with_columns(
         time_retrieval=pl.when(pl.col("jd_method") != "starmie")
@@ -205,8 +205,8 @@ axs_right[1].set_title(
 # Remove the labels from the right axis
 axs_right[0].yaxis.set_major_locator(plt.NullLocator())
 
-fig.savefig("images/comparison_retrieval_methods.png")
-fig.savefig("images/comparison_retrieval_methods.pdf")
+# fig.savefig("images/comparison_retrieval_methods.png")
+# fig.savefig("images/comparison_retrieval_methods.pdf")
 
 
 # %%

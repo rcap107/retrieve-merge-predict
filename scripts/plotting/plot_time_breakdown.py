@@ -179,7 +179,7 @@ mapping_times = {
 }
 
 
-df_raw = pl.read_parquet("results/overall/wordnet_10k-first.parquet")
+df_raw = pl.read_parquet("results/overall/overall_first.parquet")
 df_raw = df_raw.fill_null(0)
 
 filter_ = {"jd_method": "exact_matching"}
@@ -208,8 +208,8 @@ fig.legend(
     labelspacing=0.3,
 )
 
-fig.savefig("images/single_time_breakdown.pdf", bbox_inches="tight")
-fig.savefig("images/single_time_breakdown.png", bbox_inches="tight")
+# fig.savefig("images/single_time_breakdown.pdf", bbox_inches="tight")
+# fig.savefig("images/single_time_breakdown.png", bbox_inches="tight")
 
 # %%
 grouping_variable = "estimator"
@@ -222,8 +222,8 @@ fig, ax_tot = plt.subplots(
 # fig, ax_tot = plt.subplots(1,2, layout="constrained", sharey=True, figsize=(8,2))
 prepare_subplot(df_raw, ax_tot, grouping_variable, "total")
 
-fig.savefig("images/single_total_time_spent.pdf")
-fig.savefig("images/single_total_time_spent.png")
+# fig.savefig("images/single_total_time_spent.pdf")
+# fig.savefig("images/single_total_time_spent.png")
 
 
 #%%
@@ -255,3 +255,5 @@ plt.subplots_adjust(bottom=0.4)
 plt.subplots_adjust(left=0.23)
 # fig.savefig(f"images/time_spent_{grouping_variable}.png")
 # fig.savefig(f"images/time_spent_{grouping_variable}.pdf")
+
+# %%

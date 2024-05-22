@@ -3,32 +3,28 @@
 # %load_ext autoreload
 # %autoreload 2
 # %%
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import polars as pl
 
-import src.utils.plotting as plotting
+from src.utils import plotting
 from src.utils.logging import read_and_process
-
-cfg = pl.Config()
-cfg.set_fmt_str_lengths(150)
 
 # %%
 result_path = "results/overall/overall_first.parquet"
 
+# Use the standard method for reading all results for consistency.
 df_results = pl.read_parquet(result_path)
-
 current_results = read_and_process(df_results)
 current_results = current_results.filter(pl.col("estimator") != "nojoin")
 # %%
+# We remove top_k_full_join and starmie from this set of results.
 _d = current_results.filter(
-    (pl.col("estimator") != "top_k_full_join")
-    & (pl.col("jd_method") != "starmie")
-    # & (~pl.col("target_dl").is_in(["wordnet_vldb_50","open_data_us"]) )
+    (pl.col("estimator") != "top_k_full_join") & (pl.col("jd_method") != "starmie")
 )
-# %%
 plot_case = "dep"
+
+# Set to false to plot the results without saving the figure on disk.
+savefig = True
+# %% Selector plot
 var = "estimator"
 scatter_d = "case"
 plotting.draw_pair_comparison(
@@ -38,15 +34,16 @@ plotting.draw_pair_comparison(
     scatterplot_dimension=scatter_d,
     figsize=(10, 2.1),
     scatter_mode="split",
-    savefig=True,
+    savefig=savefig,
     savefig_type=["png", "pdf"],
     case=plot_case,
-    jitter_factor=0.01,
+    jitter_factor=0.02,
     qle=0.05,
     add_titles=True,
-    # colormap_name="Set1",
+    sorting_method="manual",
+    sorting_variable="estimator_comp",
 )
-# %%
+# %% ML Model
 var = "chosen_model"
 scatter_d = "case"
 plotting.draw_pair_comparison(
@@ -56,11 +53,8 @@ plotting.draw_pair_comparison(
     scatterplot_dimension=scatter_d,
     figsize=(10, 1),
     scatter_mode="split",
-    savefig=True,
+    savefig=savefig,
     savefig_type=["png", "pdf"],
     case=plot_case,
     add_titles=False,
-    # colormap_name="Set1",
 )
-
-# %%

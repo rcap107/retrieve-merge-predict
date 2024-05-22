@@ -23,14 +23,9 @@ def get_cases(df: pl.DataFrame, keep_nojoin: bool = False) -> dict:
 if __name__ == "__main__":
     result_path = "results/overall/overall_first.parquet"
     df_results = pl.read_parquet(result_path)
-    results_full, results_depleted = read_and_process(df_results)
+    current_results = read_and_process(df_results)
 
-    case = "dep"
-    if case == "dep":
-        current_results = results_depleted.clone()
-        current_results = current_results.filter(pl.col("estimator") != "nojoin")
-    elif case == "full":
-        current_results = results_full.clone()
+    current_results = current_results.filter(pl.col("estimator") != "nojoin")
 
     # Plot retrieval method
     var = "jd_method"
