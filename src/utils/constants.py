@@ -1,3 +1,9 @@
+"""
+This script gathers all the constants that tare used across different scripts (mainly for plotting) to
+have consistent ordering and formatting of labels across the project.
+"""
+
+# Grouping keys used to find the "difference from the mean"
 GROUPING_KEYS = [
     "jd_method",
     "estimator",
@@ -8,6 +14,7 @@ GROUPING_KEYS = [
     "fold_id",
 ]
 
+# Colormaps used for the scatterplots
 COLORMAP_DATALAKE_MAPPING = {
     "binary_update": "gray",
     "wordnet_full": "spring",
@@ -16,7 +23,7 @@ COLORMAP_DATALAKE_MAPPING = {
     "wordnet_vldb_50": "seismic",
 }
 
-
+# Formatting the labels in the big legend, also used for filtering in some places.
 LEGEND_LABELS = {
     "company_employees": "Company Employees",
     "housing_prices": "Housing Prices",
@@ -29,6 +36,7 @@ LEGEND_LABELS = {
     "schools": "Schools",
 }
 
+# Used for manual ordering. Labels will be printed in the exact order reported here.
 ORDER_MAPPING = {
     "estimator": [
         "nojoin",
@@ -37,6 +45,12 @@ ORDER_MAPPING = {
         "full_join",
         "best_single_join",
         "stepwise_greedy_join",
+    ],
+    "estimator_comp": [
+        "stepwise_greedy_join",
+        "full_join",
+        "best_single_join",
+        "highest_containment",
     ],
     "jd_method": ["exact_matching", "minhash", "minhash_hybrid", "starmie"],
     "target_dl": [
@@ -48,7 +62,8 @@ ORDER_MAPPING = {
     ],
 }
 
-
+# Exhaustive list of all the possible values that can be plotted, and the label
+# that they should be assigned for the legend and ticklabels.
 LABEL_MAPPING = {
     "base_table": {
         "company_employees-depleted_name-open_data": "Employees",

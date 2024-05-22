@@ -1,27 +1,18 @@
 """Figure 6: Relative prediction performance using top-1 full join.
 """
-#%%
+
+# #%%
 # %cd ~/bench
 # #%%
 # %load_ext autoreload
 # %autoreload 2
 # %%
-from pathlib import Path
-
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import polars as pl
-import polars.selectors as cs
-import seaborn as sns
-from matplotlib.gridspec import GridSpec
 
 import src.utils.plotting as plotting
-from src.utils.logging import read_and_process, read_logs
+from src.utils.logging import read_and_process
 
-cfg = pl.Config()
-cfg.set_fmt_str_lengths(150)
 # %%
 result_path = "results/overall/overall_first.parquet"
 df_results = pl.read_parquet(result_path)
@@ -29,19 +20,19 @@ df_results = pl.read_parquet(result_path)
 results_depleted = read_and_process(df_results)
 _d = results_depleted.filter(
     (pl.col("estimator") == "top_k_full_join")
-    # & (pl.col("jd_method") != "starmie")
+    # Selecting only the data lakes that could be run with Starmie
     & (~pl.col("target_dl").is_in(["wordnet_vldb_50", "open_data_us"]))
 )
 scatter_d = "case"
 
 df_rel_r2 = plotting.get_difference_from_mean(
-    _d, column_to_average="jd_method", result_column="r2score"
+    _d, column_to_average="jd_method", result_column="y"
 )
 scatterplot_mapping = plotting.prepare_scatterplot_mapping_case(_d)
-#%%
+# %%
 fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(4.5, 2))
 
-var_to_plot = "diff_jd_method_r2score"
+var_to_plot = "diff_jd_method_y"
 
 plotting.prepare_case_subplot(
     ax,
@@ -59,4 +50,3 @@ plotting.prepare_case_subplot(
 
 fig.savefig("images/topk1_fulljoin.png")
 fig.savefig("images/topk1_fulljoin.pdf")
-# %%

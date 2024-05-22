@@ -213,7 +213,6 @@ def prepare_data_for_plotting(df: pl.DataFrame) -> pl.DataFrame:
 def read_and_process(df_results):
     keep_cases = [
         "us_accidents_2021-yadl-depleted",
-        # "movies_vote_large-yadl-depleted",
         "housing_prices-yadl-depleted",
         "company_employees-yadl-depleted",
         "us_accidents_large-yadl-depleted",
@@ -221,12 +220,11 @@ def read_and_process(df_results):
         "us_elections-depleted_county_name-open_data",
         "company_employees-depleted_name-open_data",
         "schools-depleted-open_data",
-        "movies_large-yadl-depleted",
         "housing_prices-depleted_County-open_data",
         "us_elections-yadl-depleted",
         "schools-depleted-open_data",
+        "movies_large-yadl-depleted",
         "movies_large-depleted-open_data",
-        # "movies_vote_large-depleted-open_data",
         "us_accidents_2021-depleted-open_data_County",
         "us_accidents_large-depleted-open_data_County",
     ]
@@ -240,6 +238,7 @@ def read_and_process(df_results):
                 "target_dl",
                 "jd_method",
                 "base_table",
+                "query_column",
                 "estimator",
                 "chosen_model",
                 "aggregation",
@@ -268,6 +267,7 @@ def read_and_process(df_results):
         "target_dl",
         "jd_method",
         "base_table",
+        "query_column",
         "case",
         "estimator",
         "chosen_model",
@@ -280,10 +280,7 @@ def read_and_process(df_results):
     ]
     joined = joined.select(projection)
 
-    # results_full = joined.filter(~pl.col("base_table").str.contains("depleted"))
     results_depleted = joined.filter(pl.col("base_table").str.contains("depleted"))
-
-    # results_full = prepare_data_for_plotting(results_full)
     results_depleted = prepare_data_for_plotting(results_depleted)
 
     return results_depleted
