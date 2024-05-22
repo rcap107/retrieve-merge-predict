@@ -14,6 +14,7 @@ from pathlib import Path
 import toml
 from tqdm import tqdm
 
+# Fixing the number of polars threads for better reproducibility.
 os.environ["POLARS_MAX_THREADS"] = "32"
 from src.pipeline import prepare_config_dict, single_run
 from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
