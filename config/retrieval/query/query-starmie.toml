@@ -1,5 +1,5 @@
 join_discovery_method=["starmie"]
-data_lake="wordnet_full"
+data_lake="binary_update"
 iterations=1
 
 [["query_cases"]]
@@ -15,15 +15,15 @@ table_path="data/source_tables/yadl/company_employees-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/yadl/movies-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/movies_large-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/yadl/us_accidents-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]
-table_path="data/source_tables/yadl/movies_vote-yadl-depleted.parquet"
+table_path="data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet"
 query_column="col_to_embed"
 
 [["query_cases"]]

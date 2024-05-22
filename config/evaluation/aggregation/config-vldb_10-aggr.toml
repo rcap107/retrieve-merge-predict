@@ -8,7 +8,7 @@ split_kind = "group_shuffle"
 
 ["join_parameters"]
 join_strategy = "left"
-aggregation = ["dfs"]
+aggregation = ["mean"]
 
 ["evaluation_models"]
 chosen_model = ["linear", "catboost"]
@@ -34,15 +34,13 @@ stepwise_greedy_join.ranking_metric = "containment"
 
 ["query_cases"]
 data_lake = ["wordnet_vldb_10"]
-# data_lake = ["wordnet_vldb_10", "binary_update", "wordnet_full"]
-# join_discovery_method = ["exact_matching"]
 join_discovery_method = ["minhash", "minhash_hybrid"]
 table_path = [
     # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
     "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
     "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
     "data/source_tables/yadl/movies_large-yadl-depleted.parquet",
-    "data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet",
+    # "data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet",
     # "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
     "data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet",
     # "data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet",

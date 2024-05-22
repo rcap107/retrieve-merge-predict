@@ -33,8 +33,8 @@ stepwise_greedy_join.epsilon = [0.0]
 stepwise_greedy_join.ranking_metric = "containment"
 
 ["query_cases"]
-data_lake = ["wordnet_vldb_50"]
-join_discovery_method = ["minhash", "exact_matching"]
+data_lake = ["binary_update"]
+join_discovery_method = ["starmie"]
 table_path = [
     "data/source_tables/yadl/movies_large-yadl-depleted.parquet",
     "data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet",
