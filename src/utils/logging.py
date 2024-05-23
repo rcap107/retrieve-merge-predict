@@ -64,14 +64,6 @@ def get_exp_name(debug=False):
     return exp_name
 
 
-def read_log_dir(exp_name):
-    pass
-
-
-def read_log_tar(exp_name):
-    pass
-
-
 def read_logs(exp_name=None, exp_path=None):
     if exp_name is not None:
         path_target_run = Path("results/logs/", exp_name)
@@ -219,6 +211,25 @@ def prepare_data_for_plotting(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def read_and_process(df_results):
+    keep_cases = [
+        "us_accidents_2021-yadl-depleted",
+        "housing_prices-yadl-depleted",
+        "company_employees-yadl-depleted",
+        "us_accidents_large-yadl-depleted",
+        "us_county_population-yadl-depleted",
+        "us_elections-depleted_county_name-open_data",
+        "company_employees-depleted_name-open_data",
+        "schools-depleted-open_data",
+        "housing_prices-depleted_County-open_data",
+        "us_elections-yadl-depleted",
+        "schools-depleted-open_data",
+        "movies_large-yadl-depleted",
+        "movies_large-depleted-open_data",
+        "us_accidents_2021-depleted-open_data_County",
+        "us_accidents_large-depleted-open_data_County",
+    ]
+    df_results = df_results.filter(pl.col("base_table").is_in(keep_cases))
+
     df_ = df_results.select(
         pl.col(
             [
@@ -227,40 +238,41 @@ def read_and_process(df_results):
                 "target_dl",
                 "jd_method",
                 "base_table",
+                "query_column",
                 "estimator",
                 "chosen_model",
                 "aggregation",
                 "r2score",
+                "auc",
                 "time_fit",
                 "time_predict",
                 "time_run",
             ]
         )
     ).with_columns(
-        (
+        case=(
             pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
-        ).alias("case")
+        ),
+        y=pl.when(pl.col("auc") > 0).then(pl.col("auc")).otherwise(pl.col("r2score")),
     )
-    # df_ = df_.group_by(
-    #     [_ for _ in GROUPING_KEYS if _ != "fold_id"]
-    # ).map_groups(lambda x: x.with_row_count("fold_id"))
 
     joined = df_.join(
         df_.filter(pl.col("estimator") == "nojoin"),
-        on=GROUPING_KEYS,
+        on=[_ for _ in GROUPING_KEYS if _ != "estimator"],
         how="left",
-    ).with_columns((pl.col("r2score") - pl.col("r2score_right")).alias("difference"))
+    ).with_columns((pl.col("y") - pl.col("y_right")).alias("difference"))
 
     projection = [
         "fold_id",
         "target_dl",
         "jd_method",
         "base_table",
+        "query_column",
         "case",
         "estimator",
         "chosen_model",
         "aggregation",
-        "r2score",
+        "y",
         "time_fit",
         "time_predict",
         "time_run",
@@ -268,10 +280,7 @@ def read_and_process(df_results):
     ]
     joined = joined.select(projection)
 
-    results_full = joined.filter(~pl.col("base_table").str.contains("depleted"))
     results_depleted = joined.filter(pl.col("base_table").str.contains("depleted"))
-
-    results_full = prepare_data_for_plotting(results_full)
     results_depleted = prepare_data_for_plotting(results_depleted)
 
-    return results_full, results_depleted
+    return results_depleted

@@ -1,38 +1,105 @@
-#%%
+"""
+Figure 4: prediction performance by data lake.
+"""
+
+# %%
 # %cd ~/bench
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
-
+# %load_ext autoreload
+# %autoreload 2
 #%%
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
-from sklearn.linear_model import LinearRegression
 
-import src.utils.plotting as plotting
+from src.utils import constants, plotting
+from src.utils.logging import read_and_process
 
+# %%
 sns.set_context("paper")
 plt.style.use("seaborn-v0_8-talk")
 plt.rc("font", family="sans-serif")
 
 # %%
-df_raw = pl.read_parquet("results/overall/overall_first.parquet")
+result_path = "results/overall/overall_first.parquet"
+
+df_results = pl.read_parquet(result_path)
+
+current_results = read_and_process(df_results)
+df_raw = current_results.filter(pl.col("estimator") != "nojoin")
+
+
 # %%
-fig, ax = plt.subplots(squeeze=True, figsize=(6, 2), layout="constrained")
-sns.boxplot(data=df_raw.to_pandas(), x="r2score", y="target_dl", ax=ax)
-ax.set_ylabel("")
-ax.set_xlabel("Prediction performance")
+# # %%
+# def prepare_df(df):
+#     df_ = (
+#         df.with_columns(case=pl.col("base_table").str.split("-").list.first())
+#         .filter(
+#             (pl.col("jd_method") == "exact_matching")
+#             & (pl.col("estimator") == "stepwise_greedy_join")
+#             & (pl.col("case").is_in(constants.LEGEND_LABELS.keys()))
+#         )
+#         .with_columns(
+#             y=pl.when(pl.col("auc") > 0)
+#             .then(pl.col("auc"))
+#             .otherwise(pl.col("r2score"))
+#         )
+#     )
+#     return df_
 
-mapping = {
-    "wordnet_full": "YADL Wordnet",
-    "binary_update": "YADL Binary",
-    "open_data_us": "Open Data US",
-}
 
-ax.set_yticklabels([mapping[x.get_text()] for x in ax.get_yticklabels()])
+# %%
 
-fig.savefig("images/performance_data_lakes.png")
-fig.savefig("images/performance_data_lakes.pdf")
+fig, axs = plt.subplots(
+    1, 1, squeeze=True, figsize=(5, 2), layout="constrained", sharex=False
+)
+
+var_to_plot = "y"
+
+# df_ = prepare_df(df_raw)
+
+# ax = axs[0]
+plotting.prepare_case_subplot(
+    axs,
+    df=df_raw,
+    grouping_dimension="target_dl",
+    scatterplot_dimension=None,
+    plotting_variable=var_to_plot,
+    kind="box",
+    sorting_method="manual",
+    sorting_variable="target_dl",
+    jitter_factor=0.05,
+    scatter_mode="split",
+    qle=0,
+    xtick_format="linear",
+)
+
+
+# df_ = df_raw.filter(
+#     (pl.col("target_dl") == "wordnet_vldb_10")
+#     & (pl.col("estimator") == "stepwise_greedy_join")
+#     # & (~pl.col("base_table").str.contains("schools"))
+# ).with_columns(
+#     r2score=pl.when(pl.col("auc") > 0).then(pl.col("auc")).otherwise(pl.col("r2score"))
+# )
+# ax = axs[1]
+# plotting.prepare_case_subplot(
+#     ax,
+#     df=df_,
+#     grouping_dimension="jd_method",
+#     scatterplot_dimension=None,
+#     plotting_variable=var_to_plot,
+#     kind="box",
+#     sorting_variable=var_to_plot,
+#     jitter_factor=0.05,
+#     scatter_mode="split",
+#     qle=0,
+#     xtick_format="linear",
+# )
+
+fig.savefig("images/prediction_performance.png")
+fig.savefig("images/prediction_performance.pdf")
+
 
 # %%

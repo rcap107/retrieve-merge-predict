@@ -1,49 +1,35 @@
 import argparse
-from pathlib import Path
 import os
+from pathlib import Path
 
 import toml
 from tqdm import tqdm
 
-from src.data_structures.join_discovery_methods import ExactMatchingIndex
-
-# from src.data_structures.loggers import SimpleIndexLogger
-from src.data_structures.metadata import MetadataIndex
+from src.data_structures.loggers import SimpleIndexLogger
+from src.data_structures.retrieval_methods import ExactMatchingIndex, StarmieWrapper
 from src.utils.indexing import (
     DEFAULT_INDEX_DIR,
+    get_metadata_index,
     load_index,
     query_index,
-    SimpleIndexLogger,
 )
+
+PREFIX = {
+    "exact_matching": "em_index",
+    "starmie": "starmie_index",
+}
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", action="store")
+    parser.add_argument("config_file", action="store", type=argparse.FileType("r"))
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def prepare_dirtree():
     os.makedirs("data/metadata/queries", exist_ok=True)
     os.makedirs("results/query_results", exist_ok=True)
-
-
-def get_metadata_index(data_lake_version):
-    metadata_index_path = Path(
-        f"data/metadata/_mdi/md_index_{data_lake_version}.pickle"
-    )
-
-    if not metadata_index_path.exists():
-        raise FileNotFoundError(
-            f"Path to metadata index {metadata_index_path} is invalid."
-        )
-    mdata_index = MetadataIndex(
-        data_lake_variant=data_lake_version, index_path=metadata_index_path
-    )
-
-    return mdata_index
 
 
 if __name__ == "__main__":
@@ -87,7 +73,7 @@ if __name__ == "__main__":
                 elif jd_method == "exact_matching":
                     # Otherwise, the index is loaded once for each query and the logger is created with it.
                     index_logger = SimpleIndexLogger(
-                        index_name="exact_matching",
+                        index_name=jd_method,
                         step="query",
                         data_lake_version=data_lake_version,
                         log_path="results/query_logging.txt",
@@ -95,13 +81,32 @@ if __name__ == "__main__":
                     index_path = Path(
                         DEFAULT_INDEX_DIR,
                         data_lake_version,
-                        f"em_index_{tname}_{query_column}.pickle",
+                        f"{PREFIX[jd_method]}_{tname}_{query_column}.pickle",
                     )
                     index_logger.start_time("load")
-                    index = ExactMatchingIndex(file_path=index_path)
+                    if jd_method == "exact_matching":
+                        index = ExactMatchingIndex(file_path=index_path)
+                    else:
+                        index = StarmieWrapper(file_path=index_path)
+                    index_logger.end_time("load")
+
+                elif jd_method == "starmie":
+                    index_logger = SimpleIndexLogger(
+                        index_name=jd_method,
+                        step="query",
+                        data_lake_version=data_lake_version,
+                        log_path="results/query_logging.txt",
+                    )
+                    index_path = Path(
+                        DEFAULT_INDEX_DIR,
+                        data_lake_version,
+                        f"{PREFIX[jd_method]}-{tname}.pickle",
+                    )
+                    index_logger.start_time("load")
+                    index = StarmieWrapper(file_path=index_path)
                     index_logger.end_time("load")
                 else:
-                    raise ValueError
+                    raise ValueError(f"Unknown jd_method {jd_method}")
                 index_logger.update_query_parameters(tname, query_column)
                 query_result, index_logger = query_index(
                     index,

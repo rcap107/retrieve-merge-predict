@@ -1,0 +1,23 @@
+join_discovery_method=["minhash"]
+hybrid=false
+data_lake="open_data_us"
+
+# Movies
+[["query_cases"]]
+table_path="data/source_tables/open_data_us/movies_large-depleted-open_data.parquet"
+query_column="original_title"
+
+# Movies vote
+[["query_cases"]]
+table_path="data/source_tables/open_data_us/movies_vote_large-depleted-open_data.parquet"
+query_column="original_title"
+
+# US Accidents
+
+[["query_cases"]]
+table_path="data/source_tables/open_data_us/us_accidents_2021-depleted-open_data_County.parquet"
+query_column="County"
+
+[["query_cases"]]
+table_path="data/source_tables/open_data_us/us_accidents_large-depleted-open_data_County.parquet"
+query_column="County"

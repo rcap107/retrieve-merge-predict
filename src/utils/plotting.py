@@ -2,27 +2,51 @@ from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import polars as pl
 import polars.selectors as cs
 import seaborn as sns
+from matplotlib import ticker
 from matplotlib.colors import ListedColormap
 
-import src.utils.constants as constants
+from src.utils import constants
 
 plt.style.use("seaborn-v0_8-talk")
 
 
 def get_difference_from_mean(
-    df,
-    column_to_average,
-    result_column,
-    scaled=False,
-    geometric=False,
-    force_split=False,
+    df: pl.DataFrame,
+    column_to_average: str,
+    result_column: str,
+    scaled: bool = False,
+    geometric: bool = False,
+    force_split: bool = False,
 ):
+    """This function takes as input the results dataframe, the result column (measuring either R2 score, AUC or runtime),
+    as well as a single column to average on, and builds a new column that includes the difference between the value in
+    the result column and the average value for the given `column_to_average`.
+
+    The difference can be the absolute difference between two values, or a `geometric` difference to see "how many times"
+    the given value is larger or smaller than the average (this is mostly relevant when working with the execution time).
+
+    Args:
+        df (pl.DataFrame): Dataframe that contains the results.
+        column_to_average (str): Column of interest (one of the experimental variables).
+        result_column (str): The result column to find the average of.
+        scaled (bool, optional): If true, scale the results by the absolute maximum difference (useful to represent
+                                    values as a percentage of the maximum difference). Defaults to False.
+        geometric (bool, optional): If true, the difference is found by executing the ratio between each sample and the
+                                    average. Defaults to False.
+        force_split (bool, optional): Plotting flag to not use the "relative" difference in case of binary values.
+                                    Defaults to False.
+
+    Returns:
+        pl.DataFrame: A copy of the original dataframe, with the new column.
+    """
+    assert column_to_average in df.columns
+    assert result_column in df.columns
+
     this_groupby = [_ for _ in constants.GROUPING_KEYS if _ != column_to_average]
 
     n_unique = df.select(pl.col(column_to_average).n_unique()).item()
@@ -37,14 +61,14 @@ def get_difference_from_mean(
     else:
         best_method = (
             df.group_by(column_to_average)
-            .agg(pl.mean(result_column))
+            .agg(pl.median(result_column))
             .top_k(1, by=result_column)[column_to_average]
             .item()
         )
 
         prepared_df = (
             df.filter(pl.col(column_to_average) == best_method)
-            .join(df, on=this_groupby)
+            .join(df.filter(pl.col(column_to_average) != best_method), on=this_groupby)
             .filter(pl.col(column_to_average) != pl.col(column_to_average + "_right"))
             .rename({result_column + "_right": "reference_column"})
         )
@@ -73,36 +97,9 @@ def get_difference_from_mean(
     return prepared_df.drop(cs.ends_with("_right"))
 
 
-def prepare_data_for_comparison(df, variable_of_interest):
-    df = get_difference_from_mean(
-        df, column_to_average=variable_of_interest, result_column="r2score"
-    )
-    df = get_difference_from_mean(
-        df,
-        column_to_average=variable_of_interest,
-        result_column="time_run",
-        geometric=True,
-    )
-
-    return df
-
-
 def prepare_jitter(shape, offset_value, factor=0.1):
     data = np.ones(shape) * offset_value
     return data + np.random.normal(0, factor, data.shape)
-
-
-def add_subplot(fig, position):
-    new_ax = fig.add_subplot(*position, frameon=False)
-
-    new_ax.spines["top"].set_color("none")
-    new_ax.spines["bottom"].set_color("none")
-    new_ax.spines["left"].set_color("none")
-    new_ax.spines["right"].set_color("none")
-    new_ax.tick_params(
-        labelcolor="none", top=False, bottom=False, left=False, right=False
-    )
-    return new_ax
 
 
 def prepare_scatterplot_mapping_case(df: pl.DataFrame):
@@ -147,11 +144,19 @@ def prepare_scatterplot_mapping_general(
     return scatterplot_mapping
 
 
-def _custom_formatter(x, pos):
-    return rf"{x:g}x"
+def format_xaxis(ax, case, limits, xmax=1, symlog_ticks=None):
+    """Formatting x-axes for the pair plots. Values are assigned manually based
+    on "what looks best".
 
+    Args:
+        ax (_type_): Axis object to fix.
+        case (_type_): Type of axis (percentage, log, symlog, linear).
+        limits (_type_): Limits of the axis (for spacing purposes).
+        xmax (int, optional): _description_. Defaults to 1.
 
-def format_xaxis(ax, case, limits, xmax=1):
+    Returns:
+        _type_: _description_
+    """
     if case == "percentage":
         if max(np.abs(limits)) < 0.10:
             major_locator = ticker.MultipleLocator(0.05)
@@ -185,6 +190,8 @@ def format_xaxis(ax, case, limits, xmax=1):
                 r"$1.5x$",
                 r"$2x$",
                 r"$3x$",
+                r"$4x$",
+                r"$5x$",
             ]
         )
         ax.xaxis.set_major_formatter(major_formatter)
@@ -202,22 +209,25 @@ def format_xaxis(ax, case, limits, xmax=1):
         ax.set_xscale("symlog", base=2)
         major_locator = ticker.SymmetricalLogLocator(
             base=2,
-            linthresh=0.25,
-            # subs=[
-            #     0.5,
-            #     1,
-            # ],
+            linthresh=0.025,
         )
-        major_locator = ticker.FixedLocator([0.5, 1, 1.5, 2, 3])
-        major_formatter = ticker.FixedFormatter(
-            [
+
+        if symlog_ticks is None:
+            locations = [0.5, 1, 1.5, 2, 3, 5, 10]
+            labels = [
                 r"$0.5x$",
                 r"$1x$",
                 r"$1.5x$",
                 r"$2x$",
                 r"$3x$",
+                r"$5x$",
             ]
-        )
+        else:
+            locations = symlog_ticks[0]
+            labels = symlog_ticks[1]
+
+        major_locator = ticker.FixedLocator(locations)
+        major_formatter = ticker.FixedFormatter(labels)
         ax.xaxis.set_major_locator(major_locator)
         ax.xaxis.set_major_formatter(major_formatter)
         # ax.xaxis.set_major_formatter(ticker.FuncFormatter(_custom_formatter))
@@ -227,7 +237,7 @@ def format_xaxis(ax, case, limits, xmax=1):
 def base_barplot(
     df: pd.DataFrame,
     categorical_variable: str = "estimator",
-    result_variable: str = "r2score",
+    result_variable: str = "y",
     hue_variable: str = "chosen_model",
     col_variable: str = "base_table",
     horizontal: bool = True,
@@ -246,7 +256,7 @@ def base_barplot(
     Args:
         df (pd.DataFrame): Dataframe that contains the results of the experiment.
         x_variable (str, optional): Categorical variable to split results over. Defaults to "estimator".
-        y_variable (str, optional): Numerical variable to plot. Defaults to "r2score".
+        y_variable (str, optional): Numerical variable to plot. Defaults to "y".
         hue_variable (str | None, optional): If provided, color the bars by this variable. Defaults to "chosen_model".
         col_variable (str, optional): If provided, create a new subplot for each distinct value in this variable. Defaults to "base_table".
         horizontal (bool, optional): If True, plot horizontal barplots. Defaults to True.
@@ -282,7 +292,7 @@ def base_barplot(
 def base_relplot(
     df: pd.DataFrame,
     x_variable="time_run",
-    y_variable="r2score",
+    y_variable="y",
     hue_variable="chosen_model",
     style_variable="estimator",
     col_variable="base_table",
@@ -310,48 +320,61 @@ def base_relplot(
 
 def prepare_case_subplot(
     ax,
-    df,
-    grouping_dimension,
-    scatterplot_dimension,
-    plotting_variable,
-    kind="box",
-    xtick_format="percentage",
-    scatter_mode="overlapping",
-    jitter_factor=0.05,
+    df: pl.DataFrame,
+    grouping_dimension: str,
+    scatterplot_dimension: str = None,
+    plotting_variable: str = None,
+    kind: str = "box",
+    xtick_format: str = "percentage",
+    scatter_mode: str = "overlapping",
+    jitter_factor: float = 0.05,
     scatterplot_mapping=None,
-    colormap_name="viridis",
-    scatterplot_marker_size=3,
-    box_width=0.9,
-    xmax=1,
-    sorting_variable="r2score",
-    qle=0.05,
+    colormap_name: str = "viridis",
+    scatterplot_marker_size: float = 3,
+    box_width: float = 0.9,
+    xmax: float = 1,
+    sorting_method: str = "prediction",
+    sorting_variable: str = "y",
+    qle: float = 0.05,
+    symlog_ticks=None,
 ):
-    # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
-    if sorting_variable == plotting_variable:
+    if sorting_method == "prediction":
+        if sorting_variable == plotting_variable:
+            data = (
+                df.select(grouping_dimension, sorting_variable)
+                .group_by(grouping_dimension)
+                .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+                .sort("sort_col")
+                .to_dict()
+            )
+        else:
+            data = (
+                df.select(grouping_dimension, plotting_variable, sorting_variable)
+                .group_by(grouping_dimension)
+                .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+                .sort("sort_col")
+                .select(grouping_dimension, plotting_variable)
+                .to_dict()
+            )
+
+    elif sorting_method == "manual":
+        order_mapping = constants.ORDER_MAPPING[sorting_variable]
+
         data = (
-            df.select(grouping_dimension, sorting_variable)
-            .group_by(grouping_dimension)
-            .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
-            .sort("sort_col")
-            .to_dict()
-        )
-    else:
-        data = (
-            df.select(grouping_dimension, plotting_variable, sorting_variable)
-            .group_by(grouping_dimension)
-            .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
-            .sort("sort_col")
+            df.with_columns(
+                pl.col(grouping_dimension)
+                .map_elements(order_mapping.index)
+                .alias("order")
+            )
+            .sort("order", descending=True)
             .select(grouping_dimension, plotting_variable)
+            .group_by(grouping_dimension, maintain_order=True)
+            .agg(pl.all())
             .to_dict()
         )
+    # Prepare the plotting data sorting by `sorting_variable` (r2score by default to have  consistency over axes)
 
-    if scatterplot_mapping is None:
-        scatterplot_mapping = prepare_scatterplot_mapping_general(
-            df, scatterplot_dimension, plotting_variable, colormap_name=colormap_name
-        )
-
-    ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
-
+    # Axis limits are set manually based on the quantile. The value of qle depends on the variable
     limits = (
         df.select(
             pl.col(plotting_variable).quantile(qle).alias("min"),
@@ -362,9 +385,10 @@ def prepare_case_subplot(
         .squeeze()
     )
 
-    print("limits", limits)
-
+    # This is the reference vertical line.
+    ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
     ax.axvline(ref_vline, alpha=0.4, zorder=0, color="blue", linestyle="--")
+
     if kind == "violin":
         parts = ax.violinplot(
             data[plotting_variable],
@@ -382,7 +406,10 @@ def prepare_case_subplot(
         medianprops = dict(linewidth=2, color="red", zorder=3)
         whiskerprops = dict(linewidth=2)
         capprops = dict(linewidth=2)
-        boxprops = dict(facecolor="white", linewidth=2)
+        if scatterplot_dimension is None:
+            boxprops = dict(facecolor="white", linewidth=2, zorder=2)
+        else:
+            boxprops = dict(facecolor="none", linewidth=2, zorder=3)
         bp = ax.boxplot(
             data[plotting_variable],
             showfliers=False,
@@ -392,70 +419,95 @@ def prepare_case_subplot(
             boxprops=boxprops,
             whiskerprops=whiskerprops,
             capprops=capprops,
-            zorder=2,
+            # zorder=3,
             patch_artist=True,
         )
 
+    # Find the medians of the values (to be added to the plot)
     df_medians = df.group_by(grouping_dimension).agg(pl.col(plotting_variable).median())
     median_d = dict(zip(*df_medians.to_dict().values()))
 
     facecolors = ["grey", "white"]
-    for _i, _d in enumerate(data[plotting_variable]):
-        # Add an horizontal span to split the different cases by color
-        ax.axhspan(
-            _i + 0.5, _i + 1.5, facecolor=facecolors[_i % 2], zorder=0, alpha=0.10
-        )
 
-        # Add a white dot to highlight the median
-        median = np.median(_d)
-        ax.scatter(
-            median,
-            [_i + 1],
-            marker="o",
-            color="white",
-            s=30,
-            zorder=3.5,
-            edgecolors="black",
-        )
-        if scatter_mode == "split":
-            offset = (
-                np.linspace(
-                    -box_width / 2 + jitter_factor,
-                    box_width / 2 - jitter_factor,
-                    len(scatterplot_mapping),
-                )
-            ) * 0.8
-        elif scatter_mode == "overlapping":
-            offset = np.zeros(len(scatterplot_mapping))
-
-        for _, label in enumerate(scatterplot_mapping):
-            this_label = constants.LABEL_MAPPING[scatterplot_dimension][label]
-            if _i > 0:
-                this_label = "_" + str(this_label)
-            filter_dict = {
-                scatterplot_dimension: label,
-                grouping_dimension: data[grouping_dimension][_i],
-            }
-            values = df.filter(**filter_dict)[plotting_variable].to_numpy()
-
-            ax.scatter(
-                values,
-                _i
-                + 1
-                + prepare_jitter(
-                    len(values), offset_value=offset[_], factor=jitter_factor
-                ),
-                color=scatterplot_mapping[label],
-                marker="o",
-                s=scatterplot_marker_size,
-                alpha=0.7,
-                label=this_label,
-                zorder=2.5,
+    if scatterplot_dimension is not None:
+        # If no scatterplot mapping is provided, build one based on the scatterplot dimension
+        if scatterplot_mapping is None:
+            scatterplot_mapping = prepare_scatterplot_mapping_general(
+                df,
+                scatterplot_dimension,
+                plotting_variable,
+                colormap_name=colormap_name,
             )
+
+        for _i, _d in enumerate(data[plotting_variable]):
+            # Add an horizontal span to split the different cases by color
+            ax.axhspan(
+                _i + 0.5, _i + 1.5, facecolor=facecolors[_i % 2], zorder=0, alpha=0.10
+            )
+
+            # Add a white dot to highlight the median
+            median = np.median(_d)
+            ax.scatter(
+                median,
+                [_i + 1],
+                marker="o",
+                color="white",
+                s=30,
+                zorder=3.5,
+                edgecolors="black",
+            )
+
+            # Split the points in the scatter plot to reduce overlap
+            if scatter_mode == "split":
+                offset = (
+                    np.linspace(
+                        -box_width / 2
+                        + jitter_factor,  # needed to stay within the bounds of the plot
+                        box_width / 2 - jitter_factor,
+                        len(scatterplot_mapping),
+                    )
+                ) * 0.8
+            elif scatter_mode == "overlapping":
+                offset = np.zeros(len(scatterplot_mapping))
+
+            # Plot only one set of points at a time
+            for _, label in enumerate(scatterplot_mapping):
+                this_label = constants.LABEL_MAPPING[scatterplot_dimension][label]
+
+                # Needed to avoid replicating labels
+                if _i > 0:
+                    this_label = "_" + str(this_label)
+
+                # Selecting only the points that belong to the case in the current iteration
+                filter_dict = {
+                    scatterplot_dimension: label,
+                    grouping_dimension: data[grouping_dimension][_i],
+                }
+                values = df.filter(**filter_dict)[plotting_variable].to_numpy()
+
+                # Plotting the points after adding jitter.
+                ax.scatter(
+                    values,
+                    _i
+                    + 1
+                    + prepare_jitter(
+                        len(values), offset_value=offset[_], factor=jitter_factor
+                    ),
+                    color=scatterplot_mapping[label],
+                    marker="o",
+                    s=scatterplot_marker_size,
+                    alpha=0.3,
+                    label=this_label,
+                    zorder=2.5,
+                )
     h, l = ax.get_legend_handles_labels()
     if len(data[plotting_variable]) == 1:
-        ax.set_yticks([1], [""])
+        # Only one value for the plotting variable (e.g., diff. between ML models)
+        ax.set_yticks(
+            [1], [constants.LABEL_MAPPING["single_label"][grouping_dimension]]
+        )
     else:
+        # Assign the proper label based on what's in constants.py to the ticks
         ax.set_yticks(
             range(1, len(data[grouping_dimension]) + 1),
             [
@@ -463,26 +515,32 @@ def prepare_case_subplot(
                 for e, _l in enumerate(data[grouping_dimension])
             ],
         )
+    # Adding an annotation with the median of the value for each box in the plot.
     for _i, _l in enumerate(data[grouping_dimension], start=1):
         annot_value = median_d[_l]
         if xtick_format == "percentage":
             annot_value *= 100
             annot_string = f"{annot_value:.2f}%"
+        elif xtick_format == "symlog":
+            annot_string = f"{annot_value:.2f}x"
         else:
             annot_string = f"{annot_value:.2f}"
         ax.annotate(
             annot_string,
             xy=(limits[1], _i),
-            xytext=(limits[1] + 0.03 * limits[1], _i),
+            xytext=(limits[1] + 0.03 * limits[1], _i - 0.1),
+            # xytext=(limits[1] + 0.03 * limits[1], _i - 0.2),
             xycoords="data",
             textcoords="data",
             fontsize=12,
         )
 
     ax.set_xlim(limits)
-    ax = format_xaxis(ax, xtick_format, limits, xmax=xmax)
+    ax = format_xaxis(ax, xtick_format, limits, xmax=xmax, symlog_ticks=symlog_ticks)
 
     xlim = ax.get_xlim()
+
+    # Adding a red vspan to highlight the "worse" part of the plot.
     if xtick_format in ["symlog", "log"]:
         ax.axvspan(1, xlim[1], zorder=0, alpha=0.05, color="red")
     else:
@@ -491,249 +549,13 @@ def prepare_case_subplot(
     return h, l
 
 
-def draw_split_figure(
-    cases: dict,
-    df: pl.DataFrame,
-    split_dimension: str | None = None,
-    grouping_dimensions: str | list[str] | None = None,
-    scatterplot_dimension: str = "estimator",
-    plotting_variable: str = "scaled_diff",
-    kind: str = "violin",
-    axes_formatting: dict = None,
-    scatterplot_mapping=None,
-    xtick_format: str = "percentage",
-    colormap_name: str = "viridis",
-    scatter_mode: str = "overlapping",
-    plot_label: str = None,
-    figsize=(8, 3),
-):
-    if axes_formatting is None:
-        axes_formatting = {
-            "xaxis": {
-                "xtick_format": "percentage",
-                "xmax": 1,
-                "logscale_base": 2,
-            },
-            "yaxis": {},
-        }
-
-    # Inner variables are all the variables that will be plotted, except the outer variable and the scatterplot variable
-    if grouping_dimensions is None:
-        grouping_dimensions = [
-            _
-            for _ in cases.keys()
-            if (_ != split_dimension) & (_ != scatterplot_dimension)
-        ]
-    if isinstance(grouping_dimensions, str):
-        grouping_dimensions = [grouping_dimensions]
-
-    # Check that all columns are found
-    assert all(_ in df.columns for _ in grouping_dimensions)
-    if split_dimension is not None:
-        assert split_dimension in df.columns
-    assert scatterplot_dimension in df.columns
-    assert plotting_variable in df.columns
-    assert plotting_variable is not None
-
-    if split_dimension is not None:
-        n_cols = len(cases[split_dimension])
-    else:
-        n_cols = 1
-    scatterplot_mapping = prepare_scatterplot_mapping_general(
-        df, scatterplot_dimension, plotting_variable, colormap_name
-    )
-
-    for idx_inner_var, case_grouping_ in enumerate(grouping_dimensions):
-        fig, axes = plt.subplots(
-            nrows=1,
-            ncols=n_cols,
-            figsize=figsize,
-            sharex=True,
-            sharey="row",
-            layout="constrained",
-            squeeze=False,
-        )
-
-        if split_dimension is not None:
-            for idx_outer_var, case_split_ in enumerate(cases[split_dimension]):
-                ax = axes[0, idx_outer_var]
-                subset = df.filter(pl.col(split_dimension) == case_split_)
-
-                h, l = prepare_case_subplot(
-                    ax,
-                    subset,
-                    case_grouping_,
-                    scatterplot_dimension,
-                    plotting_variable,
-                    scatterplot_mapping=scatterplot_mapping,
-                    scatter_mode=scatter_mode,
-                    xtick_format=xtick_format,
-                    kind=kind,
-                )
-                axes[0][idx_outer_var].set_title(
-                    constants.LABEL_MAPPING[split_dimension][case_split_]
-                )
-        else:
-            ax = axes[0, 0]
-            h, l = prepare_case_subplot(
-                ax,
-                df,
-                case_grouping_,
-                scatterplot_dimension,
-                plotting_variable,
-                scatterplot_mapping=scatterplot_mapping,
-                scatter_mode=scatter_mode,
-                xtick_format=xtick_format,
-                kind=kind,
-            )
-            # axes[0][0].set_title(
-            #     LABEL_MAPPING[split_dimension][case_outer_]
-            # )
-
-        fig.legend(
-            h,
-            l,
-            # loc="outside right",
-            loc="outside lower left",
-            mode="expand",
-            ncols=len(l),
-            markerscale=10,
-            borderaxespad=-0.2,
-            bbox_to_anchor=(0, -0.1, 1, 0.5),
-            scatterpoints=1,
-        )
-        fig.set_constrained_layout_pads(
-            w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
-        )
-        # fig.suptitle(outer_dimension)
-        if plot_label is not None:
-            fig.supxlabel(plot_label)
-
-        fig.savefig("test.pdf")
-
-
-def draw_triple_comparison(
-    df,
-    grouping_dimension,
-    scatterplot_dimension,
-    form_factor: str = "multi",
-    scatter_mode="overlapping",
-    colormap_name="viridis",
-    figsize=(10, 4),
-    savefig: bool = False,
-    savefig_type: list | str = "png",
-    case: str = "dep",
-):
-    # The form factor decides whether plots should be on a row, or use a gridspec
-    assert form_factor in ["multi", "binary"]
-
-    df_rel_r2 = get_difference_from_mean(
-        df, column_to_average=grouping_dimension, result_column="r2score"
-    )
-    df_time = get_difference_from_mean(
-        df,
-        column_to_average=grouping_dimension,
-        result_column="time_run",
-        geometric=True,
-    )
-
-    scatterplot_mapping = prepare_scatterplot_mapping_general(
-        df, scatterplot_dimension, "scaled_diff", colormap_name
-    )
-
-    if form_factor == "multi":
-        fig, axes = plt.subplot_mosaic(
-            [[1, 2, 3]], layout="constrained", sharey=True, figsize=figsize
-        )
-    else:
-        fig, axes = plt.subplot_mosaic(
-            [[1, 2], [1, 3]], layout="constrained", sharey=False, figsize=figsize
-        )
-
-    plotting_variables = [
-        "scaled_diff",
-        f"diff_{grouping_dimension}_r2score",
-        f"diff_{grouping_dimension}_time_run",
-    ]
-
-    formatting_dict = {
-        "scaled_diff": {"xtick_format": "percentage"},
-        f"diff_{grouping_dimension}_r2score": {"xtick_format": "percentage"},
-        f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
-    }
-
-    subplot_titles = [
-        rf"% $R^2$ difference",
-        rf"Relative $R^2$ ",
-        rf"Relative computation time",
-    ]
-
-    if scatter_mode is None:
-        scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
-
-    plot_df = [df, df_rel_r2, df_time]
-    for idx, var in enumerate(plotting_variables, start=0):
-        ax = axes[idx + 1]
-        # ax.grid(which="both", axis="x", alpha=0.3)
-        h, l = prepare_case_subplot(
-            ax,
-            plot_df[idx],
-            grouping_dimension,
-            scatterplot_dimension,
-            var,
-            scatterplot_mapping=scatterplot_mapping,
-            scatter_mode=scatter_mode,
-            xtick_format=formatting_dict[var]["xtick_format"],
-            kind="box",
-            jitter_factor=0.03,
-        )
-        axes[idx + 1].set_title(subplot_titles[idx])
-
-    # fig.legend(
-    #     h,
-    #     l,
-    #     loc="right",
-    #     ncols=1,
-    #     markerscale=5,
-    #     # borderaxespad=-0.2,
-    #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
-    #     scatterpoints=1,
-    # )
-    # fig.legend(
-    #     h,
-    #     l,
-    #     # loc="outside right",
-    #     loc="lower left",
-    #     mode="expand",
-    #     ncols=len(l),
-    #     markerscale=5,
-    #     # borderaxespad=-0.2,
-    #     # bbox_to_anchor=(0, -0.1, 1, 0.5),
-    #     scatterpoints=1,
-    # )
-    fig.set_constrained_layout_pads(
-        w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=0.0 / 72.0
-    )
-    # fig.suptitle(
-    #     f"{LABEL_MAPPING['variables'][grouping_dimension]} - {LABEL_MAPPING['variables'][scatterplot_dimension]}"
-    # )
-
-    if savefig:
-        if isinstance(savefig_type, str):
-            savefig_type = [savefig_type]
-        for ext in savefig_type:
-            fname = f"{case}_triple_{grouping_dimension}_{scatterplot_dimension}.{ext}"
-            print(fname)
-            fig.savefig(Path("images", fname))
-
-
 def draw_pair_comparison(
-    df,
-    grouping_dimension,
-    scatterplot_dimension,
-    form_factor="multi",
-    scatter_mode="overlapping",
-    colormap_name="viridis",
+    df: pl.DataFrame,
+    grouping_dimension: str,
+    scatterplot_dimension: str,
+    form_factor: str = "multi",
+    scatter_mode: str = "overlapping",
+    colormap_name: str = "viridis",
     figsize=(10, 4),
     savefig: bool = False,
     savefig_type: list | str = "png",
@@ -743,10 +565,12 @@ def draw_pair_comparison(
     jitter_factor: float = 0.03,
     qle: float = 0.05,
     add_titles: bool = True,
-    sorting_variable="r2score",
+    sorting_variable: str = "y",
+    sorting_method: str = "prediction",
 ):
-    df_rel_r2 = get_difference_from_mean(
-        df, column_to_average=grouping_dimension, result_column="r2score"
+
+    df_rel_y = get_difference_from_mean(
+        df, column_to_average=grouping_dimension, result_column="y"
     )
     df_time = get_difference_from_mean(
         df,
@@ -762,53 +586,37 @@ def draw_pair_comparison(
             df, scatterplot_dimension, "scaled_diff", colormap_name
         )
 
-    if form_factor == "multi":
-        fig, axes = plt.subplot_mosaic(
-            [[0, 1]],
-            layout="constrained",
-            figsize=figsize,
-            sharey=True,
-            width_ratios=(2, 2),
-        )
-    elif form_factor == "binary":
-        fig, axes = plt.subplot_mosaic(
-            [
-                [
-                    0,
-                ],
-                [
-                    1,
-                ],
-            ],
-            layout="constrained",
-            figsize=figsize,
-            sharey=False,
-            # width_ratios=(2, 2),
-        )
-
+    fig, axes = plt.subplot_mosaic(
+        [[0, 1]],
+        layout="constrained",
+        figsize=figsize,
+        sharey=True,
+        width_ratios=(2, 2),
+    )
     axes[1].sharey(axes[0])
     axes[1].set_yticks([])
 
     plotting_variables = [
-        f"diff_{grouping_dimension}_r2score",
+        f"diff_{grouping_dimension}_y",
         f"diff_{grouping_dimension}_time_run",
     ]
 
     formatting_dict = {
-        f"diff_{grouping_dimension}_r2score": {"xtick_format": "percentage"},
+        f"diff_{grouping_dimension}_y": {"xtick_format": "percentage"},
         f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
     }
 
     subplot_titles = [
-        rf"$R^2$ difference",
+        rf"Performance difference",
         rf"Time difference",
     ]
 
     if scatter_mode is None:
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
-    plot_df = [df_rel_r2, df_time]
-    for idx, var in enumerate(plotting_variables[::], start=0):
+    plot_df = [df_rel_y, df_time]
+
+    for idx, var_to_plot in enumerate(plotting_variables[::], start=0):
         ax = axes[idx]
         # ax.grid(which="both", axis="x", alpha=0.3)
         h, l = prepare_case_subplot(
@@ -816,14 +624,15 @@ def draw_pair_comparison(
             plot_df[idx],
             grouping_dimension,
             scatterplot_dimension,
-            var,
+            plotting_variable=var_to_plot,
             scatterplot_mapping=scatterplot_mapping,
             scatter_mode=scatter_mode,
-            xtick_format=formatting_dict[var]["xtick_format"],
+            xtick_format=formatting_dict[var_to_plot]["xtick_format"],
             kind="box",
             jitter_factor=jitter_factor,
             qle=qle,
             sorting_variable=sorting_variable,
+            sorting_method=sorting_method,
         )
         if add_titles:
             axes[idx].set_title(subplot_titles[idx])

@@ -17,8 +17,7 @@ def parse_args():
         help="Utility parameter that repeats the index creation for the given config. to measure avg. time.",
     )
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
@@ -29,7 +28,10 @@ if __name__ == "__main__":
         print(f"Reading configuration from file {config_file_path}")
         from src.utils.indexing import prepare_retrieval_methods
 
-        for _ in range(args.repeats):
+        if args.repeats > 1:
+            for _ in range(args.repeats):
+                prepare_retrieval_methods(config)
+        else:
             prepare_retrieval_methods(config)
     else:
         raise FileNotFoundError

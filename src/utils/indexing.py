@@ -5,13 +5,9 @@ from pathlib import Path
 from pprint import pprint
 
 from joblib import load
+from memory_profiler import memory_usage
+from tqdm import tqdm
 
-from src.data_structures.join_discovery_methods import (
-    CountVectorizerIndex,
-    ExactMatchingIndex,
-    LazoIndex,
-    MinHashIndex,
-)
 from src.data_structures.loggers import SimpleIndexLogger
 from src.data_structures.metadata import (
     CandidateJoin,
@@ -19,68 +15,17 @@ from src.data_structures.metadata import (
     QueryResult,
     RawDataset,
 )
+from src.data_structures.retrieval_methods import (
+    CountVectorizerIndex,
+    ExactMatchingIndex,
+    LazoIndex,
+    MinHashIndex,
+)
 
 logger = logging.getLogger("join_discovery_logger")
 
 DEFAULT_INDEX_DIR = Path("data/metadata/_indices")
 DEFAULT_QUERY_RESULT_DIR = Path("results/query_results")
-
-
-def prepare_default_configs(data_dir, selected_indices=None):
-    """Prepare default configurations for various indexing methods and provide the
-    data directory that contains the metadata of the tables to be indexed.
-
-    Args:
-        data_dir (str): Path to the directory that contains the metadata.
-        selected_indices (str, optional): If provided, prepare and run only the selected indices.
-
-    Raises:
-        IOError: Raise IOError if `data_dir` is incorrect.
-
-    Returns:
-        dict: Configuration dictionary
-    """
-    if Path(data_dir).exists():
-        configs = {
-            "lazo": {
-                "data_dir": data_dir,
-                "partition_size": 50_000,
-                "host": "localhost",
-                "port": 15449,
-            },
-            "minhash": {
-                "data_dir": data_dir,
-                "thresholds": [20],
-                "oneshot": True,
-                "num_perm": 128,
-                "n_jobs": -1,
-            },
-            "count_vectorizer": {
-                "data_dir": data_dir,
-            },
-        }
-        if selected_indices is not None:
-            return {
-                index_name: config
-                for index_name, config in configs.items()
-                if index_name in selected_indices
-            }
-        else:
-            return configs
-    else:
-        raise IOError(f"Invalid path {data_dir}")
-
-
-def get_candidates(query_table, query_column, indices):
-    """Given query table and column, query the required indices and produce the
-    candidates. Used for debugging.
-
-    Args:
-        query_table (_type_): _description_
-        query_column (_type_): _description_
-        indices (_type_): _description_
-    """
-    pass
 
 
 def save_single_table(dataset_path, dataset_source, metadata_dest):
@@ -101,6 +46,22 @@ def write_candidates_on_file(candidates, output_file_path, separator=","):
     # write the candidates
 
     # metam format is left_table;left_on_column;right_table;right_on_column
+
+
+def get_metadata_index(data_lake_version):
+    metadata_index_path = Path(
+        f"data/metadata/_mdi/md_index_{data_lake_version}.pickle"
+    )
+
+    if not metadata_index_path.exists():
+        raise FileNotFoundError(
+            f"Path to metadata index {metadata_index_path} is invalid."
+        )
+    mdata_index = MetadataIndex(
+        data_lake_variant=data_lake_version, index_path=metadata_index_path
+    )
+
+    return mdata_index
 
 
 def generate_candidates(
@@ -149,9 +110,8 @@ def prepare_retrieval_methods(index_configurations: dict):
     """
 
     for index, config in index_configurations.items():
-        for i_conf in config:
+        for i_conf in tqdm(config, total=len(config), position=1):
             metadata_dir = Path(i_conf["metadata_dir"])
-            pprint(i_conf, indent=2)
             data_lake_version = metadata_dir.stem
             if "thresholds" in i_conf:
                 data_lake_version += f"_{i_conf['thresholds']}"
@@ -165,6 +125,7 @@ def prepare_retrieval_methods(index_configurations: dict):
             )
 
             if "base_table_path" in i_conf:
+                tqdm.write(f"Table: {Path(i_conf['base_table_path']).stem}")
                 logger.info(
                     "Index creation start: %s - %s - %s"
                     % (data_lake_version, index, i_conf["base_table_path"])
@@ -176,13 +137,40 @@ def prepare_retrieval_methods(index_configurations: dict):
 
             index_logger.start_time("create")
             if index == "lazo":
-                this_index = LazoIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (LazoIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+                # this_index = LazoIndex(**i_conf)
             elif index == "minhash":
-                this_index = MinHashIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (MinHashIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+
+                # this_index = MinHashIndex(**i_conf)
             elif index == "count_vectorizer":
-                this_index = CountVectorizerIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (CountVectorizerIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+
+                # this_index = CountVectorizerIndex(**i_conf)
             elif index == "exact_matching":
-                this_index = ExactMatchingIndex(**i_conf)
+                mem_usage, this_index = memory_usage(
+                    (ExactMatchingIndex, [], i_conf),
+                    retval=True,
+                    timestamps=True,
+                )
+                index_logger.mark_memory(mem_usage, "create")
+
+                # this_index = ExactMatchingIndex(**i_conf)
             else:
                 raise NotImplementedError
             index_logger.end_time("create")
@@ -278,17 +266,24 @@ def load_query_result(
             query_column,
         )
     )
-    if not validate:
-        with open(
-            Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path),
-            # Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
-            "rb",
-        ) as fp:
-            query_result = pickle.load(fp)
 
-        if top_k > 0:
-            query_result.select_top_k(top_k)
-        return query_result
-    else:
-        assert Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path).exists()
-        assert isinstance(top_k, int) and top_k >= 0
+    query_path = Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path)
+    if not query_path.exists():
+        raise ValueError(f"Query {query_path} not found.")
+
+    if not (isinstance(top_k, int) and top_k >= 0):
+        raise ValueError(f"Value '{top_k}' is not valid for variable top_k")
+    with open(
+        Path(DEFAULT_QUERY_RESULT_DIR, data_lake_version, query_result_path),
+        # Path(DEFAULT_QUERY_RESULT_DIR, query_result_path),
+        "rb",
+    ) as fp:
+        query_result = pickle.load(fp)
+
+    if len(query_result) < 1:
+        raise ValueError(
+            f"Found no candidates for query: {data_lake_version} - {index_name} - {query_column}."
+        )
+    if top_k > 0:
+        query_result.select_top_k(top_k)
+    return query_result

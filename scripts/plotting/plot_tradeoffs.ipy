@@ -1,0 +1,64 @@
+'''
+Figure 10: tradeoffs between retrieval methods.
+'''
+
+# # %%
+# %cd ..
+# # %%
+# %load_ext autoreload
+# %autoreload 2
+
+# %%
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import ticker
+import polars as pl
+plt.style.use("seaborn-v0_8-talk")
+# %%
+methods = ["Exact", "Minhash" ,"Hybrid"]
+dd = {
+    "method" : methods,
+    "fixed_cost" : [0, 3000, 3000],
+    "column_cost": [500, 20, 250]
+}
+# %%
+# %%
+df = pl.from_dict(dd)
+# %%
+rows = []
+for _n in range(15):
+    for m in methods:
+        fc = df.filter(pl.col("method") == m).select("fixed_cost").item()
+        cc = df.filter(pl.col("method") == m).select("column_cost").item()
+        r = [m, _n, fc+ cc*_n]
+        rows.append(r)
+res = pl.DataFrame(rows)
+_r = res.group_by(pl.col("column_0")).agg(pl.all())
+# %%
+fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(5,2.5))
+for c in _r.iter_rows():
+    ax.plot(c[1], c[2], label=c[0], marker="o", markersize=5)
+    ax.fill_between(c[1], c[2], y2=0, alpha=0.2)
+ax.legend()
+ax.set_xlabel("Number of query columns")
+ax.set_ylabel("Retrieval time")
+major_locator = ticker.FixedLocator(np.arange(0, 7200, 900))
+major_formatter = ticker.FixedFormatter(
+    [
+        "0",
+        "15m",
+        "30m",
+        "45m",
+        "1h",
+        "1h15m",
+        "1h30m",
+        "1h45m",
+        "2h",
+    ]
+)
+ax.yaxis.set_major_locator(major_locator)
+ax.yaxis.set_major_formatter(major_formatter)
+
+# fig.savefig("images/tradeoff-retrieval.pdf")
+# fig.savefig("images/tradeoff-retrieval.png")
+# %%

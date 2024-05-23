@@ -1,79 +1,100 @@
 # Company employees
 [["exact_matching"]]
+n_jobs=16
 metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/company_employees-open_data.parquet"
+base_table_path="data/source_tables/open_data_us/company_employees-open_data.parquet"
 query_column="name"
 
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/company_employees-depleted_name-open_data.parquet"
-query_column="name"
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/company_employees-depleted_name-open_data.parquet"
+# query_column="name"
 
 # Housing prices
 [["exact_matching"]]
+n_jobs=16
 metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/housing_prices-open_data.parquet"
+base_table_path="data/source_tables/open_data_us/housing_prices-open_data.parquet"
 query_column="County"
 
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/housing_prices-depleted_County-open_data.parquet"
-query_column="County"
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/housing_prices-depleted_County-open_data.parquet"
+# query_column="County"
 
-# US elections
+# # US elections
 [["exact_matching"]]
+n_jobs=16
 metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/us_elections-open_data.parquet"
+base_table_path="data/source_tables/open_data_us/us_elections-open_data.parquet"
 query_column="county_name"
 
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/us_elections-depleted_county_name-open_data.parquet"
-query_column="county_name"
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/us_elections-depleted_county_name-open_data.parquet"
+# query_column="county_name"
 
-# US elections dems
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/us_elections_dems-open_data.parquet"
-query_column="county_name"
+# # US elections dems
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/us_elections_dems-open_data.parquet"
+# query_column="county_name"
 
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/us_elections_dems-depleted_county_name-open_data.parquet"
-query_column="county_name"
-
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/us_elections_dems-depleted_county_name-open_data.parquet"
+# query_column="county_name"
 
 # Movies
 [["exact_matching"]]
+n_jobs=16
 metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/movies-depleted_title-open_data.parquet"
+base_table_path="data/source_tables/open_data_us/movies-open_data.parquet"
 query_column="title"
 
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/movies-open_data.parquet"
-query_column="title"
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/movies-depleted_title-open_data.parquet"
+# query_column="title"
+
 
 
 # Movies vote
 [["exact_matching"]]
+n_jobs=16
 metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/movies_vote-open_data.parquet"
+base_table_path="data/source_tables/open_data_us/movies_vote-open_data.parquet"
 query_column="title"
 
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/movies_vote-depleted_title-open_data.parquet"
-query_column="title"
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/movies_vote-depleted_title-open_data.parquet"
+# query_column="title"
 
 # US Accidents
 
 [["exact_matching"]]
+n_jobs=16
 metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/us_accidents-open_data.parquet"
+base_table_path="data/source_tables/open_data_us/us_accidents-open_data.parquet"
 query_column="County"
 
-[["exact_matching"]]
-metadata_dir="data/metadata/open_data_us"
-base_table_path="data/source_tables/open_data/us_accidents-depleted_County-open_data.parquet"
-query_column="County"
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/us_accidents-depleted_County-open_data.parquet"
+# query_column="County"
+
+# Schools
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/open_data_us"
+# base_table_path="data/source_tables/open_data_us/schools-depleted-open_data.parquet"
+# query_column="col_to_embed"

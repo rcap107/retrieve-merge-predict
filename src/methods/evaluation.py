@@ -11,12 +11,13 @@ from tqdm import tqdm
 
 import src.utils.joining as ju
 from src.data_structures.loggers import RunLogger, ScenarioLogger
-from src.methods.join_estimators import (
+from src.methods.join_selectors import (
     BestSingleJoin,
     FullJoin,
     HighestContainmentJoin,
     NoJoin,
     StepwiseGreedyJoin,
+    TopKFullJoin,
 )
 
 logger_sh = logging.getLogger("pipeline")
@@ -46,7 +47,7 @@ def prepare_splits(run_parameters: dict, base_table: pl.DataFrame, group_column:
     test_size = run_parameters["test_size"]
     if split_kind == "group_shuffle":
         groups = base_table.select(
-            pl.col(group_column).cast(pl.Categorical).cast(pl.Int16).alias("group")
+            pl.col(group_column).cast(pl.Categorical).cast(pl.Int32).alias("group")
         ).to_numpy()
         gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, train_size=None)
         splits = gss.split(base_table, groups=groups)
@@ -107,6 +108,8 @@ def prepare_estimator(
     estimator_parameters["join_parameters"] = join_parameters
     estimator_parameters.update({"candidate_joins": join_candidates})
 
+    if estimator_name == "top_k_full_join":
+        return TopKFullJoin(**estimator_parameters)
     if estimator_name == "highest_containment":
         return HighestContainmentJoin(**estimator_parameters)
     if estimator_name == "best_single_join":
@@ -162,7 +165,7 @@ def evaluate_joins(
         total=len(splits),
         desc="CV progress: ",
         position=1,
-        leave=True,
+        leave=False,
     ):
         base_table_train = base_table[train_split]
         base_table_test = base_table[test_split]
@@ -262,4 +265,4 @@ def evaluate_joins(
 
     scenario_logger.additional_info = add_info_dict
     scenario_logger.results = pl.from_dicts(res_list)
-    print(scenario_logger.results)
+    scenario_logger.print_results()

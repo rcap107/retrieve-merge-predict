@@ -1,0 +1,47 @@
+# wordnet_full
+[["starmie"]]
+n_jobs=16
+import_path="/home/soda/rcappuzz/work/starmie/results/metadata/wordnet_vldb_10/starmie-cl_company_employees-yadl-depleted.parquet"
+
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/us_elections_dem-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/housing_prices-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/company_employees-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/movies-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/movies_vote-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/us_accidents-yadl-depleted.parquet"
+# query_column="col_to_embed"
+
+# [["exact_matching"]]
+# n_jobs=16
+# metadata_dir="data/metadata/wordnet_vldb_10"
+# base_table_path="data/source_tables/yadl/us_county_population-yadl-depleted.parquet"
+# query_column="col_to_embed"

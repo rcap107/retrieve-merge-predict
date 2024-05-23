@@ -6,6 +6,9 @@ from pathlib import Path
 import git
 import polars as pl
 
+print(f"polars pool size: {pl.threadpool_size()}")
+import polars.selectors as cs
+
 import src.methods.evaluation as em
 from src.data_structures.loggers import ScenarioLogger
 from src.utils.indexing import load_query_result
@@ -42,22 +45,21 @@ def prepare_dirtree():
     os.makedirs("data/metadata/queries", exist_ok=True)
 
 
-def convert_to_list(item):
+def convert_to_list(item: dict | list | str):
     if isinstance(item, dict):
         return {k: convert_to_list(v) for k, v in item.items()}
-    elif isinstance(item, list):
+    if isinstance(item, list):
         return item
-    else:
-        return [item]
+    return [item]
 
 
-def get_comb(config_dict):
+def get_comb(config_dict: dict):
     keys, values = zip(*config_dict.items())
     run_variants = [dict(zip(keys, v)) for v in itertools.product(*values)]
     return run_variants
 
 
-def flatten(key, this_dict):
+def flatten(key: str, this_dict: dict):
     flattened_dict = {}
     for k, v in this_dict.items():
         if key == "":
@@ -71,7 +73,7 @@ def flatten(key, this_dict):
     return flattened_dict
 
 
-def pack(dict_to_pack):
+def pack(dict_to_pack: dict):
     packed = {}
     for key, value in dict_to_pack.items():
         splits = key.split(".")
@@ -99,7 +101,8 @@ def pack(dict_to_pack):
     return packed
 
 
-def prepare_config_dict(base_config: dict):
+def prepare_config_dict(base_config: dict, debug=False):
+    base_config["run_parameters"]["debug"] = debug
     converted_ = convert_to_list(base_config)
 
     flattened_ = flatten("", converted_)
@@ -120,12 +123,42 @@ def validate_configuration(run_config: dict):
     join_parameters = run_config["join_parameters"]
     query_info = run_config["query_cases"]
 
+    # Check base table
+    path_bt = Path(query_info["table_path"])
+    tab_name = path_bt.stem
+    print(f"Validating table {tab_name}")
+    if not path_bt.exists():
+        raise IOError(f"Base table file {path_bt} not found.")
+
+    suffix = path_bt.suffix
+    if not suffix in [".parquet", ".csv"]:
+        raise ValueError(f"Extension {suffix} not supported.")
+
+    if suffix == ".parquet":
+        df = pl.read_parquet(path_bt)
+    elif suffix == ".csv":
+        df = pl.read_csv(path_bt)
+    else:
+        raise ValueError(f"Base table type {suffix} not supported.")
+
+    if not query_info["query_column"] in df.columns:
+        raise ValueError(
+            f"Query column {query_info['query_column']} not in {df.columns}."
+        )
+
+    _tgt = run_parameters.get("target_column", "target")
+    if not _tgt in df.columns:
+        raise ValueError(f"Target column {_tgt} not in {df.columns}.")
+
     # Check run parameters
-    assert run_parameters["task"] in ["regression", "classification"]
+    assert run_parameters["task"] in [
+        "regression",
+        "classification",
+    ], f"Task {run_parameters['task']} not supported"
     assert run_parameters["debug"] in [True, False]
     assert (
         isinstance(run_parameters["n_splits"], int) and run_parameters["n_splits"] > 0
-    )
+    ), f"Incorrect value {run_parameters['n_splits']} for n_splits."
     assert (
         isinstance(run_parameters["test_size"], float)
         and 0 < run_parameters["test_size"] < 1
@@ -155,28 +188,12 @@ def validate_configuration(run_config: dict):
     assert join_parameters["aggregation"] in ["dfs", "mean", "first"]
 
     # Check query parameters
-    assert query_info["data_lake"] in ["open_data_us", "binary_update", "wordnet_full"]
-    assert query_info["join_discovery_method"] in [
-        "exact_matching",
-        "minhash_hybrid",
-        "minhash",
-    ]
-
-    # Check base table
-    path_bt = Path(query_info["table_path"])
-    tab_name = path_bt.stem
-    assert path_bt.exists()
-    suffix = path_bt.suffix
-    assert suffix in [".parquet", ".csv"]
-
-    if suffix == ".parquet":
-        df = pl.read_parquet(path_bt)
-    elif suffix == ".csv":
-        df = pl.read_csv(path_bt)
-    else:
-        raise ValueError(f"Base table type {suffix} not supported.")
-
-    assert query_info["query_column"] in df.columns
+    # TODO: fix this so it can be generalized
+    # assert query_info["join_discovery_method"] in [
+    #     "exact_matching",
+    #     "minhash_hybrid",
+    #     "minhash",
+    # ]
 
     # Check query existence
     load_query_result(
@@ -188,8 +205,8 @@ def validate_configuration(run_config: dict):
     )
 
 
-def single_run(run_config, run_name=None):
-    estim_parameters = run_config["estimators"]
+def single_run(run_config: dict, run_name=None):
+    selector_parameters = run_config["estimators"]
     model_parameters = run_config["evaluation_models"]
     join_parameters = run_config["join_parameters"]
     run_parameters = run_config["run_parameters"]
@@ -225,7 +242,7 @@ def single_run(run_config, run_name=None):
         top_k=query_info["top_k"],
     )
 
-    df_source = pl.read_parquet(query_tab_path).unique()
+    df_source = pl.read_parquet(query_tab_path).select(~cs.by_dtype(pl.Null)).unique()
 
     scl.add_timestamp("start_evaluation")
     logger.info("Starting evaluation.")
@@ -234,9 +251,9 @@ def single_run(run_config, run_name=None):
         df_source,
         join_candidates=query_result.candidates,
         # TODO: generalize this
-        target_column="target",
+        target_column=run_parameters.get("target_column", "target"),
         group_column=query_info["query_column"],
-        estim_parameters=estim_parameters,
+        estim_parameters=selector_parameters,
         join_parameters=join_parameters,
         model_parameters=model_parameters,
         run_parameters=run_parameters,
@@ -252,5 +269,5 @@ def single_run(run_config, run_name=None):
     scl.add_process_time()
 
     scl.finish_run()
-    logger_scn.debug(scl.to_string())
+    # logger_scn.debug(scl.to_string())
     logger.info("Run end.")

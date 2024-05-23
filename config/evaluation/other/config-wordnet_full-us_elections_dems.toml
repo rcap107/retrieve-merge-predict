@@ -34,8 +34,10 @@ stepwise_greedy_join.ranking_metric = "containment"
 data_lake = ["wordnet_full"]
 join_discovery_method = ["exact_matching", "minhash", "minhash_hybrid"]
 table_path = [
-    "data/source_tables/yadl/us_elections_dem-yadl-depleted.parquet",
-    # "data/source_tables/yadl/us_elections_dem-yadl.parquet",
+    "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
+    "data/source_tables/yadl/us_elections-yadl.parquet",
+    "data/source_tables/yadl/us_elections_dems-yadl-depleted.parquet",
+    "data/source_tables/yadl/us_elections_dems-yadl.parquet",
 ]
 query_column = "col_to_embed"
 top_k = [30]

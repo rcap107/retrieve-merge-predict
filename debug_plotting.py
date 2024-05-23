@@ -1,58 +1,60 @@
-# # %%
+# %%
 # %cd ~/bench
-# #%%
 # %load_ext autoreload
 # %autoreload 2
 # %%
-from pathlib import Path
-
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import polars as pl
-import polars.selectors as cs
-import seaborn as sns
-from matplotlib.gridspec import GridSpec
 
-import src.utils.plotting as plotting
-from src.utils.logging import read_and_process, read_logs
-
-cfg = pl.Config()
-cfg.set_fmt_str_lengths(150)
+from src.utils import plotting
+from src.utils.logging import read_and_process
 
 # %%
 result_path = "results/overall/overall_first.parquet"
 
+# Use the standard method for reading all results for consistency.
 df_results = pl.read_parquet(result_path)
-
-results_full, results_depleted = read_and_process(df_results)
-
-
+current_results = read_and_process(df_results)
+current_results = current_results.filter(pl.col("estimator") != "nojoin")
 # %%
-case = "dep"
+# We remove top_k_full_join and starmie from this set of results.
+_d = current_results.filter(
+    (pl.col("estimator") != "top_k_full_join") & (pl.col("jd_method") != "starmie")
+)
+plot_case = "dep"
 
-if case == "dep":
-    current_results = results_depleted.clone()
-    current_results = current_results.filter(pl.col("estimator") != "nojoin")
-
-elif case == "full":
-    current_results = results_full.clone()
-
-# %%
-var = "jd_method"
+# Set to false to plot the results without saving the figure on disk.
+savefig = True
+# %% Selector plot
+var = "estimator"
 scatter_d = "case"
 plotting.draw_pair_comparison(
-    current_results,
+    _d,
     var,
     form_factor="multi",
     scatterplot_dimension=scatter_d,
-    figsize=(10, 3),
+    figsize=(10, 2.1),
     scatter_mode="split",
-    savefig=False,
+    savefig=savefig,
     savefig_type=["png", "pdf"],
-    case=case,
-    colormap_name="Set1",
+    case=plot_case,
+    jitter_factor=0.02,
+    qle=0.05,
+    add_titles=True,
+    sorting_method="manual",
+    sorting_variable="estimator_comp",
 )
-
-# %%
+# %% ML Model
+var = "chosen_model"
+scatter_d = "case"
+plotting.draw_pair_comparison(
+    _d,
+    var,
+    form_factor="multi",
+    scatterplot_dimension=scatter_d,
+    figsize=(10, 1),
+    scatter_mode="split",
+    savefig=savefig,
+    savefig_type=["png", "pdf"],
+    case=plot_case,
+    add_titles=False,
+)

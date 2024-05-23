@@ -7,7 +7,7 @@ split_kind = "group_shuffle"
 
 ["join_parameters"]
 join_strategy = "left"
-aggregation = ["first"]
+aggregation = ["dfs"]
 
 ["evaluation_models"]
 chosen_model = ["linear"]
@@ -18,33 +18,32 @@ catboost.l2_leaf_reg = 0.01
 catboost.thread_count = 32
 
 ["estimators"]
+# Activation
 no_join.active = false
-stepwise_greedy_join.active = true
-highest_containment.active = false
+top_k_full_join.active = true
 best_single_join.active = false
 full_join.active = false
+stepwise_greedy_join.active = false
+highest_containment.active=false
+# Parameters
+top_k_full_join.top_k = 1
 stepwise_greedy_join.budget_type = "iterations"
-stepwise_greedy_join.budget_amount = [10, 30, 100]
+stepwise_greedy_join.budget_amount = [30]
 stepwise_greedy_join.epsilon = [0.0]
 stepwise_greedy_join.ranking_metric = "containment"
 
 ["query_cases"]
-data_lake = ["wordnet_full"]
-join_discovery_method = ["exact_matching"]
+data_lake = ["wordnet_vldb_10"]
+join_discovery_method = ["exact_matching",]
 table_path = [
-    # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
-    # "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
+    "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
     # "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
-    "data/source_tables/yadl/movies-yadl-depleted.parquet",
-    # "data/source_tables/yadl/movies_vote-yadl-depleted.parquet",
-    # "data/source_tables/yadl/us_accidents-yadl-depleted.parquet",
     # "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
-    # # "data/source_tables/yadl/us_elections-yadl.parquet",
-    # "data/source_tables/yadl/housing_prices-yadl.parquet",
-    # "data/source_tables/yadl/company_employees-yadl.parquet",
-    # "data/source_tables/yadl/movies-yadl.parquet",
-    # "data/source_tables/yadl/movies_vote-yadl.parquet",
-    # "data/source_tables/yadl/us_accidents-yadl.parquet",
+    # "data/source_tables/yadl/movies_large-yadl-depleted.parquet",
+    # "data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet",
+    # "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
+    # "data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet",
+    # "data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet",
 ]
 query_column = "col_to_embed"
 top_k = [30]

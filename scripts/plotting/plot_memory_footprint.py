@@ -1,12 +1,13 @@
+"""
+Figure 11 in the pre-print: peak memory usage by ML model.
+"""
+
 # #%%
 # %cd ~/bench
 #%%
 import matplotlib.pyplot as plt
-import numpy as np
 import polars as pl
-import polars.selectors as cs
 import seaborn as sns
-from matplotlib import ticker
 
 from src.utils.constants import LABEL_MAPPING
 

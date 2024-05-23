@@ -1,18 +1,6 @@
-import base64
-
-import featuretools as ft
 import polars as pl
 import polars.selectors as cs
 from tqdm import tqdm
-from woodwork.logical_types import Categorical, Double
-
-
-def get_logical_types(df):
-    num_types = df.select_dtypes("number").columns
-    cat_types = [_ for _ in df.columns if _ not in num_types]
-    logical_types = {col: Categorical for col in cat_types}
-    logical_types.update({col: Double for col in num_types})
-    return logical_types
 
 
 def get_cols_by_type(table: pl.DataFrame):
@@ -76,6 +64,16 @@ def prepare_dfs_table(
     Returns:
         pl.DataFrame: The new table.
     """
+    # Optimizing imports: these take a long time and are only used when DFS is needed
+    import featuretools as ft
+    from woodwork.logical_types import Categorical, Double
+
+    def get_logical_types(df):
+        num_types = df.select_dtypes("number").columns
+        cat_types = [_ for _ in df.columns if _ not in num_types]
+        logical_types = {col: Categorical for col in cat_types}
+        logical_types.update({col: Double for col in num_types})
+        return logical_types
 
     if on is not None:
         left_on = right_on = on
@@ -84,9 +82,8 @@ def prepare_dfs_table(
         isinstance(right_on, list) and len(right_on) > 1
     ):
         raise NotImplementedError("Many-to-many joins are not supported")
-    else:
-        left_on = left_on[0]
-        right_on = right_on[0]
+    left_on = left_on[0]
+    right_on = right_on[0]
 
     # DFS does not support joining on columns that include duplicated values.
     left_table_dedup = left_table.unique(left_on).to_pandas()
@@ -118,6 +115,7 @@ def prepare_dfs_table(
         target_dataframe_name="source_table",
         drop_contains=["target"],
         return_types="all",
+        n_jobs=1,
     )
     new_df = feature_matrix.copy()
     cat_cols = new_df.select_dtypes(exclude="number").columns
@@ -130,23 +128,23 @@ def prepare_dfs_table(
     # The following step is needed to keep the number of samples in `left_table`
     # constant.
     feat_columns = [col for col in new_df.columns if col not in left_table.columns]
-    augmented_table = left_table.to_pandas().merge(
-        new_df[feat_columns].reset_index(), how="left", on=left_on
+
+    right = pl.from_pandas(new_df[feat_columns].reset_index()).with_columns(
+        pl.col(left_on).cast(str)
     )
+    augmented_table = left_table.join(right, how="left", on=left_on)
 
-    pl_df = pl.from_pandas(augmented_table)
-
-    return pl_df
+    return augmented_table
 
 
 def execute_join_with_aggregation(
     left_table: pl.DataFrame,
     right_table: pl.DataFrame,
-    on=None,
-    left_on=None,
-    right_on=None,
+    on: list[str] = None,
+    left_on: list[str] = None,
+    right_on: list[str] = None,
     how="left",
-    aggregation=None,
+    aggregation: str = None,
     suffix="_right",
 ):
     if on is not None:
@@ -156,6 +154,10 @@ def execute_join_with_aggregation(
             raise ValueError(
                 "If `on` is provided, `left_on` and `right_on` should be left as None."
             )
+
+    # TODO: this will probably break when right_on contains more than one column, but I don't care for now
+    right_table = right_table.filter(pl.col(right_on).is_in(left_table[left_on]))
+
     if aggregation == "dfs":
         merged = prepare_dfs_table(
             left_table,
@@ -179,14 +181,16 @@ def execute_join_with_aggregation(
     return merged
 
 
-def execute_join_all_candidates(source_table, index_cand, aggregation):
+def execute_join_all_candidates(
+    source_table: pl.DataFrame, index_cand: dict, aggregation: str
+):
     """Execute a full join on `source_table` by chain-joining and aggregating
     all the candidates in `index_cand`, using the aggregation method specified
     in `aggregation`.
 
     Args:
         source_table (pl.DataFrame): Source table to join on.
-        index_cand (_type_): Index containing info on the candidate tables.
+        index_cand (dict): Index containing info on the candidate tables.
         aggregation (str): Aggregation function, can be either `first`, `mean`
         or `dfs`.
 
@@ -195,12 +199,12 @@ def execute_join_all_candidates(source_table, index_cand, aggregation):
     """
     merged = source_table.clone()
     hashes = []
-    # for hash_, mdata in index_cand.items():
     for hash_, mdata in tqdm(
         index_cand.items(),
         total=len(index_cand),
         leave=False,
         desc="Full Join",
+        position=2,
     ):
         cnd_md = mdata.candidate_metadata
         hashes.append(cnd_md["hash"])
@@ -272,24 +276,24 @@ def execute_join(
         if any(  # if any of the following two conditions is false, raise an exception
             [
                 all(
-                    [c in left_table.columns for c in on]
+                    c in left_table.columns for c in on
                 ),  # all columns in c must be in left_table.columns
                 all(
-                    [c in right_table.columns for c in on]
+                    c in right_table.columns for c in on
                 ),  # all columns in c must be in left_table.columns
             ]
         ):
             raise KeyError("Columns in `on` were not found.")
-        else:
-            joined_table = (
-                left_table.lazy().join(right_table.lazy(), on=on, how=how).collect()
-            )
+
+        joined_table = (
+            left_table.lazy().join(right_table.lazy(), on=on, how=how).collect()
+        )
 
     elif left_on is not None and right_on is not None:
-        if not all([c in left_table.columns for c in left_on]):
+        if not all(c in left_table.columns for c in left_on):
             raise KeyError("Not all columns in left_on are found in left_table.")
 
-        if not all([c in right_table.columns for c in right_on]):
+        if not all(c in right_table.columns for c in right_on):
             raise KeyError("Not all columns in right_on are found in right_table.")
 
         joined_table = (
@@ -303,15 +307,9 @@ def execute_join(
             )
             .collect()
         )
-
-        # if mean:
-        #     joined_table = aggregate_mean(joined_table, left_table.columns)
-        # else:
-        #     joined_table = aggregate_first(joined_table, left_table.columns)
-
         return joined_table
     else:
-        raise ValueError(f"Both `left_on` and `right_on` are None.")
+        raise ValueError("Both `left_on` and `right_on` are None.")
 
 
 def aggregate_table(
@@ -370,19 +368,19 @@ def aggregate_table(
     return aggr_table
 
 
-def aggregate_mean(target_table, target_columns):
+def aggregate_mean(target_table, aggr_columns):
     """Deduplicate all values in `target_table` that are in columns other than
-    `target_columns`. Values typed as strings are replaced by the mode of each
+    `aggr_columns`. Values typed as strings are replaced by the mode of each
     group; values typed as numbers are replaced by the mean.
 
     Args:
         target_table (pl.DataFrame): Table to deduplicate.
-        target_columns (list): List of columns to group by when deduplicating.
+        aggr_columns (list): List of columns to group by when deduplicating.
 
     Returns:
         pl.DataFrame: Deduplicated dataframe.
     """
-    df_dedup = target_table.groupby(target_columns).agg(
+    df_dedup = target_table.groupby(aggr_columns).agg(
         cs.string().mode().sort(descending=True).first(), cs.numeric().mean()
     )
     return df_dedup
@@ -390,33 +388,15 @@ def aggregate_mean(target_table, target_columns):
 
 def aggregate_first(target_table: pl.DataFrame, aggr_columns):
     """Deduplicate all values in `target_table` that are in columns other than
-    `target_columns`. For all duplicated rows, keep only the first occurrence.
+    `aggr_columns`. For all duplicated rows, keep only the first occurrence.
 
     Args:
         target_table (pl.DataFrame): Table to deduplicate.
-        target_columns (list): List of columns to group by when deduplicating.
+        aggr_columns (list): List of columns to group by when deduplicating.
 
     Returns:
         pl.DataFrame: Deduplicated dataframe.
     """
 
-    df_dedup = target_table.unique(aggr_columns, keep="first")
+    df_dedup = target_table.unique(aggr_columns, keep="any")
     return df_dedup
-
-
-def encode_candidate_name(candidate_name: str | list):
-    if type(candidate_name) == str:
-        to_encode = candidate_name
-    elif type(candidate_name) == list:
-        to_encode = "|".join(candidate_name)
-    enc = base64.b64encode(to_encode, altchars=None)
-    return enc
-
-
-def decode_candidate_name(encoded_name):
-    decoded = base64.b64decode(encoded_name)
-    split = decoded.split("|")
-    if len(split) == 1:
-        return split[0]
-    else:
-        return split

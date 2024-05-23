@@ -1,3 +1,6 @@
+"""
+Figure 6: Comparison of time spent in different sections of the code.
+"""
 #%%
 # %cd ~/bench
 #%%
@@ -10,28 +13,26 @@ import polars.selectors as cs
 import seaborn as sns
 from matplotlib import ticker
 
-from src.utils.constants import LABEL_MAPPING
-
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
 plt.rc("font", family="sans-serif")
 #%%
-df_raw = pl.read_parquet("results/overall/wordnet_general_first.parquet")
+df_raw = pl.read_parquet("results/overall/wordnet-10k_first.parquet")
 
 #%%
 df_query = pl.read_csv("results/query_logging.txt")
 df_index = pl.read_csv("results/index_logging.txt")
 
 d_in = (
-    df_index.filter(pl.col("data_lake_version") == "wordnet_full")
+    df_index.filter(pl.col("data_lake_version") == "wordnet_vldb_10")
     .group_by("index_name", "base_table")
     .agg(
-        pl.col("time_creation").mean(),
+        pl.col("time_create").mean(),
         pl.col("time_save").mean(),
     )
     .group_by("index_name")
     .agg(
-        pl.col("time_creation").sum(),
+        pl.col("time_create").sum(),
         pl.col("time_save").sum(),
     )
 )
@@ -71,7 +72,7 @@ res_pipeline = (
 fres = (
     res_pipeline.join(
         (
-            df_query.filter(pl.col("data_lake_version") == "wordnet_full")
+            df_query.filter(pl.col("data_lake_version") == "wordnet_vldb_10")
             .drop("query_column", "step", "time_create", "time_save")
             .group_by("index_name")
             .agg(

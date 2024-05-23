@@ -1,11 +1,11 @@
+"""
+Figure 5(b): prediction performance with respect to containment, with regression plot.
+"""
 #%%
 # %cd ~/bench
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
-
 #%%
+import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
@@ -32,7 +32,7 @@ def plot_reg(X, y, ax, label):
 #%%
 def prepare_data(df_raw, df_analysis):
     df_agg = (
-        df_analysis.filter(pl.col("top_k") == 200)
+        df_analysis.filter(pl.col("top_k") == 30)
         .group_by(
             [
                 "retrieval_method",
@@ -44,15 +44,6 @@ def prepare_data(df_raw, df_analysis):
         )
         .agg(
             pl.col("containment").mean().alias("avg_containment"),
-            pl.col("containment").median().alias("median_containment"),
-            pl.col("containment").top_k(30).mean().alias("top_30_avg_containment"),
-            pl.col("containment").top_k(30).median().alias("top_30_median_containment"),
-            pl.col("cnd_nrows").mean().alias("avg_cnd_nrows"),
-            pl.col("cnd_nrows").median().alias("median_cnd_nrows"),
-            pl.col("join_time").mean().alias("avg_join_time"),
-            pl.col("join_time").median().alias("median_join_time"),
-            pl.col("matched_rows").mean().alias("avg_matched_rows"),
-            pl.col("matched_rows").median().alias("median_matched_rows"),
         )
         .sort("retrieval_method", "table_name")
     )
@@ -75,39 +66,92 @@ def prepare_data(df_raw, df_analysis):
     return X, y
 
 
-#%%
-df_raw_od = pl.read_parquet("results/overall/open_data_all_first.parquet")
-df_raw_od = df_raw_od.filter(pl.col("estimator") != "nojoin")
+def get_open_data():
+    df_raw = pl.read_parquet("results/overall/open_data_us-first.parquet")
+    df_raw = df_raw.filter(
+        (pl.col("estimator") != "nojoin")
+        & (~pl.col("base_table").str.contains("schools"))
+        & (pl.col("base_table").str.contains("depleted"))
+    ).with_columns(
+        base_table=pl.col("base_table")
+        .str.split("-")
+        .list.gather([0, 2])
+        .list.join("-")
+    )
 
-df_analysis_od = pl.read_csv("analysis_query_results_open_data_us-fixed.csv")
-df_analysis_od = df_analysis_od.with_columns(
-    (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
-)
-#%%
-df_raw_wn = pl.read_parquet("results/overall/wordnet_general_first.parquet")
-df_raw_wn = df_raw_wn.filter(pl.col("estimator") != "nojoin")
+    df_analysis = pl.read_csv(
+        "results/stats/analysis_query_results_open_data_us_stats_all.csv"
+    )
+    df_analysis = df_analysis.with_columns(
+        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
+    ).with_columns(
+        containment=(
+            pl.when(pl.col("containment") > 1)
+            .then(pl.col("containment") / pl.col("src_nrows"))
+            .otherwise(pl.col("containment"))
+        )
+    )
+    return df_raw, df_analysis
 
-df_analysis_wn = pl.read_csv("analysis_query_results.csv")
-df_analysis_wn = df_analysis_wn.with_columns(
-    (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
-)
+
+def get_wordnet_10():
+    df_raw = pl.read_parquet("results/overall/wordnet-10k_first.parquet")
+    df_raw = df_raw.filter(pl.col("estimator") != "nojoin")
+
+    df_analysis = pl.read_csv(
+        "results/stats/analysis_query_results_wordnet_vldb_10_stats_all.csv"
+    )
+    df_analysis = df_analysis.with_columns(
+        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
+    ).with_columns(
+        containment=(
+            pl.when(pl.col("containment") > 1)
+            .then(pl.col("containment") / pl.col("src_nrows"))
+            .otherwise(pl.col("containment"))
+        )
+    )
+    return df_raw, df_analysis
+
+
+def get_wordnet_base():
+    df_raw = pl.read_parquet("results/overall/old-versions_first.parquet")
+    df_raw = df_raw.filter(
+        (pl.col("estimator") != "nojoin") & (pl.col("target_dl") == "wordnet_full")
+    )
+
+    df_analysis = pl.read_csv(
+        "results/stats/analysis_query_results_wordnet_full_stats_all.csv"
+    )
+    df_analysis = df_analysis.with_columns(
+        (pl.col("cnd_nrows") * pl.col("containment")).alias("matched_rows")
+    )
+    return df_raw, df_analysis
+
+
+#%%
+df_raw_od, df_analysis_od = get_open_data()
+df_raw_10, df_analysis_10 = get_wordnet_10()
+df_raw_wn, df_analysis_wn = get_wordnet_base()
 
 #%%
 fig, ax = plt.subplots(squeeze=True, figsize=(4, 3), layout="constrained")
 X, y = prepare_data(df_raw_wn, df_analysis_wn)
-plot_reg(X, y, ax, "YADL Wordnet")
+plot_reg(X, y, ax, "YADL Base")
 X, y = prepare_data(df_raw_od, df_analysis_od)
 plot_reg(X, y, ax, "Open Data")
+X, y = prepare_data(df_raw_10, df_analysis_10)
+plot_reg(X, y, ax, "YADL 10k")
 h, labels = ax.get_legend_handles_labels()
 fig.legend(
     h,
     labels,
     loc="upper left",
     fontsize=10,
-    ncols=2,
+    ncols=3,
     bbox_to_anchor=(0, 1.0, 1, 0.1),
     mode="expand",
 )
-fig.savefig("images/regplot.pdf", bbox_inches="tight")
-fig.savefig("images/regplot.png", bbox_inches="tight")
+# fig.savefig("images/regplot.pdf", bbox_inches="tight")
+# fig.savefig("images/regplot.png", bbox_inches="tight")
+
 # %%

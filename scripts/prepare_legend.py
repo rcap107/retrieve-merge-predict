@@ -12,10 +12,15 @@ from matplotlib.colors import ListedColormap
 from matplotlib.table import Table
 
 import src.utils.constants as constants
+from src.utils.logging import read_and_process, read_logs
 from src.utils.plotting import prepare_scatterplot_mapping_case
 
 # %%
-df = pl.read_parquet("results/overall/overall_first.parquet")
+result_path = "results/overall/overall_first.parquet"
+
+df_results = pl.read_parquet(result_path)
+
+df = read_and_process(df_results)
 # %%
 df = df.with_columns(
     (
@@ -94,6 +99,8 @@ for rid, this_data_lake in enumerate(data_lakes, start=1):
         if this_case == "us_county_population-open_data_us" or this_case in [
             "schools-wordnet_full",
             "schools-binary_update",
+            "schools-wordnet_vldb_10",
+            "schools-wordnet_vldb_50",
         ]:
             cell.set(hatch="/")
             cell.set_text_props(text="")
