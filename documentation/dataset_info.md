@@ -2,6 +2,10 @@
 permalink: /docs/datasets
 layout: page
 ---
+The processed versions of the datasets that we used for our experiments are provided with the repository in `data/source_tables`. To stress-test each method we use *depleted* versions of each table, which include only the minimum 
+amount of attributes that can still be used to perfrom prediction. 
+
+
 We used the following sources for our dataset:
 - *Company Employees* [source](https://www.kaggle.com/datasets/iqmansingh/company-employee-dataset) - CC0
 - *Housing Prices* [source](https://www.zillow.com/research/data/)
@@ -15,4 +19,4 @@ an internal dataset found in YADL.
 YADL is derived from YAGO3 [source](https://yago-knowledge.org/getting-started) and shares its CC BY 4.0 license.
 
 Datasets were pre-processed before they were used in our experiments. Pre-processing steps are reported in the [preparation 
-repository](https://github.com/rcap107/YADL) and the [pipeline repository](https://github.com/rcap107/benchmark-join-suggestions)
+repository](https://github.com/rcap107/YADL) and the [pipeline repository](https://github.com/rcap107/benchmark-join-suggestions).

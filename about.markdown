@@ -7,9 +7,11 @@ The work described here was created by the following authors:
 - Riccardo CAPPUZZO (SODA Team/Dataiku)
     - riccardo.cappuzzo[at]inria.fr
     - riccardo.cappuzzo[at]dataiku.com
-- Gael VAROQUAUX (SODA Team)
 - Aimee COELHO (Dataiku)
+- Felix Lefebvre (SODA Team)
 - Paolo PAPOTTI (EURECOM)
+- Gael VAROQUAUX (SODA Team)
+
 
 This project was a collaboration between the [SODA Team][soda-team] at 
 [Inria Saclay][inria-saclay] and [Dataiku][dataiku].
