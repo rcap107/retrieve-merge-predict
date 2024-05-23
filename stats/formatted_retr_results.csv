@@ -1,0 +1,19 @@
+jd_method,data_lake_version,tot_create,tot_query,index_method
+exact_matching,Binary,28.016367,0.039734,Exact
+minhash,Binary,64.417454,3.642957,MinHash
+minhash_hybrid,Binary,66.694552,19.586875,H. MinHash
+starmie,Binary,211.118734,72.64387421428574,Starmie
+exact_matching,Open Data,718.360483,0.259579,Exact
+minhash,Open Data,918.739611,98.678745,MinHash
+minhash_hybrid,Open Data,872.249655,179.52795,H. MinHash
+exact_matching,YADL Base,2209.62952,0.465731,Exact
+minhash,YADL Base,3758.7394480000003,77.329398,MinHash
+minhash_hybrid,YADL Base,3475.402303,831.0345319999999,H. MinHash
+starmie,YADL Base,13584.40281,5072.826763285714,Starmie
+exact_matching,YADL 10k,1837.553781,0.37559099999999995,Exact
+minhash,YADL 10k,2330.920564,93.95011099999999,MinHash
+minhash_hybrid,YADL 10k,2130.60486,1187.623646,H. MinHash
+starmie,YADL 10k,31831.00439,5353.927855000001,Starmie
+exact_matching,YADL 50k,5116.958242000001,1.2644559999999998,Exact
+minhash,YADL 50k,12736.301474999998,436.148101,MinHash
+minhash_hybrid,YADL 50k,9224.357747999999,6358.864666,H. MinHash
