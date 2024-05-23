@@ -1,11 +1,14 @@
 ---
 permalink: /docs/preparation
 layout: page
+title: Preparing the environment
+prev_page: /docs/resources
+next_page: /docs/execution
 ---
 
 - TOC
 {:toc}
-Once the required python environment has been prepared it is necessary to prepare the files required
+Once the required python environment has been built, it is necessary to prepare the files required
 for the execution of the pipeline.
 
 For efficiency reasons and to avoid running unnecessary operations when testing different components, the pipeline has
@@ -18,11 +21,11 @@ metadata is used in all steps of the pipeline.
 The script `prepare_metadata.py`is used to generate the files for a given data lake case.
 
 **NOTE:** This scripts assumes that all tables are saved in `.parquet` format, and will raise an error if it finds no `.parquet`
-files in the given path. Please convert your files to parquet before running this script. 
+files in the given path. Please convert your files to parquet before running this script. The tables we provide are already in parquet. 
 
 Use the command:
 ```
-python prepare_metadata.py PATH_DATA_FOLDER
+python metadata_creation.py PATH_DATA_FOLDER
 ```
 where `PATH_DATA_FOLDER` is the root path of the data lake. The stem of `PATH_DATA_FOLDER` will be used as identifier for 
 the data lake throughout the program (e.g., for `data/binary_update`, the data lake will be stored under the name `binary_update`).
@@ -34,8 +37,7 @@ working on all folders and files.
 Metadata will be saved in `data/metadata/DATA_LAKE_NAME`, with an auxiliary file stored in `data/metadata/_mdi/md_index_DATA_LAKE_NAME.pickle`.
 
 ## Preparing the Retrieval methods
-This step is an offline operation during which the retrieval methods are prepared by building the data structures they rely on to function. This operation can require a long time and a large amount of disk space (depending on the method); it is not required for 
-the querying step and thus it can be executed only once for each data lake (and retrieval method).
+This step is an offline operation during which the retrieval methods are prepared by building the data structures they rely on to function. This operation can require a long time and a large amount of disk space depending on the method (refer to the paper for more detail). Preparing each retrieval method must be done once for each different data lake variant; however, once the preparation is done querying may be done without repeating the preparation. 
 
 Different retrieval methods require different data structures and different starting configurations, which should be stored in `config/retrieval/prepare`. In all configurations,
 `n_jobs` is the number of parallel jobs that will be executed; if it set to -1, all available
@@ -74,7 +76,7 @@ query_column="County"
 n_jobs=-1
 ```
 
-The configuration parser will prepare the data structures (specifically, the counts) for each case provided in the configuration file.
+The configuration parser will prepare the data structures for each case provided in the configuration file.
 
 Configuration files whose name start with `prepare` in `config/retrieval/prepare` are example configuration files for the index preparation step.
 
@@ -107,3 +109,19 @@ python query_indices.py config/retrieval/query/query-exact_matching-binary_updat
 ### Hybrid MinHash
 To use the Hybrid MinHash variant, the `query` configuration file should include the parameter `hybrid=true`: the re-ranking
 operation is done at query time. 
+
+## Starmie
+We use Starmie in some of our experiments, however executing the code is not straightforward due to package incompatibilities. For this reason, Starmie preparation for each data lake should be done directly from the Starmie repository we adapted to our pipeline (available [here](https://github.com/rcap107/starmie)). 
+
+We refer to the readme in the linked repo for more detail on how to run Starmie in our environment. 
+
+Once the Starmie model has been prepared, it is possible to wrap the query results prepared by Starmie in a format that
+can be handled by the pipeline using the script `import_from_starmie.py`:
+
+```py
+python import_from_starmie.py BASE_PATH
+```
+where `BASE_PATH` is the path to the folder that contains the query results, e.g., `results/metadata/binary_update`. 
+This will produce the query data structures that are used by the pipeline and allows to run a full batch of experiments
+using Starmie query results. 
+

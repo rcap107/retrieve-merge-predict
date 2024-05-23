@@ -1,6 +1,6 @@
 ---
 layout: page
-title: About
+title: About the authors
 permalink: /about/
 ---
 The work described here was created by the following authors: 

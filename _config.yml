@@ -18,7 +18,7 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 
-title: "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes"
+title: "Retrieve, Merge, Predict"
 # email: riccardo.cappuzzo[at]inria.fr
 description: >- # this means to ignore newlines until "baseurl:"
   This is the website of YADL, a reproducible data lake based on the YAGO 3 
@@ -32,6 +32,8 @@ github_username:  rcap107
 theme: minima
 plugins:
   - jekyll-feed
+header_pages:
+  - about.markdown
 
 # Exclude from processing.
 # The following items will not be processed, by default.
@@ -41,23 +43,22 @@ plugins:
 # Excluded items can be processed by explicitly listing the directories or
 # their entries' file path in the `include:` list.
 #
-# exclude:
-#   - .sass-cache/
-#   - .jekyll-cache/
-#   - gemfiles/
-#   - Gemfile
-#   - Gemfile.lock
-#   - node_modules/
-#   - vendor/bundle/
-#   - vendor/cache/
-#   - vendor/gems/
-#   - vendor/ruby/
 
 # Config variables
 show_excerpts: false
 posts.size: 0
 
 exclude:
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
   - catboost_info/
   - .ipynb_checkpoints/
   - .vscode/
@@ -68,13 +69,6 @@ exclude:
   - results/
   - scripts/
   - src/
-  - main.py
-  - add_depleted.py
-  - analysis_query_results.py
-  - buildconfig.py
-  - debug_plotting.py
-  - plot_results.py
-  - prepare_metadata.py
-  - prepare_retrieval_methods.py
-  - proto_sqlite.py
-  - query_indices.py
+  - "*.py"
+  - "*.csv"
+  - "*.parquet"
