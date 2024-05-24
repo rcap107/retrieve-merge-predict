@@ -78,6 +78,11 @@ The page [Running the pipeline](docs/execution) contains the information require
 
 Make sure that the preparation has been run properly, since the pipeline is relying on data structures that are assumed to have been prepared during the previous step. 
 
+**Additional scripts**
+This repository contains various scripts for plotting results and measuring 
+in detail specific sections of the pipeline. We detail their functions in 
+[this page](docs/additional_scripts). 
+
 
 <!-- ## [Experimental results](docs/results) -->
 
