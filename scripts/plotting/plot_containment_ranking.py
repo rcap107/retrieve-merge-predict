@@ -1,5 +1,5 @@
 """
-Figure 7: distribution of the containment of the top-100 candidates by JC.
+Figure 2: distribution of the containment of the top-100 candidates by JC.
 """
 
 # %%
