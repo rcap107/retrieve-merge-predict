@@ -553,10 +553,8 @@ def draw_pair_comparison(
     df: pl.DataFrame,
     grouping_dimension: str,
     scatterplot_dimension: str,
-    form_factor: str = "multi",
     scatter_mode: str = "overlapping",
     colormap_name: str = "viridis",
-    figsize=(10, 4),
     savefig: bool = False,
     savefig_type: list | str = "png",
     savefig_name: str | None = None,
@@ -565,8 +563,11 @@ def draw_pair_comparison(
     jitter_factor: float = 0.03,
     qle: float = 0.05,
     add_titles: bool = True,
+    subplot_titles=None,
     sorting_variable: str = "y",
     sorting_method: str = "prediction",
+    figsize=(10, 4),
+    axes=None,
 ):
 
     df_rel_y = get_difference_from_mean(
@@ -586,15 +587,16 @@ def draw_pair_comparison(
             df, scatterplot_dimension, "scaled_diff", colormap_name
         )
 
-    fig, axes = plt.subplot_mosaic(
-        [[0, 1]],
-        layout="constrained",
-        figsize=figsize,
-        sharey=True,
-        width_ratios=(2, 2),
-    )
-    axes[1].sharey(axes[0])
-    axes[1].set_yticks([])
+    if axes is None:
+        fig, axes = plt.subplot_mosaic(
+            [[0, 1]],
+            layout="constrained",
+            figsize=figsize,
+            sharey=True,
+            width_ratios=(2, 2),
+        )
+    # axes[1].sharey(axes[0])
+    # axes[1].set_yticks([])
 
     plotting_variables = [
         f"diff_{grouping_dimension}_y",
@@ -605,11 +607,11 @@ def draw_pair_comparison(
         f"diff_{grouping_dimension}_y": {"xtick_format": "percentage"},
         f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
     }
-
-    subplot_titles = [
-        rf"Performance difference",
-        rf"Time difference",
-    ]
+    if subplot_titles is None:
+        subplot_titles = [
+            rf"Performance difference",
+            rf"Time difference",
+        ]
 
     if scatter_mode is None:
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
@@ -635,11 +637,11 @@ def draw_pair_comparison(
             sorting_method=sorting_method,
         )
         if add_titles:
-            axes[idx].set_title(subplot_titles[idx])
+            axes[idx].set_title(subplot_titles[idx], loc="left")
 
-    fig.set_constrained_layout_pads(
-        w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=5.0 / 72.0
-    )
+    # fig.set_constrained_layout_pads(
+    #     w_pad=5.0 / 72.0, h_pad=4.0 / 72.0, hspace=0.0 / 72.0, wspace=5.0 / 72.0
+    # )
 
     if savefig:
         if isinstance(savefig_type, str):
