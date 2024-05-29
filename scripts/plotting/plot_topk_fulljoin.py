@@ -29,6 +29,7 @@ df_rel_r2 = plotting.get_difference_from_mean(
     _d, column_to_average="jd_method", result_column="y"
 )
 scatterplot_mapping = plotting.prepare_scatterplot_mapping_case(_d)
+
 # %%
 fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(4.5, 2))
 
@@ -50,3 +51,5 @@ plotting.prepare_case_subplot(
 
 fig.savefig("images/topk1_fulljoin.png")
 fig.savefig("images/topk1_fulljoin.pdf")
+
+# %%

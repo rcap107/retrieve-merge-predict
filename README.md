@@ -1,7 +1,6 @@
-Benchmarking Join Suggestions
+Retrieve, Merge, Predict: Augmenting Tables with Data Lakes
 ===
-This repository contains the code for implementing and running the pipeline described in the paper "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes
-(Experiment, Analysis & Benchmark Paper).
+This repository contains the code for implementing and running the pipeline described in the paper "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes.
 
 The objective is modeling a situation where an user is trying to execute ML tasks on some base data, enriching it by
 using new tables found in a data lake using retrieval methods.
@@ -12,9 +11,11 @@ before and after the merge.
 We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
 are available [on Zenodo](https://zenodo.org/doi/10.5281/zenodo.10600047).
 
-The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/prepare-data-lakes).
+The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/YADL).
 
-The base tables used for the experiments are provided in the repository 
+The base tables used for the experiments are provided in `data/source_tables/`.
+
+More detail on the functioning of the code is available on the [repository website](https://rcap107.github.io/retrieve-merge-predict/).
 
 **NOTE:** The repository relies heavily on the `parquet` format [ref](https://parquet.apache.org/docs/file-format/), and will expect all tables (both source tables, and data lake
 tables) to be stored in `parquet` format. Please convert your data to parquet before working on the pipeline. 
@@ -35,12 +36,13 @@ an internal dataset found in YADL.
 YADL is derived from YAGO3 [source](https://yago-knowledge.org/getting-started) and shares its CC BY 4.0 license.
 
 Datasets were pre-processed before they were used in our experiments. Pre-processing steps are reported in the [preparation 
-repository](https://github.com/rcap107/YADL) and the [pipeline repository](https://github.com/rcap107/benchmark-join-suggestions)
+repository](https://github.com/rcap107/YADL) and this repository. 
 
 **Important**: in the current version of the code, all base tables are expected to include a column named `target` that contains the variable that should
 be predicted by the ML model. Please process any new input table so that the prediction column is named `target`. 
 
-
+### Starmie
+To implement Starmie in our pipeline, we implemented modifications that are tracked in a [fork](https://github.com/megagonlabs/starmie) of the [original repository](https://github.com/rcap107/starmie). 
 
 # Installing the requirements
 We recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the

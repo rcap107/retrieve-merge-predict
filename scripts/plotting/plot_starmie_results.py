@@ -1,3 +1,7 @@
+"""
+Figure 4: Comparing retrieval methods (including Starmie).
+"""
+
 # %%
 # %cd ~/bench
 # %%
@@ -8,16 +12,13 @@
 import matplotlib.pyplot as plt
 import polars as pl
 
-import src.utils.plotting as plotting
+from src.utils import plotting
 from src.utils.logging import read_and_process
-
-cfg = pl.Config()
-cfg.set_fmt_str_lengths(150)
 
 
 # %%
-def prep_difference(df, column_to_average, result_column):
-    prepared_df = _df.with_columns(reference_column=pl.mean(result_column))
+def prep_difference(df, result_column):
+    prepared_df = df.with_columns(reference_column=pl.mean(result_column))
 
     prepared_df = prepared_df.with_columns(
         (pl.col(result_column) / pl.col("reference_column")).alias(
@@ -61,7 +62,7 @@ formatting_dict = {
 
 
 # %%
-df = pl.read_csv("stats_retrieval_plot.csv")
+df = pl.read_csv("stats/stats_retrieval_plot.csv")
 df = df.rename({"index_name": "jd_method"}).filter(
     pl.col("data_lake_version") != "wordnet_vldb_50"
 )
@@ -79,7 +80,7 @@ _d = _d.join(
     ),
     on=["data_lake_version", "cat"],
 )
-#%%
+# %%
 _df = (
     _d.with_columns(
         time_retrieval=pl.when(pl.col("jd_method") != "starmie")
@@ -98,8 +99,8 @@ _df = (
     .group_by(["data_lake_version", "jd_method"])
     .agg(pl.mean("peak_memory"), pl.mean("time_retrieval"))
 )
-res_mem = prep_difference(_df, "jd_method", "peak_memory")
-res_time = prep_difference(_df, "jd_method", "time_retrieval")
+res_mem = prep_difference(_df, "peak_memory")
+res_time = prep_difference(_df, "time_retrieval")
 
 
 # %%

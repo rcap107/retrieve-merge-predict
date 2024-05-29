@@ -1,5 +1,5 @@
 """
-Figure 7:
+Figure 8:
 (a) distribution of containment in the query results produced by regression model on each data lake
 (b) prediction performance with respect to containment, with regression plot
 """
@@ -23,10 +23,7 @@ from src.utils.constants import LABEL_MAPPING, LEGEND_LABELS, ORDER_MAPPING
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
 
-cfg = pl.Config()
-cfg.set_fmt_str_lengths(150)
-
-STATS_DIR = Path("results/stats")
+STATS_DIR = Path("stats")
 
 
 # %%
@@ -40,8 +37,6 @@ def filter_df(df, data_lake):
 
 
 # %%
-
-
 ### PREPARE REGRESSION
 def plot_reg(X, y, ax, label):
     model = LinearRegression()
@@ -103,7 +98,7 @@ def get_datalake_info(df, data_lake_version):
     )
 
     df_analysis = pl.read_csv(
-        f"results/stats/analysis_query_results_{data_lake_version}_stats_all.csv"
+        STATS_DIR / f"analysis_query_results_{data_lake_version}_stats_all.csv"
     )
 
     return (df_, df_analysis)
@@ -184,8 +179,6 @@ def prepare_containment_plot(fig, ax):
     ax.set_xlabel("")
     # ax.set_xlabel("Containment")
     ax.set_ylabel("")
-    # fig.savefig("images/containment-barplot-datalake.pdf", bbox_inches="tight")
-    # fig.savefig("images/containment-barplot-datalake.png", bbox_inches="tight")
 
 
 # %%
@@ -198,6 +191,4 @@ prepare_regression(fig, ax[1])
 
 fig.savefig("images/containment-regression.pdf", bbox_inches="tight")
 fig.savefig("images/containment-regression.png", bbox_inches="tight")
-
-
 # %%

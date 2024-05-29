@@ -1,5 +1,5 @@
 """
-Figure 4: prediction performance by data lake.
+Figure 7: prediction performance by data lake.
 """
 
 # %%
@@ -29,26 +29,6 @@ df_results = pl.read_parquet(result_path)
 current_results = read_and_process(df_results)
 df_raw = current_results.filter(pl.col("estimator") != "nojoin")
 
-
-# %%
-# # %%
-# def prepare_df(df):
-#     df_ = (
-#         df.with_columns(case=pl.col("base_table").str.split("-").list.first())
-#         .filter(
-#             (pl.col("jd_method") == "exact_matching")
-#             & (pl.col("estimator") == "stepwise_greedy_join")
-#             & (pl.col("case").is_in(constants.LEGEND_LABELS.keys()))
-#         )
-#         .with_columns(
-#             y=pl.when(pl.col("auc") > 0)
-#             .then(pl.col("auc"))
-#             .otherwise(pl.col("r2score"))
-#         )
-#     )
-#     return df_
-
-
 # %%
 
 fig, axs = plt.subplots(
@@ -57,9 +37,6 @@ fig, axs = plt.subplots(
 
 var_to_plot = "y"
 
-# df_ = prepare_df(df_raw)
-
-# ax = axs[0]
 plotting.prepare_case_subplot(
     axs,
     df=df_raw,
@@ -74,30 +51,6 @@ plotting.prepare_case_subplot(
     qle=0,
     xtick_format="linear",
 )
-
-
-# df_ = df_raw.filter(
-#     (pl.col("target_dl") == "wordnet_vldb_10")
-#     & (pl.col("estimator") == "stepwise_greedy_join")
-#     # & (~pl.col("base_table").str.contains("schools"))
-# ).with_columns(
-#     r2score=pl.when(pl.col("auc") > 0).then(pl.col("auc")).otherwise(pl.col("r2score"))
-# )
-# ax = axs[1]
-# plotting.prepare_case_subplot(
-#     ax,
-#     df=df_,
-#     grouping_dimension="jd_method",
-#     scatterplot_dimension=None,
-#     plotting_variable=var_to_plot,
-#     kind="box",
-#     sorting_variable=var_to_plot,
-#     jitter_factor=0.05,
-#     scatter_mode="split",
-#     qle=0,
-#     xtick_format="linear",
-# )
-
 fig.savefig("images/prediction_performance.png")
 fig.savefig("images/prediction_performance.pdf")
 

@@ -1,5 +1,5 @@
 """
-Figure 8: Breakdown of where time is spent for each selector.
+Figure 9: Breakdown of where time is spent for each selector.
 """
 
 # %%
@@ -15,19 +15,11 @@ import seaborn as sns
 import src.utils.constants as constants
 
 # %%
-
-cfg = pl.Config()
-cfg.set_fmt_str_lengths(150)
 LABEL_MAPPING = constants.LABEL_MAPPING
-
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
 plt.rc("font", family="sans-serif")
-
-
 # %%
-
-
 def prepare_relative_times(df, grouping_variable):
     f = (
         df.group_by(grouping_variable)

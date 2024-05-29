@@ -1,5 +1,5 @@
 """
-This script is used to prepare the special case of aggregation in figure 3(c) in the paper.
+This script is used to prepare the special case of aggregation in figure 5(c) in the paper.
 """
 
 # %%
@@ -14,7 +14,6 @@ cfg = pl.Config()
 cfg.set_fmt_str_lengths(150)
 
 # %%
-# if __name__ == "__main__":
 this_case = "dep"
 target_tables = [
     "company_employees",
@@ -45,7 +44,6 @@ scatter_d = "case"
 plotting.draw_pair_comparison(
     results_aggr,
     var,
-    form_factor="multi",
     scatterplot_dimension=scatter_d,
     figsize=(10, 2.1),
     scatter_mode="split",
