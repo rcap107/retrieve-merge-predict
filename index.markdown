@@ -90,4 +90,4 @@ in detail specific sections of the pipeline. We detail their functions in
 
 [zenodo_link]: https://zenodo.org/doi/10.5281/zenodo.10600047
 [prepare_repo]: https://github.com/rcap107/YADL
-[pipeline_repo]: https://github.com/rcap107/benchmark-join-suggestions
+[pipeline_repo]: https://github.com/rcap107/retrieve-merge-predict
