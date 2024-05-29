@@ -4,18 +4,11 @@ This repository contains the code for implementing and running the pipeline desc
 
 The objective is modeling a situation where an user is trying to execute ML tasks on some base data, enriching it by
 using new tables found in a data lake using retrieval methods.
-
 The join candidates are merged with the base table under study, before training a ML model (either Catboost, or a linear model) to evaluate the performance
 before and after the merge.
 
-We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
-are available [on Zenodo](https://zenodo.org/doi/10.5281/zenodo.10600047).
 
-The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/YADL).
-
-The base tables used for the experiments are provided in `data/source_tables/`.
-
-More detail on the functioning of the code is available on the [repository website](https://rcap107.github.io/retrieve-merge-predict/).
+A detailed explanation on how to prepare the repository and the structure of the code is available on the [repository website](https://rcap107.github.io/retrieve-merge-predict/).
 
 **NOTE:** The repository relies heavily on the `parquet` format [ref](https://parquet.apache.org/docs/file-format/), and will expect all tables (both source tables, and data lake
 tables) to be stored in `parquet` format. Please convert your data to parquet before working on the pipeline. 
@@ -23,17 +16,9 @@ tables) to be stored in `parquet` format. Please convert your data to parquet be
 **NOTE:** We recommend to use the smaller `binary_update` data lake and its corresponding configurations to set up the data structures and debug potential issues, as all preparation steps are significantly faster than with larger data lakes. 
 
 # Dataset info
-We used the following sources for our dataset:
-- *Company Employees* [source](https://www.kaggle.com/datasets/iqmansingh/company-employee-dataset) - CC0
-- *Housing Prices* [source](https://www.zillow.com/research/data/)
-- *Movie Ratings* and *Movie Revenue* [source](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset) - CC0
-- *US Accidents* [source](https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents) - CC BY-NC-SA 4.0
-- *US Elections* [source](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ) - CC0
-
-The *Schools* dataset is an internal dataset found in the Open Data US data lake. The *US County Population* dataset is 
-an internal dataset found in YADL. 
-
-YADL is derived from YAGO3 [source](https://yago-knowledge.org/getting-started) and shares its CC BY 4.0 license.
+We use YADL as our data lake, a synthetic data lake based on the YAGO3 knowledge base. The YADL variants used in the paper
+are available [on Zenodo](https://zenodo.org/doi/10.5281/zenodo.10600047). The code for preparing the YADL variants can be found in [this repo](https://github.com/rcap107/YADL).
+The base tables used for the experiments are provided in `data/source_tables/`.
 
 Datasets were pre-processed before they were used in our experiments. Pre-processing steps are reported in the [preparation 
 repository](https://github.com/rcap107/YADL) and this repository. 
@@ -41,8 +26,6 @@ repository](https://github.com/rcap107/YADL) and this repository.
 **Important**: in the current version of the code, all base tables are expected to include a column named `target` that contains the variable that should
 be predicted by the ML model. Please process any new input table so that the prediction column is named `target`. 
 
-### Starmie
-To implement Starmie in our pipeline, we implemented modifications that are tracked in a [fork](https://github.com/megagonlabs/starmie) of the [original repository](https://github.com/rcap107/starmie). 
 
 # Installing the requirements
 We recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the
@@ -56,16 +39,35 @@ Then, install the remaining dependencies with pip:
 pip install -r requirements.txt
 ```
 
+### Starmie
+To implement Starmie in our pipeline, we implemented modifications that are tracked in a [fork](https://github.com/megagonlabs/starmie) of the [original repository](https://github.com/rcap107/starmie). 
+
 # Downloading YADL
-It is possible to download YADL from [the zenodo repository](https://zenodo.org/doi/10.5281/zenodo.10600047) using `wget` in the root folder:
+All data lakes are available at `https://zenodo.org/doi/10.5281/zenodo.10600047`.
+
+Archives provided here follow the notation used for the experiment configration, which is different from what is reported in the paper. The four YADL versions available here are:
+
+- `binary_update` (YADL Binary)
+- `wordnet_full` (YADL Base)
+- `wordnet_vldb_10` (YADL 10k)
+- `wordnet_vldb_50` (YADL 50k)
+
+All YADL variants are synthesized from YAGO using the code in [YADL][YADL].
+
+It is possible to download YADL from [the zenodo repository][zenodo_link] manually or by using `wget` in the root folder:
 ```sh
-wget -O data/binary_update.tar.gz https://zenodo.org/records/10600048/files/binary_update.tar.gz
-wget -O data/wordnet_full.tar.gz https://zenodo.org/records/10600048/files/wordnet_full.tar.gz
+wget -O data/binary_update.tar.gz https://zenodo.org/records/10624396/files/binary_update.tar.gz
+wget -O data/wordnet_full.tar.gz https://zenodo.org/records/10624396/files/wordnet_full.tar.gz
+wget -O data/wordnet_vldb_10.tar.gz https://zenodo.org/records/10624396/files/wordnet_vldb_10.tar.gz
+wget -O data/wordnet_vldb_50.tar.gz https://zenodo.org/records/10624396/files/wordnet_vldb_50.tar.gz
 ```
-Additional files may be downloaded from zenodo using the same command:
-```sh
-wget -O destination_file_name path_to_file
-```
+
+Once the archive has been downloaded, uncompress it to the `data` folder and execute the preparation step. 
+
+[zenodo_link]: https://zenodo.org/doi/10.5281/zenodo.10600047
+[YADL]: https://github.com/rcap107/YADL
+[pipeline_repo]: https://github.com/rcap107/benchmark-join-suggestions
+
 # Preparing the environment
 Once the required python environment has been prepared it is necessary to prepare the files required
 for the execution of the pipeline.
@@ -73,14 +75,13 @@ for the execution of the pipeline.
 For efficiency reasons and to avoid running unnecessary operations when testing different components, the pipeline has
 been split in different modules that have to be run in sequence.
 
+
+
 ## Preparing the metadata
 Given a data lake version to evaluate, the first step is preparing a metadata file for each table in the data lake. This
 metadata is used in all steps of the pipeline.
 
 The script `prepare_metadata.py`is used to generate the files for a given data lake case.
-
-**NOTE:** This scripts assumes that all tables are saved in `.parquet` format, and will raise an error if it finds no `.parquet`
-files in the given path. Please convert your files to parquet before running this script. 
 
 Use the command:
 ```
