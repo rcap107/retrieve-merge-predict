@@ -1,8 +1,9 @@
+from glob import glob
 from pathlib import Path
+
 import polars as pl
 import polars.selectors as cs
-from skrub import AggJoiner
-from glob import glob
+from skrub import MultiAggJoiner
 
 
 def load_tables_from_path(path_to_tables: str | Path):
@@ -11,13 +12,13 @@ def load_tables_from_path(path_to_tables: str | Path):
     Args:
         path_to_tables (str | Path): Path to the tables.
     """
-    table_list = []
+    table_dict = {}
     # path expansion, search for tables
     for table_path in glob(path_to_tables):
         table = pl.read_parquet(table_path)
         # load tables in memory
-        table_list.append(table)
-    return table_list
+        table_dict[table_path] = table
+    return table_dict
 
 
 def find_unique_values(table: pl.DataFrame, columns: list[str] = None) -> dict:
@@ -61,11 +62,20 @@ def measure_containment_tables(
         unique_values_base (dict): Dictionary that contains the set of unique values for each column in the base (query) table.
         unique_values_candidate (dict): Dictionary that contains the set of unique values for each column in the candidate table.
     """
+    containment_list = []
     # for each value in unique_values_base, measure the containment for every value in unique_values_candidate
-
-    # return the containment result as a list with format
-
-    return containment_list
+    # TODO: this should absolutely get optimized
+    for path, dict_cand in unique_values_candidate.items():
+        for col_base, values_base in unique_values_base.items():
+            for col_cand, values_cand in dict_cand.items():
+                containment = measure_containment(values_base, values_cand)
+                tup = (col_base, path, col_cand, containment)
+                containment_list.append(tup)
+    # convert the containment list to a pl dataframe and return that
+    df_cont = pl.from_records(
+        containment_list, ["query_column", "cand_path", "cand_column", "containment"]
+    ).filter(pl.col("containment") > 0)
+    return df_cont
 
 
 def measure_containment(unique_values_query: set, unique_values_candidate: set):
@@ -94,47 +104,66 @@ def prepare_ranking(containment_list: list[tuple], budget: int):
     """
 
     # Sort the list
+    containment_list = containment_list.sort("containment", descending=True)
 
-    # Somewhere here we might want to do some fancy filtering of the candidates in the ranking (with profiling)
+    # TODO: Somewhere here we might want to do some fancy filtering of the candidates in the ranking (with profiling)
 
     # Return `budget` candidates
-    return ranking
+    ranking = containment_list.top_k(budget, by="containment")
+    return ranking.rows()
 
 
-def execute_join(
-    base_table: pl.DataFrame, candidate_list: dict[pl.DataFrame], ranking: list[tuple]
-):
+def execute_join(base_table: pl.DataFrame, candidate_list: dict[tuple]):
     """Execute a full join between the base table and all candidates.
 
     Args:
         base_table (pl.DataFrame): _description_
         candidate_list (dict[pl.DataFrame]): _description_
-        ranking (list[tuple]): _description_
     """
 
+    join_tables = []
+    join_keys = []
+    main_keys= []
+    for candidate in candidate_list:
+        main_table_key, aux_table, aux_table_key, similarity = candidate
+        table = pl.read_parquet(aux_table)
+        join_tables.append(table)
+        join_keys.append([aux_table_key])
+        main_keys.append([main_table_key])
+
     # Use the Skrub MultiAggJoiner to join the base table and all candidates.
+    aggjoiner = MultiAggJoiner(
+        aux_tables=join_tables,
+        aux_keys=join_keys,
+        main_keys=main_keys,
+    )
+    # execute join between X and the candidates
+    joined_table = aggjoiner.fit_transform(base_table)
 
     # Return the joined table
-    pass
+    return joined_table
 
 
 class Discover:
+    # TODO: this should extend the sklearn BaseEstimator
     def __init__(
         self,
         path_tables: list,
-        query_columns: list,
+        query_columns: list | str,
         path_cache: str | Path = None,
         budget=30,
     ) -> None:
         # Having more than 1 colummn is not supported yet.
-        if len(query_columns > 1):
+        if len(query_columns) > 1:
             raise NotImplementedError
         self.query_columns = query_columns
         # TODO: error checking budget
         self.budget = budget
 
+        #TODO: move everything to fit, no operation should be done in the init.
         # load path from cache
         if path_cache is not None:
+            raise NotImplementedError
             # TODO: load ranking
             self.ranking = None
             pass
@@ -144,10 +173,10 @@ class Discover:
             # load list of tables
             self.candidate_tables = load_tables_from_path(path_tables)
 
+            self.unique_values_candidates = {}
             # find unique values for each table
-            for tab_path in self.candidate_tables:
-                table = pl.read_parquet(tab_path)
-                self.unique_values_candidates = find_unique_values(table)
+            for table_path, table in self.candidate_tables.items():
+                self.unique_values_candidates[table_path] = find_unique_values(table)
 
     def fit(self, X: pl.DataFrame, y=None):
         # error checking query columns
@@ -164,25 +193,8 @@ class Discover:
         self.ranking = prepare_ranking(containment_list, budget=self.budget)
 
     def transform(self, X):
-        join_tables = []
-        join_keys = []
-        for candidate in self.ranking:
-            main_table_key, aux_table, aux_table_key, similarity = candidate
-            table = pl.read_parquet(aux_table)
-            join_tables.append(table)
-            join_keys.append(aux_table_key)
-
-        aggjoiner = AggJoiner(
-            aux_table=join_tables,
-            aux_key=join_keys,
-            # TODO: write this properly
-            main_key=main_table_key,
-        )
-        # execute join between X and the candidates
-        joined_table = aggjoiner.fit_transform(X)
-
-        # return joined table
-        return joined_table
+        _joined = execute_join(X, self.ranking)
+        return _joined
 
     def fit_transform(self, X, y):
         self.fit(X, y)
@@ -190,4 +202,16 @@ class Discover:
 
 
 if __name__ == "__main__":
-    pass
+    # working with binary to debug
+    data_lake_path = "data/binary_update/*.parquet"
+    base_table_path = "data/source_tables/yadl/movies_large-yadl-depleted.parquet"
+    query_column = "col_to_embed"
+
+    base_table = pl.read_parquet(base_table_path)
+
+    discover = Discover(data_lake_path, [query_column])
+    print("fitting")
+    discover.fit(base_table)
+    print("transforming")
+    joined_table = discover.transform(base_table)
+    print(joined_table)
