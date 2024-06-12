@@ -19,23 +19,6 @@ LAZO_MESSAGE_SIZE_LIMIT = 4194304
 MAX_SIZE = np.iinfo(np.uint32).max
 
 
-class BaseIndex:
-    def _index_single_table(self):
-        pass
-
-    def add_tables_from_dict(self, df_dict):
-        pass
-
-    def query_index(self, query):
-        pass
-
-    def load_index(self):
-        pass
-
-    def save_index(self, output_path):
-        pass
-
-
 class MinHashIndex:
     """
     Index class based on `MinHashLSHEnsemble`. By default, it scans for metadata files
