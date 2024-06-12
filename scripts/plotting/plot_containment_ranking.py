@@ -82,8 +82,8 @@ root_dirs = list(
 
 # Subplot labels (they should have the same order as the paths above)
 labels = [
-    "YADL Comb.",
-    "YAGO Binary",
+    "YADL Base",
+    "YADL Binary",
     "Open Data US",
     "YADL 10k",
     "YADL 50k",
