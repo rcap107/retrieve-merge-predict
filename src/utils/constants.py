@@ -1,6 +1,7 @@
 """
-This script gathers all the constants that tare used across different scripts (mainly for plotting) to
-have consistent ordering and formatting of labels across the project.
+This script gathers all the constants that tare used across different scripts 
+(mainly for plotting) to have consistent ordering and formatting of labels across 
+the project.
 """
 
 # Grouping keys used to find the "difference from the mean"

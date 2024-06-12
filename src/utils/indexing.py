@@ -1,8 +1,13 @@
+"""
+This file contains all the "index" objects that are used during the retrieval step to find join candidates. 
+
+The objects defined here are used throughout the pipeline. 
+"""
+
 import logging
 import os
 import pickle
 from pathlib import Path
-from pprint import pprint
 
 from joblib import load
 from memory_profiler import memory_usage
@@ -34,21 +39,35 @@ def save_single_table(dataset_path, dataset_source, metadata_dest):
 
 
 def write_candidates_on_file(candidates, output_file_path, separator=","):
+    """This is a utility function that saves the list of candidates as csv in the given path.
+
+    This can be used to export the candidates retrieved by an index so that they can be used in alternative methods.
+
+    Args:
+        candidates (dict): Dictionary that contains the candidates.
+        output_file_path (str | Path): Path to use to save the file.
+        separator (str, optional): Which separator to use. Defaults to ",".
+    """
     with open(output_file_path, "w") as fp:
         fp.write("tbl_pth1,tbl1,col1,tbl_pth2,tbl2,col2\n")
 
-        for key, cand in candidates.items():
+        for cand in candidates.values():
             rstr = cand.get_joinpath_str(sep=separator)
             fp.write(rstr + "\n")
 
-    # open output file
 
-    # write the candidates
+def get_metadata_index(data_lake_version: str) -> MetadataIndex:
+    """Utility function that returns the MetadataIndex for a given data lake version.
 
-    # metam format is left_table;left_on_column;right_table;right_on_column
+    Args:
+        data_lake_version (str): Which data lake version should be used.
 
+    Raises:
+        FileNotFoundError: Raised if the given path does not contain a valid metadata file.
 
-def get_metadata_index(data_lake_version):
+    Returns:
+        MetadataIndex: Index for the given data lake.
+    """
     metadata_index_path = Path(
         f"data/metadata/_mdi/md_index_{data_lake_version}.pickle"
     )
@@ -72,6 +91,19 @@ def generate_candidates(
     query_column: str,
     top_k=15,
 ):
+    """Utility function that returns the list of candidates from the given index and metadata file.
+
+    Args:
+        index_name (str): Name of the index.
+        index_result (list): Query result provided by the user.
+        metadata_index (MetadataIndex): Metadata index.
+        mdata_source (dict): Metadata of the source table.
+        query_column (str): Query column.
+        top_k (int, optional): Number of candidates that should be retrieved.. Defaults to 15.
+
+    Returns:
+        dict: Dictionary that contains the candidates.
+    """
     candidates = {}
     for res in index_result:
         hash_, column, similarity = res
@@ -88,7 +120,6 @@ def generate_candidates(
         candidates[cjoin.candidate_id] = cjoin
 
     if top_k > 0:
-        # TODO rewrite this so it's cleaner
         ranking = [(k, v.similarity_score) for k, v in candidates.items()]
         clamped = [x[0] for x in sorted(ranking, key=lambda x: x[1], reverse=True)][
             :top_k
@@ -231,7 +262,20 @@ def query_index(
     rerank: bool = False,
     index_logger: SimpleIndexLogger | None = None,
 ):
+    """Query a given index to produce a list of candidates. It may take an IndexLogger object to track runtime and
+    memory usage.
 
+    Args:
+        index (MinHashIndex | LazoIndex | ExactMatchingIndex): Index object to query.
+        query_tab_path (Path | str  ): Path to the base table.
+        query_column (_type_): Column that should be used for querying.
+        mdata_index (_type_): MetadataIndex object.
+        rerank (bool, optional): Parameter that is forwarded to QueryResult. Defaults to False.
+        index_logger (SimpleIndexLogger | None, optional): Logger object that is used to track various metric about the operation. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
     query_tab_metadata = RawDataset(
         query_tab_path.resolve(), "queries", "data/metadata/queries"
     )

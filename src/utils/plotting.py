@@ -50,6 +50,7 @@ def get_difference_from_mean(
     this_groupby = [_ for _ in constants.GROUPING_KEYS if _ != column_to_average]
 
     n_unique = df.select(pl.col(column_to_average).n_unique()).item()
+    # The comparison is one "one method against another", but "what's the best among 3+ methods".
     if n_unique > 2 or force_split:
         prepared_df = df.join(
             df.group_by(this_groupby).agg(
@@ -59,6 +60,7 @@ def get_difference_from_mean(
         )
 
     else:
+        # One-vs-one case: find which is the best method in median
         best_method = (
             df.group_by(column_to_average)
             .agg(pl.median(result_column))
@@ -66,6 +68,7 @@ def get_difference_from_mean(
             .item()
         )
 
+        # Find the performance of the best method, and compare it with the performance of the other method
         prepared_df = (
             df.filter(pl.col(column_to_average) == best_method)
             .join(df.filter(pl.col(column_to_average) != best_method), on=this_groupby)
@@ -73,6 +76,7 @@ def get_difference_from_mean(
             .rename({result_column + "_right": "reference_column"})
         )
 
+    # "How many times is method X faster/slower than the reference?"
     if geometric:
         prepared_df = prepared_df.with_columns(
             (pl.col(result_column) / pl.col("reference_column")).alias(
@@ -80,6 +84,7 @@ def get_difference_from_mean(
             )
         )
     else:
+        # By what % is method X better/worse than the reference? 
         prepared_df = prepared_df.with_columns(
             (pl.col(result_column) - pl.col("reference_column")).alias(
                 f"diff_{column_to_average}_{result_column}"
@@ -569,7 +574,35 @@ def draw_pair_comparison(
     figsize=(10, 4),
     axes=None,
 ):
+    """This function is used to prepare the paired plots used for the paper and other material. 
+    
+    It will prepare two subplots side-by-side; the first plot presents the relative difference in prediction performance 
+    from the "reference method" (i.e., the method provided as `grouping_dimension`). 
+    
+    The performance of the "reference method" itself is measured by finding the maximum difference between all methods 
+    and that measured for the NoJoin case. This difference is then used as "reference point" against which all other methods
+    are compared. The median difference from the reference is also shown on the right of each plot.  
 
+    Args:
+        df (pl.DataFrame): Dataframe that contains the results. 
+        grouping_dimension (str): Which variable should be used to find the "reference" method (data lake, ml method, retrieval method etc.)
+        scatterplot_dimension (str): Which variable should be use to plot the scatterplot. Normally, this should be "case".
+        scatter_mode (str, optional): How to plot the scatterplot. Either "split" or "overlapping". Defaults to "overlapping".
+        colormap_name (str, optional): If provided, it will override the default colormap values. Defaults to "viridis".
+        savefig (bool, optional): If True, save the figure. Defaults to False.
+        savefig_type (list | str, optional): List of extensions to be used for saving the figure. Defaults to "png".
+        savefig_name (str | None, optional): If given, save the figure using this name. Defaults to None.
+        savefig_tag (str, optional): Additional tags to be added to the fig name to distinguish cases. Defaults to "".
+        case (str, optional): Either "full" or "dep", used as tag for the figure. Defaults to "dep".
+        jitter_factor (float, optional): Jitter added ot the scatter plot to separate the dots. Defaults to 0.03.
+        qle (float, optional): Quantile value to filter out outliers in the scatterplot and have better tick spacing. Defaults to 0.05.
+        add_titles (bool, optional): If True, add titles to the subplots. Defaults to True.
+        subplot_titles (_type_, optional): _description_. Defaults to None.
+        sorting_variable (str, optional): Variable that should be used for sorting the methods. Defaults to "y".
+        sorting_method (str, optional): Either "prediction" or "manual"; if "manual", a fixed order will be used. Defaults to "prediction".
+        figsize (tuple, optional): Tuple that defines the size of the resulting figure. Defaults to (10, 4).
+        axes (_type_, optional): Optional parameter to pass the axes from an external function. Defaults to None.
+    """
     df_rel_y = get_difference_from_mean(
         df, column_to_average=grouping_dimension, result_column="y"
     )
