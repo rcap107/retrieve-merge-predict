@@ -17,7 +17,7 @@ from src.utils.logging import read_and_process
 
 
 def prepare_general():
-    result_path = "results/overall/overall_first.parquet"
+    result_path = "stats/overall/overall_first.parquet"
 
     # Use the standard method for reading all results for consistency.
     df_results = pl.read_parquet(result_path)

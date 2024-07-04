@@ -1,9 +1,8 @@
 """
 Figure 7: prediction performance by data lake.
 """
-
 # %%
-# %cd ~/bench
+# %cd ..
 # %load_ext autoreload
 # %autoreload 2
 #%%
@@ -22,7 +21,7 @@ plt.style.use("seaborn-v0_8-talk")
 plt.rc("font", family="sans-serif")
 
 # %%
-result_path = "results/overall/overall_first.parquet"
+result_path = "stats/overall/overall_first.parquet"
 
 df_results = pl.read_parquet(result_path)
 
