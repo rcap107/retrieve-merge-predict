@@ -5,7 +5,7 @@ Figure 8:
 """
 
 # %%
-# %cd ~/bench
+# %cd ..
 # %load_ext autoreload
 # %autoreload 2
 # %%
@@ -28,6 +28,7 @@ STATS_DIR = Path("stats")
 
 # %%
 def filter_df(df, data_lake):
+    # Filtering only the results we are interested in.
     target_tables = list(LEGEND_LABELS.keys())
     filtered = df.filter(
         (pl.col("target_dl") == data_lake)
@@ -54,6 +55,7 @@ def plot_reg(X, y, ax, label):
 
 
 def prepare_data(df_raw, df_analysis, top_k=200):
+    # Preparation function to have consistent results for every DL.
     df_agg = (
         df_analysis.filter(pl.col("top_k") == top_k)
         .group_by(
@@ -106,13 +108,16 @@ def get_datalake_info(df, data_lake_version):
 
 # %%
 def prepare_regression(fig, ax):
-    result_path = "results/overall/overall_first.parquet"
-
+    """Given the figure and axes object, prepare ther egression plot. The function
+    is expecting to find the data in the given path.
+    """
+    # Reading and preparing the results
+    result_path = "stats/overall/overall_first.parquet"
     df_results = pl.read_parquet(result_path)
-
     current_results = logging.read_and_process(df_results)
     df_overall = current_results.filter(pl.col("estimator") != "nojoin")
 
+    # Comment out the names of the data lakes that should not be printed
     dl_names = [
         "binary_update",
         "wordnet_full",
@@ -121,11 +126,13 @@ def prepare_regression(fig, ax):
         "open_data_us",
     ]
 
+    # Prepare the plot for each data lake.
     for name in dl_names:
         df_raw, df_analysis = get_datalake_info(df_overall, name)
         X, y = prepare_data(df_raw, df_analysis)
         plot_reg(X, y, ax, LABEL_MAPPING["target_dl"][name])
 
+    # Adding a horizontal line for the value of 0
     ax.axhline(alpha=0.3)
     ax.set_xlabel("")
 
@@ -133,20 +140,27 @@ def prepare_regression(fig, ax):
 # %%
 # PREPARE CONTAINMENT PLOT
 def prepare_containment_plot(fig, ax):
+    """Given the figure and the axes object to write on, prepare the plot that compares the containment across different
+    data lakes.
+    """
+
+    # Comment out the names of the data lakes that should not be printed
     dl_names = [
-        "binary_update",
+        # "binary_update",
         "wordnet_full",
         "wordnet_vldb_10",
         "wordnet_vldb_50",
-        "open_data_us",
+        # "open_data_us",
     ]
 
     list_df = []
 
+    # These files must already be present.
     for name in dl_names:
         _df = pl.read_csv(STATS_DIR / f"analysis_query_results_{name}_stats_all.csv")
         list_df.append(_df)
 
+    # Assuming that top_k=200 is already there for all data lakes.
     df = pl.concat(list_df).filter(pl.col("top_k") == 200)
     order = ORDER_MAPPING["jd_method"]
     sns.boxplot(
@@ -159,6 +173,7 @@ def prepare_containment_plot(fig, ax):
         fliersize=2,
     )
 
+    # Getting the mapping name and creating the legend.
     mapping = LABEL_MAPPING["target_dl"]
     h, l = ax.get_legend_handles_labels()
     labels = [mapping[_] for _ in l]
@@ -189,6 +204,6 @@ fig, ax = plt.subplots(
 prepare_containment_plot(fig, ax[0])
 prepare_regression(fig, ax[1])
 
-fig.savefig("images/containment-regression.pdf", bbox_inches="tight")
-fig.savefig("images/containment-regression.png", bbox_inches="tight")
+# fig.savefig("images/containment-regression.pdf", bbox_inches="tight")
+# fig.savefig("images/containment-regression.png", bbox_inches="tight")
 # %%
