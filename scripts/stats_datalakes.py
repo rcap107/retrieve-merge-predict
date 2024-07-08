@@ -1,3 +1,7 @@
+"""
+This script runs a profiling operation over all tables in different data lakes, and saves the results in a table. 
+"""
+
 # %%
 from pathlib import Path
 
@@ -8,8 +12,6 @@ from tqdm import tqdm
 
 # %%
 path_wordnet = Path("data/yadl/wordnet_full/")
-path_wordnet_vldb = Path("data/yadl/wordnet_vldb/")
-path_wordnet_vldb_wide = Path("data/yadl/wordnet_vldb_wide/")
 path_binary = Path("data/yadl/binary_update/")
 path_open_data = Path("data/open_data_us/")
 
@@ -71,8 +73,6 @@ def run_profile(dl_path, dl_name, n_jobs):
 
 # %%
 cases = [
-    (path_wordnet_vldb, "vldb_flat"),
-    (path_wordnet_vldb_wide, "vldb_wide"),
     (path_binary, "binary"),
     (path_wordnet, "wordnet"),
     (path_open_data, "open_data"),
@@ -92,7 +92,7 @@ df_stats.transpose(column_names="data_lake", include_header=True).write_csv(
 )
 
 
-#%%
+# %%
 stats_ = []
 for case in cases[:1]:
     p = run_profile(*case, n_jobs=16)
@@ -103,36 +103,3 @@ df_stats = pl.concat(list_stats)
 df_stats.transpose(column_names="data_lake", include_header=True).write_csv(
     "stats_datalakes.csv"
 )
-
-
-#%%
-s = [
-    pl.from_dicts(pp).with_columns(pl.lit(len(profiles)).alias("n_tables"))
-    for pp in stats
-]
-
-# %%
-profiles = []
-for tab in path_wordnet_vldb.glob("**/*.parquet"):
-    d = table_profile(tab, "vldb")
-    profiles.append(d)
-df = pl.from_dicts(profiles).with_columns(pl.lit(len(profiles)).alias("n_tables"))
-stats.append(get_stats(df))
-list_stats = [get_stats(d) for d in stats]
-df_stats = pl.concat(list_stats)
-df_stats.transpose(column_names="data_lake", include_header=True).write_csv(
-    "stats_datalakes.csv"
-)
-# %%
-
-
-parallel = Parallel(n_jobs=2, return_as="generator")
-output = parallel(
-    delayed(table_profile)(tab, "vldb")
-    for tab in tqdm(
-        path_wordnet_vldb_wide.glob("**/*.parquet"),
-        desc="vldb",
-        total=sum(1 for _ in path_wordnet_vldb_wide.glob("**/*.parquet")),
-    )
-)
-profiles = list(output)
