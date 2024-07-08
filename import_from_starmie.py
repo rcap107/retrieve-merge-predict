@@ -1,4 +1,10 @@
-# %%
+"""
+Simple script used to import the results obtained by Starmie. 
+
+Given the path to the Starmie results, this script builds the data structures 
+needed to run the pipeline. 
+"""
+
 import argparse
 from pathlib import Path
 
@@ -10,9 +16,6 @@ def parse_args():
     parser.add_argument(
         "base_path", type=Path, help="Path to STARMIE dir containing the query results."
     )
-    # parser.add_argument(
-    #     "data_lake_version", type=str, help="Data lake version to evaluate."
-    # )
 
     return parser.parse_args()
 
@@ -20,10 +23,8 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    # data_lake_version = args.data_lake_version
     root_path = args.base_path
     data_lake_version = root_path.stem
-    # base_path = Path(root_path, data_lake_version)
 
     print(root_path)
 

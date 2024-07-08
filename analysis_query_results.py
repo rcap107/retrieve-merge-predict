@@ -3,8 +3,6 @@ This script executes an exhaustive analysis of the query results produced by eac
 to measure the overall statistics of the candidates returned by each.
 
 The results of this script are saved in results/stats/ and are used for some of the plotting scripts.
-
-Author: Riccardo Cappuzzo
 """
 
 import datetime

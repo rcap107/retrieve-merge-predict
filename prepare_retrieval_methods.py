@@ -1,3 +1,8 @@
+"""
+This script is used to prepare to build the objects used by the differernt retrieval methods according to the config
+specified by the user. Default configurations are provided in folder `config/retrieval/prepare`.
+"""
+
 import argparse
 from pathlib import Path
 
