@@ -12,7 +12,7 @@ Figure 4: Comparing retrieval methods (including Starmie).
 import matplotlib.pyplot as plt
 import polars as pl
 
-from src.utils import plotting
+from src.utils import plotting, constants
 from src.utils.logging import read_and_process
 
 
@@ -29,10 +29,14 @@ def prep_difference(df, result_column):
 
 
 # %%
-result_path = "results/overall/overall_first.parquet"
+result_path = "stats/overall/overall_first.parquet"
 
 df_results = pl.read_parquet(result_path)
 current_results = read_and_process(df_results)
+others = [col for col in current_results.columns if col not in constants.GROUPING_KEYS + ["case"]]
+current_results = current_results.group_by(constants.GROUPING_KEYS + ["case"]).agg(
+pl.mean(others)
+)
 
 current_results = current_results.filter(pl.col("estimator") != "nojoin")
 
@@ -161,6 +165,7 @@ plotting.prepare_case_subplot(
 axs_left[0].set_title("Peak RAM")
 axs_left[1].set_title("Time difference")
 
+print("scatter: ", scatter_d)
 # Prediction performance
 var_to_plot = f"diff_{grouping_dimension}_y"
 plotting.prepare_case_subplot(
@@ -206,8 +211,8 @@ axs_right[1].set_title(
 # Remove the labels from the right axis
 axs_right[0].yaxis.set_major_locator(plt.NullLocator())
 
-# fig.savefig("images/comparison_retrieval_methods.png")
-# fig.savefig("images/comparison_retrieval_methods.pdf")
+fig.savefig("images/comparison_retrieval_methods.png")
+fig.savefig("images/comparison_retrieval_methods.pdf")
 
 
 # %%

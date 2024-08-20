@@ -3,7 +3,7 @@ Alternative code for Figure 5: comparing across data lakes over selector, aggreg
 """
 
 # %%
-# %cd ~/bench
+# %cd ..
 # %load_ext autoreload
 # %autoreload 2
 
@@ -14,14 +14,19 @@ import polars as pl
 
 from src.utils import plotting
 from src.utils.logging import read_and_process
+from src.utils import constants
 
-
+#%%
 def prepare_general():
     result_path = "stats/overall/overall_first.parquet"
 
     # Use the standard method for reading all results for consistency.
     df_results = pl.read_parquet(result_path)
     current_results = read_and_process(df_results)
+    others = [col for col in current_results.columns if col not in constants.GROUPING_KEYS + ["case"]]
+    current_results = current_results.group_by(constants.GROUPING_KEYS + ["case"]).agg(
+    pl.mean(others)
+    )
     current_results = current_results.filter(pl.col("estimator") != "nojoin")
     _d = current_results.filter(
         (pl.col("estimator") != "top_k_full_join") & (pl.col("jd_method") != "starmie")
@@ -37,7 +42,7 @@ def prepare_aggr():
         "us_county_population",
         "schools",
     ]
-    aggr_result_path = "results/overall/overall_aggr.parquet"
+    aggr_result_path = "stats/overall/overall_aggr.parquet"
     df_results = pl.read_parquet(aggr_result_path)
     results_aggr = read_and_process(df_results)
     results_aggr = results_aggr.filter(

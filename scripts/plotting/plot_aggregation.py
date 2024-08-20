@@ -7,7 +7,8 @@ This script is used to prepare the special case of aggregation in figure 5(c) in
 # %%
 import polars as pl
 
-import src.utils.plotting as plotting
+from src.utils import plotting, constants
+
 from src.utils.logging import read_and_process
 
 cfg = pl.Config()
@@ -26,9 +27,14 @@ target_tables = [
     "schools",
 ]
 # %%
-aggr_result_path = "results/overall/overall_aggr.parquet"
+aggr_result_path = "stats/overall/overall_aggr.parquet"
 df_results = pl.read_parquet(aggr_result_path)
-results_aggr = read_and_process(df_results)
+current_results = read_and_process(df_results)
+others = [col for col in current_results.columns if col not in constants.GROUPING_KEYS + ["case"]]
+results_aggr = current_results.group_by(constants.GROUPING_KEYS + ["case"]).agg(
+pl.mean(others)
+)
+
 results_aggr = results_aggr.filter(
     (pl.col("estimator").is_in(["best_single_join", "highest_containment"]))
     & (pl.col("jd_method") != "starmie")

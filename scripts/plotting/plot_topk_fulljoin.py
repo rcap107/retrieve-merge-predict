@@ -1,8 +1,8 @@
 """Figure 6: Relative prediction performance using top-1 full join.
 """
 
-# #%%
-# %cd ~/bench
+#%%
+# %cd ..
 # #%%
 # %load_ext autoreload
 # %autoreload 2
@@ -14,7 +14,7 @@ import src.utils.plotting as plotting
 from src.utils.logging import read_and_process
 
 # %%
-result_path = "results/overall/overall_first.parquet"
+result_path = "stats/overall/overall_first.parquet"
 df_results = pl.read_parquet(result_path)
 
 results_depleted = read_and_process(df_results)
