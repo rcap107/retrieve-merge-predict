@@ -1,0 +1,35 @@
+[project]
+authors = [
+    {name="Riccardo Cappuzzo", email ="riccardo.cappuzzo@inria.fr"}
+]
+readme = "README.md"
+description = "A pipeline for benchmarking table augmentation methods for data lakes."
+name = "retrieve-merge-predict"
+version = "0.5"
+requires-python = ">=3.10"
+dependencies = [
+    "pip",
+    "polars==0.20.5",
+    "pandas==1.5.3",
+    "numpy==1.24.3",
+    "woodwork==0.24.0",
+    "scikit-learn==1.2.2",
+    "scipy==1.12.0",
+    "matplotlib==3.7.1",
+    "seaborn==0.12.2",
+    "gitpython==3.1.31",
+    "catboost==1.2",
+    "tqdm==4.65.0",
+    "jupyter",
+    "featuretools==1.26.0",
+    "pyarrow==12.0",
+    "pre-commit==3.4.0",
+    "toml",
+]
+license = { file = "LICENSE" }
+
+[project.urls]
+Homepage = "https://rcap107.github.io/retrieve-merge-predict/"
+Repository = "https://github.com/rcap107/retrieve-merge-predict"
+
+[tool.uv]
