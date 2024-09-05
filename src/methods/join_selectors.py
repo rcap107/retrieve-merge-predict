@@ -8,6 +8,12 @@ import pandas as pd
 import polars as pl
 import polars.selectors as cs
 from catboost import CatBoostClassifier, CatBoostRegressor
+from pytabkit.models.sklearn.sklearn_interfaces import (
+    RealMLP_TD_Classifier,
+    RealMLP_TD_Regressor,
+    Resnet_RTDL_D_Classifier,
+    Resnet_RTDL_D_Regressor,
+)
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression, SGDClassifier
 from sklearn.metrics import f1_score, r2_score
@@ -195,6 +201,24 @@ class BaseJoinEstimator(BaseEstimator):
         else:
             raise ValueError
 
+    def build_realmlp(self):
+        """Build an estimator based on RealMLP."""
+        if self.task == "regression":
+            self.model = RealMLP_TD_Regressor(device="cpu", n_threads=32)
+        elif self.task == "classification":
+            self.model = RealMLP_TD_Classifier(device="cpu", n_threads=32)
+        else:
+            raise ValueError
+
+    def build_resnet(self):
+        """Build an estimator based on ResNet."""
+        if self.task == "regression":
+            self.model = Resnet_RTDL_D_Regressor(device="cpu", n_threads=32)
+        elif self.task == "classification":
+            self.model = Resnet_RTDL_D_Classifier(device="cpu", n_threads=32)
+        else:
+            raise ValueError
+
     def fit(self, X, y):
         """Abstract method, to be extended by other estimators. It should take a
         prepared table `X` and a suitable target array `y`. It will execute all
@@ -256,10 +280,35 @@ class BaseJoinEstimator(BaseEstimator):
         elif self.chosen_model == "catboost":
             assert isinstance(self.model, (CatBoostRegressor, CatBoostClassifier))
             X_train = self.prepare_table(X_train)
+            if self.with_validation and not skip_validation:
+                X_valid = self.prepare_table(X_valid)
+                self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
+            else:
+                self.model.fit(X=X_train, y=y_train)
+        elif self.chosen_model == "resnet":
+            raise NotImplementedError
+            assert isinstance(
+                self.model, (Resnet_RTDL_D_Regressor, Resnet_RTDL_D_Classifier)
+            )
+            X_train = self.prepare_table(X_train)
 
             if self.with_validation and not skip_validation:
                 X_valid = self.prepare_table(X_valid)
                 self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
+            else:
+                self.model.fit(X=X_train, y=y_train)
+        elif self.chosen_model == "realmlp":
+            assert isinstance(self.model, (RealMLP_TD_Regressor, RealMLP_TD_Classifier))
+            X_train, cat_features = self.prepare_table_nn(X_train)
+
+            if self.with_validation and not skip_validation:
+                X_valid, _ = self.prepare_table_nn(X_valid)
+                self.model.fit(
+                    X=X_train,
+                    y=y_train,
+                    eval_set=(X_valid, y_valid),
+                    cat_features=cat_features,
+                )
             else:
                 self.model.fit(X=X_train, y=y_train)
         else:
@@ -273,6 +322,10 @@ class BaseJoinEstimator(BaseEstimator):
         elif self.chosen_model == "catboost":
             X = self.prepare_table(X)
             y_pred = self.model.predict(X)
+        elif self.chosen_model == "resnet":
+            pass
+        elif self.chosen_model == "realmlp":
+            pass
         else:
             raise ValueError
         return y_pred
@@ -317,12 +370,34 @@ class BaseJoinEstimator(BaseEstimator):
             self.durations[k] += v
 
     def prepare_table(self, table):
-        if type(table) == pd.DataFrame:
+        if isinstance(table, pd.DataFrame):
             table = pl.from_pandas(table)
 
         table = table.fill_null(value="null").fill_nan(value=np.nan)
-        # table = ju.cast_features(table)
         return table.to_pandas()
+
+    def prepare_table_nn(self, table):
+        """Prepare the given table to be used by the NN models. This involves
+        filling missing values and extracting the categorical variables.
+
+        Args:
+            table (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        if isinstance(table, pd.DataFrame):
+            table = pl.from_pandas(table)
+
+        cat_features = table.select(cs.string()).columns
+        # Storing the original column order
+        _columns = table.columns
+
+        table = table.select(
+            cs.string().fill_null("null"), cs.numeric().fill_null("mean")
+        ).select(_columns)
+        # table = table.fill_null(value="null").fill_nan(value=np.nan)
+        return table.to_pandas(), cat_features
 
 
 class BaseJoinWithCandidatesMethod(BaseJoinEstimator):
