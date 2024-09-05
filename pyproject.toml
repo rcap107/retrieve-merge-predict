@@ -9,7 +9,6 @@ version = "0.5"
 requires-python = ">=3.10"
 dependencies = [
     "pip",
-    "polars==0.20.5",
     "pandas==1.5.3",
     "numpy==1.24.3",
     "woodwork==0.24.0",
@@ -25,13 +24,13 @@ dependencies = [
     "pyarrow==12.0",
     "pre-commit==3.4.0",
     "toml",
-    "polars-lts-cpu==0.20.5",
     "datasketch==1.5.9",
     "chardet==3.0.4",
     "protobuf==3.20.3",
     "lazo-index-service>=0.7.0",
     "memory-profiler==0.61.0",
     "clevercsv==0.8.2",
+    "polars-lts-cpu>=1.6.0",
 ]
 license = { file = "LICENSE" }
 
