@@ -35,6 +35,26 @@ CATBOOST_RANDOM_SEED = 42
 def measure_containment(
     source_table: pl.DataFrame, cand_table: pl.DataFrame, left_on: list, right_on: list
 ):
+    """This function measures the exact Jaccard containment of the query column
+    `left_on` in `source_table` in column `right_on` in table `cand_table`.
+    
+    Containment is defined as JC(Q,X) = |Q intersection X| / |Q|
+
+    Args:
+        source_table (pl.DataFrame): Source table.
+        cand_table (pl.DataFrame): Candidate table to query on.
+        left_on (list): Query column. 
+        right_on (list): Candidate column
+
+    Returns:
+        float: Containment value. 
+    
+    Raises:
+        NotImplmentedError if more than one column is provided.
+    """
+    if len(left_on) > 1 or len(right_on) > 1:
+        raise NotImplementedError("Only single query columns are supported")
+    
     unique_source = source_table[left_on].unique()
     unique_cand = cand_table[right_on].unique()
 
