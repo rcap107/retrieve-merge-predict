@@ -321,16 +321,16 @@ class BaseJoinEstimator(BaseEstimator):
             assert isinstance(self.model, (RealMLP_TD_Regressor, RealMLP_TD_Classifier))
             X_train, cat_features = self.prepare_table_nn(X_train)
 
-            if self.with_validation and not skip_validation:
-                X_valid, _ = self.prepare_table_nn(X_valid)
-                self.model.fit(
-                    X=X_train,
-                    y=y_train,
-                    eval_set=(X_valid, y_valid),
-                    cat_features=cat_features,
-                )
-            else:
-                self.model.fit(X=X_train, y=y_train)
+            self.cat_encoder.fit(X_train)
+            X_enc = self.cat_encoder.transform(X_train)
+
+            X_valid, _ = self.prepare_table_nn(X_valid)
+            self.model.fit(
+                X=X_train,
+                y=y_train,
+                eval_set=(X_valid, y_valid),
+                cat_features=cat_features,
+            )
         else:
             raise ValueError
 
@@ -401,10 +401,11 @@ class BaseJoinEstimator(BaseEstimator):
         filling missing values and extracting the categorical variables.
 
         Args:
-            table (_type_): _description_
+            table (pl.DataFrame, pd.DataFrame): Table to prepare
 
         Returns:
-            _type_: _description_
+            pd.DataFrame: Prepared dataframe
+            list: List of categorical columns
         """
         if isinstance(table, pd.DataFrame):
             table = pl.from_pandas(table)
@@ -413,10 +414,10 @@ class BaseJoinEstimator(BaseEstimator):
         # Storing the original column order
         _columns = table.columns
 
+        # We should try new and more clever imputation methods
         table = table.select(
             cs.string().fill_null("null"), cs.numeric().fill_null("mean")
         ).select(_columns)
-        # table = table.fill_null(value="null").fill_nan(value=np.nan)
         return table.to_pandas(), cat_features
 
 
