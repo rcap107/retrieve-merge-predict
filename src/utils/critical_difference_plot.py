@@ -1,3 +1,10 @@
+'''
+Original from 
+https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.critical_difference_diagram.html
+
+The code was slightly modified to have a ranking-based order. 
+'''
+
 from typing import Union, List, Tuple, Dict, Set
 
 import numpy as np
