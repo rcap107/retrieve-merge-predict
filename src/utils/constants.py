@@ -1,8 +1,10 @@
 """
-This script gathers all the constants that tare used across different scripts 
-(mainly for plotting) to have consistent ordering and formatting of labels across 
+This script gathers all the constants that tare used across different scripts
+(mainly for plotting) to have consistent ordering and formatting of labels across
 the project.
 """
+# Supported models
+SUPPORTED_MODELS = ["linear", "catboost", "realmlp", "resnet"]
 
 # Grouping keys used to find the "difference from the mean"
 GROUPING_KEYS = [

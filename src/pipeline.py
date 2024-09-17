@@ -11,6 +11,7 @@ import polars.selectors as cs
 
 import src.methods.evaluation as em
 from src.data_structures.loggers import ScenarioLogger
+from src.utils.constants import SUPPORTED_MODELS
 from src.utils.indexing import load_query_result
 
 repo = git.Repo(search_parent_directories=True)
@@ -175,7 +176,7 @@ def validate_configuration(run_config: dict):
         assert par["active"] in [True, False]
 
     # Check model parameters
-    assert model_parameters["chosen_model"] in ["linear", "catboost"]
+    assert model_parameters["chosen_model"] in SUPPORTED_MODELS
     if model_parameters["chosen_model"] == "catboost":
         par = model_parameters["catboost"]
         assert isinstance(par["iterations"], int) and par["iterations"] > 0
