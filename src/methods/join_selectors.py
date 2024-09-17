@@ -561,20 +561,22 @@ class NoJoin(BaseJoinEstimator):
         # TODO: ADD ERROR CHECKING HERE
 
         if self.with_validation:
+
             self._start_time("prepare")
+
             if X is not None and y is not None:
                 if X.shape[0] != y.shape[0]:
                     raise ValueError
-                X_train, X_valid, y_train, y_valid = train_test_split(
-                    X, y, test_size=0.2
-                )
+                train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
+                X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+                X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
             self.build_model(X_train)
 
             self.n_joined_columns = len(X_train.columns)
             self._end_time("prepare")
 
             self._start_time("model_train")
-            self.fit_model(X_train, y_train, X_valid, y_valid)
+            self.fit_model(X_train, y_train, validation_indices=(train_idx, valid_idx))
             _end = dt.datetime.now()
             self._end_time("model_train")
         else:
@@ -673,9 +675,10 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             y_concat = pd.concat([y_train, y_valid])
             n_train = len(X_train)
             n_val = len(X_valid)
+
+            # Prepare the indices for fitting
             train_idx = np.arange(0, n_train)
             valid_idx = np.arange(n_train, n_train + n_val)
-
             self.fit_model(
                 merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
             )
@@ -776,14 +779,14 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
     def get_best_candidates(self, top_k=None):
         if top_k is None:
             return self.candidate_ranking
-        else:
-            return self.candidate_ranking.limit(top_k)
+        return self.candidate_ranking.limit(top_k)
 
     def fit(self, X, y):
         self._start_time("prepare")
-        X_train, X_valid, y_train, y_valid = train_test_split(
-            X, y, test_size=self.valid_size
-        )
+        # Prepare splits
+        train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
+        X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+        X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
         self._end_time("prepare")
         ranking = []
 
@@ -794,6 +797,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             desc="BestSingleJoin",
             position=2,
         ):
+            # Join on the candidate
             self._start_time("join_train")
             _, cnd_md, left_on, right_on = cjoin.get_join_information()
             cnd_table = pl.read_parquet(cnd_md["full_path"])
@@ -804,8 +808,11 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             self._end_time("join_train")
 
             self._start_time("model_train")
+            # Build the model
             self.build_model(merged_train)
-            self.fit_model(merged_train, y_train, merged_valid, y_valid)
+            self.fit_model(
+                merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+            )
 
             y_pred = self.predict_model(merged_valid)
             metric = self._evaluate_candidate(y_valid, y_pred)
@@ -840,7 +847,9 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
         self._start_time("model_train")
         self.build_model(best_train)
-        self.fit_model(best_train, y_train, best_valid, y_valid)
+        self.fit_model(
+            merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+        )
         self.candidate_ranking = pl.from_dicts(ranking).sort("metric", descending=True)
         self._end_time("model_train")
 
@@ -935,9 +944,9 @@ class FullJoin(BaseJoinWithCandidatesMethod):
         if self.with_validation:
             self._start_time("prepare")
             if X is not None and y is not None:
-                X_train, X_valid, y_train, y_valid = train_test_split(
-                    X, y, test_size=0.2
-                )
+                train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
+                X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+                X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
             merged_train = pl.from_pandas(X_train).clone().lazy()
             self._end_time("prepare")
             self._start_time("join_train")
@@ -951,7 +960,9 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             self._end_time("join_train")
             self._start_time("model_train")
             self.build_model(merged_train)
-            self.fit_model(merged_train, y_train, merged_valid, y_valid)
+            self.fit_model(
+                merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+            )
             self._end_time("model_train")
 
         else:
@@ -1113,15 +1124,17 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
     def fit(self, X: pd.DataFrame, y):
         self._start_time("prepare")
-        X_train, X_valid, y_train, y_valid = train_test_split(
-            X, y, test_size=self.valid_size
-        )
+        train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
+        X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+        X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
         self.candidate_ranking = self._build_ranking(X)
         # BASE TABLE
         self._start_time("model_train")
         self.build_model(X_train)
-        self.fit_model(X_train, y_train, X_valid, y_valid)
+        self.fit_model(
+            merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+        )
         self._end_time("model_train")
         self._start_time("model_predict")
         y_pred = self.predict_model(X_valid)
@@ -1165,7 +1178,9 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
                 self._start_time("model_train")
                 self.build_model(temp_X_train)
-                self.fit_model(temp_X_train, y_train, temp_X_valid, y_valid)
+                self.fit_model(
+                    merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+                )
                 self._end_time("model_train")
 
                 self._start_time("prepare")
