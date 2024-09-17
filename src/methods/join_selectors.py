@@ -15,15 +15,23 @@ from pytabkit.models.sklearn.sklearn_interfaces import (
     Resnet_RTDL_D_Regressor,
 )
 from sklearn.base import BaseEstimator
+from sklearn.compose import (
+    ColumnTransformer,
+    make_column_selector,
+    make_column_transformer,
+)
+from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, SGDClassifier
 from sklearn.metrics import f1_score, r2_score
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import ShuffleSplit, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, TargetEncoder
 from tqdm import tqdm
 
 import src.utils.joining as ju
 from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import CandidateJoin
+from src.utils.constants import SUPPORTED_MODELS
 
 SUPPORTED_BUDGET_TYPES = ["iterations"]
 SUPPORTED_RANKING_METHODS = ["containment"]
@@ -37,24 +45,24 @@ def measure_containment(
 ):
     """This function measures the exact Jaccard containment of the query column
     `left_on` in `source_table` in column `right_on` in table `cand_table`.
-    
+
     Containment is defined as JC(Q,X) = |Q intersection X| / |Q|
 
     Args:
         source_table (pl.DataFrame): Source table.
         cand_table (pl.DataFrame): Candidate table to query on.
-        left_on (list): Query column. 
+        left_on (list): Query column.
         right_on (list): Candidate column
 
     Returns:
-        float: Containment value. 
-    
+        float: Containment value.
+
     Raises:
         NotImplmentedError if more than one column is provided.
     """
     if len(left_on) > 1 or len(right_on) > 1:
         raise NotImplementedError("Only single query columns are supported")
-    
+
     unique_source = source_table[left_on].unique()
     unique_cand = cand_table[right_on].unique()
 
@@ -92,6 +100,39 @@ def build_containment_ranking(X: pd.DataFrame, candidate_joins: dict):
     return ranking_df
 
 
+def _split_X_y(X, y, test_size=0.2):
+    s = ShuffleSplit(test_size=test_size)
+    train_idx, valid_idx = next(s.split(X, y))
+
+    return train_idx, valid_idx
+
+
+def _build_preprocessor(target_type="regressor"):
+    num_transformer = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="mean")),
+            ("scaler", StandardScaler()),
+        ]
+    )
+
+    cat_transformer = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("target_encoder", TargetEncoder(target_type=target_type)),
+        ]
+    )
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", num_transformer, make_column_selector(dtype_include=np.number)),
+            ("cat", cat_transformer, make_column_selector(dtype_include=object)),
+        ],
+        remainder="passthrough",
+    )
+
+    return preprocessor
+
+
 class BaseJoinEstimator(BaseEstimator):
     """BaseJoinEstimator class. This class is extended by the other estimators.
     Note that, despite it being called `BaseJoinEstimator`, this class is used as base for the NoJoin estimator as well.
@@ -100,8 +141,8 @@ class BaseJoinEstimator(BaseEstimator):
     def __init__(
         self,
         scenario_logger: ScenarioLogger,
-        target_column: str = None,
-        model_parameters: dict = None,
+        target_column: str | None = None,
+        model_parameters: dict | None = None,
         task: str = "regression",
     ) -> None:
         """Base JoinEstimator class. This class is supposed to be extended by the
@@ -122,12 +163,16 @@ class BaseJoinEstimator(BaseEstimator):
         """
         super().__init__()
 
-        if task not in ["regression", "classification"]:
+        if task == "regression":
+            self.target_type = "continuous"
+        elif task == "classification":
+            self.target_type = "binary"
+        else:
             raise ValueError(f"Task {task} not supported.")
 
         self.chosen_model = model_parameters["chosen_model"]
 
-        if self.chosen_model not in ["catboost", "linear"]:
+        if self.chosen_model not in SUPPORTED_MODELS:
             raise ValueError(f"Model {self.chosen_model} not supported.")
 
         self.name = "base_estimator"
@@ -146,13 +191,13 @@ class BaseJoinEstimator(BaseEstimator):
 
         self.model = None
         self.cat_features = None
+
+        self.preprocessor = _build_preprocessor(self.target_type)
+
         if self.chosen_model == "linear":
             self.with_validation = False
-            self.cat_encoder = None
-        else:
-            self.cat_encoder = None
 
-    def build_model(self, X=None):
+    def build_model(self, X: pd.DataFrame | None = None):
         """Build the model using the parameters supplied during __init__.
         Note that multiple models may be created by a JoinEstimator during training.
 
@@ -171,6 +216,10 @@ class BaseJoinEstimator(BaseEstimator):
             self.build_catboost(cat_features)
         elif self.chosen_model == "linear":
             self.build_linear()
+        elif self.chosen_model == "resnet":
+            self.build_resnet()
+        elif self.chosen_model == "realmlp":
+            self.build_realmlp()
         else:
             raise ValueError(f"Chosen model {self.model} is not recognized.")
 
@@ -188,7 +237,7 @@ class BaseJoinEstimator(BaseEstimator):
             "l2_leaf_reg": 0.01,
             "od_type": "Iter",
             "od_wait": 10,
-            "iterations": 100,
+            "iterations": 300,
             "verbose": 0,
         }
 
@@ -213,7 +262,6 @@ class BaseJoinEstimator(BaseEstimator):
             ValueError: Raise ValueError if the value in `self.task` is not a
             valid task (`regression` or `classification`).
         """
-        self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
         if self.task == "regression":
             self.model = LinearRegression()
         elif self.task == "classification":
@@ -223,6 +271,12 @@ class BaseJoinEstimator(BaseEstimator):
 
     def build_realmlp(self):
         """Build an estimator based on RealMLP."""
+        defaults = {
+            "device": "cpu",
+            "n_threads": 32,
+            "max_epochs": 256,
+        }
+
         if self.task == "regression":
             self.model = RealMLP_TD_Regressor(device="cpu", n_threads=32)
         elif self.task == "classification":
@@ -289,13 +343,30 @@ class BaseJoinEstimator(BaseEstimator):
         return cat_features
 
     def fit_model(
-        self, X_train, y_train, X_valid=None, y_valid=None, skip_validation=False
+        self,
+        X,
+        y,
+        validation_indices: tuple = None,
+        skip_validation: bool = False,
+        # self, X_train, y_train, X_valid=None, y_valid=None, skip_validation=False
     ):
+        if isinstance(X, pl.DataFrame):
+            X = X.to_pandas()
+        if isinstance(y, pl.Series):
+            y = y.to_pandas()
+
+        if validation_indices is not None:
+            train_idx, valid_idx = validation_indices
+            X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+            X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
+        else:
+            # No validation set, keep all passed samples as train
+            X_train, y_train = X, y
         if self.chosen_model == "linear":
             assert isinstance(self.model, (LinearRegression, SGDClassifier))
-            X_train = self.prepare_table(X_train)
-            self.cat_encoder.fit(X_train)
-            X_enc = self.cat_encoder.transform(X_train)
+            X_train, _ = self.prepare_table_nn(X_train)
+            self.preprocessor.fit(X_train, y_train)
+            X_enc = self.preprocessor.transform(X_train)
             self.model.fit(X=X_enc, y=y_train)
         elif self.chosen_model == "catboost":
             assert isinstance(self.model, (CatBoostRegressor, CatBoostClassifier))
@@ -305,47 +376,45 @@ class BaseJoinEstimator(BaseEstimator):
                 self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
             else:
                 self.model.fit(X=X_train, y=y_train)
-        elif self.chosen_model == "resnet":
-            raise NotImplementedError
+        elif self.chosen_model in ["resnet", "realmlp"]:
             assert isinstance(
                 self.model, (Resnet_RTDL_D_Regressor, Resnet_RTDL_D_Classifier)
             )
-            X_train = self.prepare_table(X_train)
-
-            if self.with_validation and not skip_validation:
-                X_valid = self.prepare_table(X_valid)
-                self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
-            else:
-                self.model.fit(X=X_train, y=y_train)
-        elif self.chosen_model == "realmlp":
-            assert isinstance(self.model, (RealMLP_TD_Regressor, RealMLP_TD_Classifier))
-            X_train, cat_features = self.prepare_table_nn(X_train)
-
-            self.cat_encoder.fit(X_train)
-            X_enc = self.cat_encoder.transform(X_train)
-
+            X_train, _ = self.prepare_table_nn(X_train)
             X_valid, _ = self.prepare_table_nn(X_valid)
+
+            self.preprocessor.fit(X_train, y_train)
+            X_train_enc = self.preprocessor.transform(X_train)
+            X_valid_enc = self.preprocessor.transform(X_valid)
+
+            X_concat = np.concatenate([X_train_enc, X_valid_enc])
+            y_concat = np.concatenate([y_train, y_valid])
+
             self.model.fit(
-                X=X_train,
-                y=y_train,
-                eval_set=(X_valid, y_valid),
-                cat_features=cat_features,
+                X=X_concat,
+                y=y_concat,
+                val_idxs=valid_idx,
+                # cat_features=cat_features,
             )
         else:
             raise ValueError
 
     def predict_model(self, X):
         if self.chosen_model == "linear":
-            X = self.prepare_table(X)
-            X_enc = self.cat_encoder.transform(X)
+            X, _ = self.prepare_table_nn(X)
+            X_enc = self.preprocessor.transform(X)
             y_pred = self.model.predict(X_enc)
         elif self.chosen_model == "catboost":
             X = self.prepare_table(X)
             y_pred = self.model.predict(X)
         elif self.chosen_model == "resnet":
-            pass
+            X, _ = self.prepare_table_nn(X)
+            X_enc = self.preprocessor.transform(X)
+            y_pred = self.model.predict(X_enc)
         elif self.chosen_model == "realmlp":
-            pass
+            X, _ = self.prepare_table_nn(X)
+            X_enc = self.preprocessor.transform(X)
+            y_pred = self.model.predict(X_enc)
         else:
             raise ValueError
         return y_pred
@@ -356,15 +425,15 @@ class BaseJoinEstimator(BaseEstimator):
     def get_additional_info(self):
         raise NotImplementedError
 
-    def retrain_cat_encoder(self):
-        self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
+    # def retrain_preprocessor(self):
+    #     self.preprocessor = _build_preprocessor(self.target_type)
 
-    def fit_cat_encoder(self, table):
-        if self.chosen_model == "linear":
-            self.cat_encoder = OneHotEncoder(handle_unknown="ignore")
-            self.cat_encoder.fit(table)
-        else:
-            return None
+    # def fit_preprocessor(self, table):
+    #     if self.chosen_model == "linear":
+    #         self.preprocessor = OneHotEncoder(handle_unknown="ignore")
+    #         self.preprocessor.fit(table)
+    #     else:
+    #         return None
 
     def _start_time(self, label: str):
         self.timestamps[label] = [dt.datetime.now(), None]
@@ -577,7 +646,10 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
         self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
 
         if self.with_validation:
-            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+            train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
+            X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+            X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
+
             self._end_time("prepare")
             self._start_time("join_train")
             merged_train, merged_valid = self._execute_joins(
@@ -587,11 +659,26 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
                 left_on=self.left_on,
                 right_on=self.right_on,
             )
+            merged_train, merged_valid = (
+                merged_train.to_pandas(),
+                merged_valid.to_pandas(),
+            )
             self.n_joined_columns = len(merged_train.columns)
             self._end_time("join_train")
             self._start_time("model_train")
             self.build_model(merged_train)
-            self.fit_model(merged_train, y_train, merged_valid, y_valid)
+
+            # Concatenate the two splits for fitting
+            merged_concat = pd.concat([merged_train, merged_valid])
+            y_concat = pd.concat([y_train, y_valid])
+            n_train = len(X_train)
+            n_val = len(X_valid)
+            train_idx = np.arange(0, n_train)
+            valid_idx = np.arange(n_train, n_train + n_val)
+
+            self.fit_model(
+                merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+            )
             self._end_time("model_train")
         else:
             self._end_time("prepare")
