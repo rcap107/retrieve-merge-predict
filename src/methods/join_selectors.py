@@ -133,6 +133,24 @@ def _build_preprocessor(target_type="regressor"):
     return preprocessor
 
 
+def _prepare_splits_for_validation(X_train, X_valid, y_train, y_valid):
+    # Concatenate the two splits for fitting
+    X_concat = pd.concat([X_train, X_valid])
+    y_concat = pd.concat([y_train, y_valid])
+
+    return X_concat, y_concat
+
+
+def _get_valid_indices(X_train, X_valid):
+    n_train = len(X_train)
+    n_val = len(X_valid)
+
+    # Prepare the indices for fitting
+    train_idx = np.arange(0, n_train)
+    valid_idx = np.arange(n_train, n_train + n_val)
+    return (train_idx, valid_idx)
+
+
 class BaseJoinEstimator(BaseEstimator):
     """BaseJoinEstimator class. This class is extended by the other estimators.
     Note that, despite it being called `BaseJoinEstimator`, this class is used as base for the NoJoin estimator as well.
@@ -377,9 +395,6 @@ class BaseJoinEstimator(BaseEstimator):
             else:
                 self.model.fit(X=X_train, y=y_train)
         elif self.chosen_model in ["resnet", "realmlp"]:
-            assert isinstance(
-                self.model, (Resnet_RTDL_D_Regressor, Resnet_RTDL_D_Classifier)
-            )
             X_train, _ = self.prepare_table_nn(X_train)
             X_valid, _ = self.prepare_table_nn(X_valid)
 
@@ -556,27 +571,36 @@ class NoJoin(BaseJoinEstimator):
         self.name = "nojoin"
 
     def fit(
-        self, X=None, y=None, X_train=None, y_train=None, X_valid=None, y_valid=None
+        self,
+        X: pd.DataFrame | None = None,
+        y=None,
+        X_train=None,
+        y_train=None,
+        X_valid=None,
+        y_valid=None,
     ):
-        # TODO: ADD ERROR CHECKING HERE
+        if X.shape[0] != y.shape[0]:
+            raise ValueError
 
         if self.with_validation:
-
             self._start_time("prepare")
+            train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
+            X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+            X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
-            if X is not None and y is not None:
-                if X.shape[0] != y.shape[0]:
-                    raise ValueError
-                train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
-                X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
-                X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
             self.build_model(X_train)
 
             self.n_joined_columns = len(X_train.columns)
             self._end_time("prepare")
 
             self._start_time("model_train")
-            self.fit_model(X_train, y_train, validation_indices=(train_idx, valid_idx))
+
+            train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
+            X_prep, y_prep = _prepare_splits_for_validation(
+                X_train, X_valid, y_train, y_valid
+            )
+
+            self.fit_model(X_prep, y_prep, validation_indices=(train_idx, valid_idx))
             _end = dt.datetime.now()
             self._end_time("model_train")
         else:
@@ -647,13 +671,16 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
         self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
 
+        # Models with validation (i.e., not linear)
         if self.with_validation:
+            # Split in train and validation
             train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
             X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
             X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
             self._end_time("prepare")
             self._start_time("join_train")
+            # Execute join separately on each split (to avoid contamination with aggr)
             merged_train, merged_valid = self._execute_joins(
                 X_train=X_train,
                 X_valid=X_valid,
@@ -671,14 +698,14 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
             self.build_model(merged_train)
 
             # Concatenate the two splits for fitting
-            merged_concat = pd.concat([merged_train, merged_valid])
-            y_concat = pd.concat([y_train, y_valid])
-            n_train = len(X_train)
-            n_val = len(X_valid)
+            merged_concat, y_concat = _prepare_splits_for_validation(
+                merged_train, merged_valid, y_train, y_valid
+            )
 
             # Prepare the indices for fitting
-            train_idx = np.arange(0, n_train)
-            valid_idx = np.arange(n_train, n_train + n_val)
+            train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
+
+            # Fit the given model
             self.fit_model(
                 merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
             )
@@ -805,11 +832,24 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             merged_train, merged_valid = self._execute_joins(
                 X_train, X_valid, cnd_table, left_on, right_on
             )
+            merged_train, merged_valid = (
+                merged_train.to_pandas(),
+                merged_valid.to_pandas(),
+            )
+
             self._end_time("join_train")
 
             self._start_time("model_train")
             # Build the model
             self.build_model(merged_train)
+            # Concatenate the two splits for fitting
+            merged_concat, y_concat = _prepare_splits_for_validation(
+                merged_train, merged_valid, y_train, y_valid
+            )
+
+            # Prepare the indices for fitting
+            train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
+
             self.fit_model(
                 merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
             )
@@ -847,9 +887,14 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
         self._start_time("model_train")
         self.build_model(best_train)
-        self.fit_model(
-            merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+        best_concat, y_concat = _prepare_splits_for_validation(
+            best_train, best_valid, y_train, y_valid
         )
+
+        # Prepare the indices for fitting
+        train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
+
+        self.fit_model(best_concat, y_concat, validation_indices=(train_idx, valid_idx))
         self.candidate_ranking = pl.from_dicts(ranking).sort("metric", descending=True)
         self._end_time("model_train")
 
@@ -943,10 +988,9 @@ class FullJoin(BaseJoinWithCandidatesMethod):
     ):
         if self.with_validation:
             self._start_time("prepare")
-            if X is not None and y is not None:
-                train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
-                X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
-                X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
+            train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
+            X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+            X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
             merged_train = pl.from_pandas(X_train).clone().lazy()
             self._end_time("prepare")
             self._start_time("join_train")
@@ -960,6 +1004,16 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             self._end_time("join_train")
             self._start_time("model_train")
             self.build_model(merged_train)
+            # Concatenate the two splits for fitting
+            merged_concat, y_concat = _prepare_splits_for_validation(
+                merged_train, merged_valid, y_train, y_valid
+            )
+
+            # Prepare the indices for fitting
+            train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
+
+            # Fit the given model
+
             self.fit_model(
                 merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
             )
@@ -1132,9 +1186,17 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         # BASE TABLE
         self._start_time("model_train")
         self.build_model(X_train)
-        self.fit_model(
-            merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+
+        # Concatenate the two splits for fitting
+        X_concat, y_concat = _prepare_splits_for_validation(
+            X_train, X_valid, y_train, y_valid
         )
+
+        # Prepare the indices for fitting
+        train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
+
+        # Fit the given model
+        self.fit_model(X_concat, y_concat, validation_indices=(train_idx, valid_idx))
         self._end_time("model_train")
         self._start_time("model_predict")
         y_pred = self.predict_model(X_valid)
@@ -1147,7 +1209,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.current_X_valid = X_valid
 
         # TODO: rewrite this to account for different budget types
-        for iter_ in tqdm(
+        for _ in tqdm(
             range(self.budget_amount),
             total=self.budget_amount,
             desc="StepwiseGreedyJoin - Iterating: ",
@@ -1178,6 +1240,15 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
                 self._start_time("model_train")
                 self.build_model(temp_X_train)
+                # Concatenate the two splits for fitting
+                merged_concat, y_concat = _prepare_splits_for_validation(
+                    temp_X_train, temp_X_valid, y_train, y_valid
+                )
+
+                # Prepare the indices for fitting
+                train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
+
+                # Fit the given model
                 self.fit_model(
                     merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
                 )
@@ -1223,15 +1294,15 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 task=self.task,
             )
             self._end_time("prepare")
-            if self.chosen_model == "catboost":
+            if self.chosen_model == "linear":
+                self.wrap_up_joiner.fit(X, y)
+            else:
                 self.wrap_up_joiner.fit(
                     X_train=X_train,
                     y_train=y_train,
                     X_valid=X_valid,
                     y_valid=y_valid,
                 )
-            else:
-                self.wrap_up_joiner.fit(X, y)
 
         self.n_joined_columns = self.wrap_up_joiner.n_joined_columns
         self.update_durations(self.wrap_up_joiner.get_durations())
