@@ -20,6 +20,7 @@ from sklearn.compose import (
     make_column_selector,
     make_column_transformer,
 )
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression, SGDClassifier
 from sklearn.metrics import f1_score, r2_score
@@ -110,14 +111,17 @@ def _split_X_y(X, y, test_size=0.2):
 def _build_preprocessor(target_type="regressor"):
     num_transformer = Pipeline(
         steps=[
-            ("imputer", SimpleImputer(strategy="mean")),
+            ("imputer", SimpleImputer(strategy="mean", keep_empty_features=True)),
             ("scaler", StandardScaler()),
         ]
     )
 
     cat_transformer = Pipeline(
         steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
+            (
+                "imputer",
+                SimpleImputer(strategy="most_frequent", keep_empty_features=True),
+            ),
             ("target_encoder", TargetEncoder(target_type=target_type)),
         ]
     )
@@ -440,15 +444,21 @@ class BaseJoinEstimator(BaseEstimator):
     def get_additional_info(self):
         raise NotImplementedError
 
-    # def retrain_preprocessor(self):
-    #     self.preprocessor = _build_preprocessor(self.target_type)
+    def _fit_inner_model(self, X, y):
+        self.preprocessor.fit(X, y)
+        X_enc = self.preprocessor.transform(X)
+        if self.task == "regression":
+            self.inner_model = RandomForestRegressor()
+        elif self.task == "classification":
+            self.inner_model = RandomForestClassifier()
+        else:
+            raise ValueError
 
-    # def fit_preprocessor(self, table):
-    #     if self.chosen_model == "linear":
-    #         self.preprocessor = OneHotEncoder(handle_unknown="ignore")
-    #         self.preprocessor.fit(table)
-    #     else:
-    #         return None
+        self.inner_model.fit(X_enc, y)
+
+    def _predict_inner_model(self, X):
+        X_enc = self.preprocessor.transform(X)
+        return self.inner_model.predict(X_enc)
 
     def _start_time(self, label: str):
         self.timestamps[label] = [dt.datetime.now(), None]
@@ -774,6 +784,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         join_parameters: dict = None,
         task: str = "regression",
         valid_size: float = 0.2,
+        use_rf: bool = False,
     ) -> None:
         """
         Args:
@@ -793,7 +804,10 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             join_parameters,
             task,
         )
+        self.use_rf = use_rf
         self.name = "best_single_join"
+        if use_rf:
+            self.name += "_rf"
         self.candidate_ranking = None
 
         self.best_cnd_hash = None
@@ -850,15 +864,19 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
             # Prepare the indices for fitting
             train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
 
-            self.fit_model(
-                merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
-            )
-
-            y_pred = self.predict_model(merged_valid)
+            if self.use_rf:
+                self._fit_inner_model(merged_train, y_train)
+                self._end_time("model_train")
+                self._start_time("prepare")
+                y_pred = self._predict_inner_model(merged_valid)
+            else:
+                self.fit_model(
+                    merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
+                )
+                self._end_time("model_train")
+                self._start_time("prepare")
+                y_pred = self.predict_model(merged_valid)
             metric = self._evaluate_candidate(y_valid, y_pred)
-            self._end_time("model_train")
-
-            self._start_time("prepare")
             ranking.append({"candidate": hash_, "metric": metric})
 
             if metric > self.best_cnd_metric:
@@ -890,7 +908,6 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         best_concat, y_concat = _prepare_splits_for_validation(
             best_train, best_valid, y_train, y_valid
         )
-
         # Prepare the indices for fitting
         train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
 
@@ -983,9 +1000,7 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             print("Full join not available with DFS.")
             return None
 
-    def fit(
-        self, X=None, y=None, X_train=None, y_train=None, X_valid=None, y_valid=None
-    ):
+    def fit(self, X=None, y=None):
         if self.with_validation:
             self._start_time("prepare")
             train_idx, valid_idx = _split_X_y(X, y, test_size=0.2)
@@ -1001,6 +1016,12 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             merged_valid = ju.execute_join_all_candidates(
                 merged_valid, self.candidate_joins, self.join_parameters["aggregation"]
             )
+
+            merged_train, merged_valid = (
+                merged_train.to_pandas(),
+                merged_valid.to_pandas(),
+            )
+
             self._end_time("join_train")
             self._start_time("model_train")
             self.build_model(merged_train)
@@ -1141,6 +1162,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         valid_size: float = 0.2,
         max_candidates: int = 50,
         task: str = "regression",
+        use_rf: bool = False,
     ) -> None:
         super().__init__(
             scenario_logger,
@@ -1152,6 +1174,9 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         )
 
         self.name = "stepwise_greedy_join"
+        self.use_rf = use_rf
+        if use_rf:
+            self.name += "_rf"
         self.budget_type, self.budget_amount = self._check_budget(
             budget_type, budget_amount
         )
@@ -1172,6 +1197,8 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         self.already_evaluated = {cjoin: 0 for cjoin in self.candidate_joins.keys()}
         self.base_epsilon = epsilon
         self.epsilon = epsilon
+
+        self.inner_model = None
 
         self.wrap_up_joiner = None
         self.wrap_up_joiner_params = model_parameters
@@ -1236,6 +1263,12 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                     right_on,
                     suffix=cjoin.candidate_id[:10],
                 )
+
+                temp_X_train, temp_X_valid = (
+                    temp_X_train.to_pandas(),
+                    temp_X_valid.to_pandas(),
+                )
+
                 self._end_time("join_train")
 
                 self._start_time("model_train")
@@ -1249,13 +1282,21 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 train_idx, valid_idx = _get_valid_indices(X_train, X_valid)
 
                 # Fit the given model
-                self.fit_model(
-                    merged_concat, y_concat, validation_indices=(train_idx, valid_idx)
-                )
-                self._end_time("model_train")
+                if self.use_rf:
+                    self._fit_inner_model(temp_X_train, y_train)
+                    self._end_time("model_train")
+                    self._start_time("prepare")
+                    y_pred = self._predict_inner_model(temp_X_valid)
+                else:
+                    self.fit_model(
+                        merged_concat,
+                        y_concat,
+                        validation_indices=(train_idx, valid_idx),
+                    )
+                    self._end_time("model_train")
+                    self._start_time("prepare")
+                    y_pred = self.predict_model(temp_X_valid)
 
-                self._start_time("prepare")
-                y_pred = self.predict_model(temp_X_valid)
                 metric = self._evaluate_candidate(y_valid, y_pred)
                 self._end_time("prepare")
             else:
@@ -1278,12 +1319,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 task=self.task,
             )
             self._end_time("prepare")
-            self.wrap_up_joiner.fit(
-                X_train=X_train,
-                y_train=y_train,
-                X_valid=X_valid,
-                y_valid=y_valid,
-            )
+            self.wrap_up_joiner.fit(X=X, y=y)
 
         else:
             self._start_time("prepare")
@@ -1294,15 +1330,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
                 task=self.task,
             )
             self._end_time("prepare")
-            if self.chosen_model == "linear":
-                self.wrap_up_joiner.fit(X, y)
-            else:
-                self.wrap_up_joiner.fit(
-                    X_train=X_train,
-                    y_train=y_train,
-                    X_valid=X_valid,
-                    y_valid=y_valid,
-                )
+            self.wrap_up_joiner.fit(X=X, y=y)
 
         self.n_joined_columns = self.wrap_up_joiner.n_joined_columns
         self.update_durations(self.wrap_up_joiner.get_durations())
