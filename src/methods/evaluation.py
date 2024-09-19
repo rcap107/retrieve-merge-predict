@@ -17,7 +17,6 @@ from src.methods.join_selectors import (
     HighestContainmentJoin,
     NoJoin,
     StepwiseGreedyJoin,
-    TopKFullJoin,
 )
 
 logger_sh = logging.getLogger("pipeline")
