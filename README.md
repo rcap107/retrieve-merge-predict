@@ -1,6 +1,6 @@
 Retrieve, Merge, Predict: Augmenting Tables with Data Lakes
 ===
-This repository contains the code for implementing and running the pipeline described in the paper "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes.
+This repository contains the code for implementing and running the pipeline described in the paper "Retrieve, Merge, Predict: Augmenting Tables with Data Lakes" (https://arxiv.org/abs/2402.06282).
 
 The objective is modeling a situation where an user is trying to execute ML tasks on some base data, enriching it by
 using new tables found in a data lake using retrieval methods.
