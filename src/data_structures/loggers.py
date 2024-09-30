@@ -7,7 +7,7 @@ from pathlib import Path
 from time import process_time
 
 import polars as pl
-from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
+from sklearn.metrics import f1_score, r2_score, roc_auc_score, root_mean_squared_error
 from tqdm import tqdm
 
 import src.utils.logging as log
@@ -413,12 +413,17 @@ class RunLogger:
             raise KeyError(f"Label {label} not found in mem_usage.")
 
     def measure_results(self, y_true, y_pred):
+        if isinstance(y_true, pl.Series):
+            y_true = y_true.to_pandas()
+        if isinstance(y_pred, pl.Series):
+            y_pred = y_pred.to_pandas()
+
         if y_true.shape[0] != y_pred.shape[0]:
             raise ValueError("The provided vectors have inconsistent shapes.")
 
         if self.task == "regression":
             self.results["r2"] = r2_score(y_true, y_pred)
-            self.results["rmse"] = mean_squared_error(y_true, y_pred, squared=False)
+            self.results["rmse"] = root_mean_squared_error(y_true, y_pred)
         elif self.task == "classification":
             self.results["f1"] = f1_score(y_true, y_pred)
             self.results["auc"] = roc_auc_score(y_true, y_pred)
