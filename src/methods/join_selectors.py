@@ -1,5 +1,6 @@
 import datetime as dt
 import random
+import warnings
 from collections import deque
 from itertools import islice
 from typing import Tuple, Union
@@ -47,8 +48,13 @@ from src.data_structures.loggers import ScenarioLogger
 from src.data_structures.metadata import CandidateJoin
 from src.utils.constants import SUPPORTED_MODELS
 
+warnings.filterwarnings("ignore")
+
+
 SUPPORTED_BUDGET_TYPES = ["iterations"]
 SUPPORTED_RANKING_METHODS = ["containment"]
+
+CACHE_PATH = "results/cache"
 
 # For reproducibility
 CATBOOST_RANDOM_SEED = 42
@@ -136,7 +142,10 @@ def _build_preprocessor(target_type="regressor"):
                 SimpleImputer(strategy="most_frequent", keep_empty_features=True),
             ),
             # ("target_encoder", TargetEncoder(target_type=target_type, smooth=5000.0)),
-            ("ordinal_encoder", OrdinalEncoder(handle_unknown="ignore")),
+            (
+                "ordinal_encoder",
+                OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
+            ),
             # ("onehot_encoder", OneHotEncoder(handle_unknown="ignore")),
         ]
     )
@@ -147,10 +156,6 @@ def _build_preprocessor(target_type="regressor"):
         ],
         remainder="passthrough",
     )
-
-    preprocessor = TableVectorizer(n_jobs=32)
-
-    preprocessor = tabular_learner(RandomForestRegressor())
 
     return preprocessor
 
@@ -308,7 +313,6 @@ class BaseJoinSelector(BaseEstimator):
     def build_realmlp(self):
         """Build an estimator based on RealMLP."""
         defaults = {
-            "device": "cpu",
             "n_threads": 32,
         }
 
@@ -325,9 +329,9 @@ class BaseJoinSelector(BaseEstimator):
     def build_resnet(self):
         """Build an estimator based on ResNet."""
         if self.task == "regression":
-            self.model = Resnet_RTDL_D_Regressor(device="cpu", n_threads=32)
+            self.model = Resnet_RTDL_D_Regressor(n_threads=32)
         elif self.task == "classification":
-            self.model = Resnet_RTDL_D_Classifier(device="cpu", n_threads=32)
+            self.model = Resnet_RTDL_D_Classifier(n_threads=32)
         else:
             raise ValueError
 
@@ -383,17 +387,13 @@ class BaseJoinSelector(BaseEstimator):
         y,
         validation_set: tuple | None = None,
     ):
-        if isinstance(X, pl.DataFrame):
-            X = X.to_pandas()
-        if isinstance(y, pl.Series):
-            y = y.to_pandas()
-
         if validation_set is not None:
             X_train, y_train = X, y
             X_valid, y_valid = validation_set
             if self.chosen_model == "catboost":
                 X_train = self.prepare_table(X_train)
                 X_valid = self.prepare_table(X_valid)
+                y_train, y_valid = y_train.to_pandas(), y_valid.to_pandas()
                 self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
             elif self.chosen_model in ["resnet", "realmlp"]:
                 X_train, _ = self.prepare_table_preprocessing(X_train)
@@ -441,11 +441,7 @@ class BaseJoinSelector(BaseEstimator):
     def get_additional_info(self):
         raise NotImplementedError
 
-    def _fit_predict_inner_model(self, X_train, y, X_valid, method="rf"):
-        if isinstance(X_train, pl.DataFrame):
-            X_train = X_train.to_pandas()
-        if isinstance(X_valid, pl.DataFrame):
-            X_valid = X_valid.to_pandas()
+    def _prepare_inner_model(self):
 
         if self.task == "regression":
             inner_model = make_pipeline(
@@ -454,8 +450,10 @@ class BaseJoinSelector(BaseEstimator):
                     low_cardinality=OrdinalEncoder(
                         handle_unknown="use_encoded_value", unknown_value=np.nan
                     ),
+                    n_jobs=1,
                 ),
-                RandomForestRegressor(),
+                RandomForestRegressor(n_jobs=1),
+                memory=CACHE_PATH,
             )
         else:
             inner_model = make_pipeline(
@@ -464,9 +462,19 @@ class BaseJoinSelector(BaseEstimator):
                     low_cardinality=OrdinalEncoder(
                         handle_unknown="use_encoded_value", unknown_value=np.nan
                     ),
+                    n_jobs=32,
                 ),
-                RandomForestClassifier(),
+                RandomForestClassifier(n_jobs=32),
+                memory=CACHE_PATH,
             )
+        return inner_model
+
+    def _fit_predict_inner_model(self, X_train, X_valid, y, inner_model):
+        # if isinstance(X_train, pl.DataFrame):
+        #     X_train = X_train.to_pandas()
+
+        # if isinstance(X_valid, pl.DataFrame):
+        #     X_valid = X_valid.to_pandas()
 
         inner_model.fit(X_train, y)
         self._end_time("model_train")
@@ -540,8 +548,7 @@ class BaseJoinSelector(BaseEstimator):
             pd.DataFrame: Prepared dataframe
             list: List of categorical columns
         """
-        if isinstance(table, pd.DataFrame):
-            table = pl.from_pandas(table)
+        table = pl.from_pandas(table)
 
         cat_features = table.select(cs.string()).columns
         # Storing the original column order
@@ -551,7 +558,7 @@ class BaseJoinSelector(BaseEstimator):
         table = table.select(
             cs.string().fill_null("null"), cs.numeric().fill_null("mean")
         ).select(_columns)
-        return table.to_pandas(), cat_features
+        return table, cat_features
 
 
 class BaseJoinWithCandidatesMethod(BaseJoinSelector):
@@ -875,8 +882,9 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
             method = "rf"
             if self.use_rf:
+                inner_model = self._prepare_inner_model()
                 y_pred = self._fit_predict_inner_model(
-                    merged_train, y_train, merged_valid, method
+                    merged_train, merged_valid, y_train, inner_model
                 )
             else:
                 self.fit_model(
@@ -924,7 +932,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
     def predict(self, X):
         self._start_time("join_predict")
         merged_test = ju.execute_join_with_aggregation(
-            pl.from_pandas(X),
+            X,
             self.best_cnd_table,
             left_on=self.left_on,
             right_on=self.right_on,
@@ -956,7 +964,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
         self, X_train, X_valid=None, cnd_table=None, left_on=None, right_on=None
     ):
         merged_train = ju.execute_join_with_aggregation(
-            pl.from_pandas(X_train),
+            X_train,
             cnd_table,
             left_on=left_on,
             right_on=right_on,
@@ -965,7 +973,7 @@ class BestSingleJoin(BaseJoinWithCandidatesMethod):
 
         if X_valid is not None:
             merged_valid = ju.execute_join_with_aggregation(
-                pl.from_pandas(X_valid),
+                X_valid,
                 cnd_table,
                 left_on=left_on,
                 right_on=right_on,
@@ -1199,17 +1207,14 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
                 # Fit the given model
                 if self.use_rf:
-                    # temp_X_train["y"] = y_train
-                    _preprocessor = self._fit_inner_model(temp_X_train, y_train)
-                    self._end_time("model_train")
-                    self._start_time("prepare")
-                    # temp_X_valid["y"] = y_valid
-                    y_pred = self._predict_inner_model(temp_X_valid, _preprocessor)
+                    y_pred = self._prepare_inner_model(
+                        merged_train, y_train, merged_valid, method
+                    )
                 else:
                     self.fit_model(
-                        merged_concat,
-                        y_concat,
-                        validation_set=(train_idx, valid_idx),
+                        temp_X_train,
+                        y_train,
+                        validation_set=(temp_X_valid, y_valid),
                     )
                     self._end_time("model_train")
                     self._start_time("prepare")
