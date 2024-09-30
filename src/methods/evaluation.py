@@ -72,13 +72,13 @@ def prepare_X_y(src_df: pl.DataFrame, target_column: str, schema: dict = None):
     Returns:
         pd.DataFrame, pd.Series: Dataframe and target series to be used in the training.
     """
-    y = src_df[target_column].to_pandas()
+    y = src_df[target_column]
     df = src_df.clone().cast(schema).fill_null(value="null").fill_nan(value=np.nan)
     if schema is None:
         df = ju.cast_features(df)
     else:
         df = df.cast(schema)
-    X = df.drop(target_column).to_pandas()
+    X = df.drop(target_column)
 
     return X, y
 
