@@ -7,10 +7,11 @@ split_kind = "group_shuffle"
 
 ["join_parameters"]
 join_strategy = "left"
-aggregation = ["dfs"]
+aggregation = ["first"]
 
 ["evaluation_models"]
-chosen_model = ["linear"]
+chosen_model = ["catboost"]
+# chosen_model = ["linear", "realmlp", "resnet"]
 catboost.iterations = 300
 catboost.od_type = "Iter"
 catboost.od_wait = 10
@@ -20,24 +21,26 @@ catboost.thread_count = 32
 ["estimators"]
 # Activation
 no_join.active = false
-top_k_full_join.active = true
-best_single_join.active = false
+top_k_full_join.active = false
+best_single_join.active = true
+best_single_join.use_rf = [true]
 full_join.active = false
 stepwise_greedy_join.active = false
+stepwise_greedy_join.use_rf = true
 highest_containment.active=false
 # Parameters
-top_k_full_join.top_k = 1
+top_k_full_join.top_k = 5
 stepwise_greedy_join.budget_type = "iterations"
 stepwise_greedy_join.budget_amount = [30]
 stepwise_greedy_join.epsilon = [0.0]
 stepwise_greedy_join.ranking_metric = "containment"
 
 ["query_cases"]
-data_lake = ["wordnet_vldb_10"]
+data_lake = ["wordnet_full"]
 join_discovery_method = ["exact_matching",]
 table_path = [
-    "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
-    # "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
+    # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
+    "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
     # "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
     # "data/source_tables/yadl/movies_large-yadl-depleted.parquet",
     # "data/source_tables/yadl/movies_vote_large-yadl-depleted.parquet",
@@ -46,4 +49,4 @@ table_path = [
     # "data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet",
 ]
 query_column = "col_to_embed"
-top_k = [30]
+top_k = [10]
