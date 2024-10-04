@@ -25,12 +25,9 @@ from skrub import (
     tabular_learner,
 )
 
-from src.utils.indexing import load_query_result
-
 CACHE_PATH = "results/cache"
 
 
-# %%
 def prepare_skmodel():
     inner_model = make_pipeline(
         TableVectorizer(
@@ -82,60 +79,71 @@ def fit_predict_catboost(X_train, X_valid, y_train, model: CatBoostRegressor):
     return model.predict(X_valid)
 
 
+def merge(X_train, X_valid, cand_info):
+    path = cand_info["candidate_path"]
+    left_on = cand_info["left_on"]
+    right_on = cand_info["right_on"]
+
+    cnd_table = pl.read_parquet(path)
+
+    aggr = AggJoiner(
+        cnd_table, main_key=left_on, aux_key=right_on, operations=["mean", "mode"]
+    )
+    X_merged_train = aggr.fit_transform(X_train)
+    X_merged_valid = aggr.fit_transform(X_valid)
+
+    return X_merged_train, X_merged_valid
+
+
 # %%
-def prepare():
-    df = pl.read_parquet(
-        "data/source_tables/yadl/company_employees-yadl-depleted.parquet"
+def test_multi(X, y, candidates, model):
+    assert model in ["catboost", "sklearn"]
+
+    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+
+    for k, cand_info in candidates:
+        X_merged_train, X_merged_valid = merge(X_train, X_valid, cand_info)
+        if model == "sklearn":
+            test_sklearn(X_merged_train, X_merged_valid, y_train, y_valid)
+        elif model == "catboost":
+            test_catboost(X_merged_train, X_merged_valid, y_train, y_valid)
+
+
+# %%
+def test_sklearn(X_merged_train, X_merged_valid, y_train, y_valid):
+    print("preparing sklearn")
+    inner_model = prepare_skmodel()
+    print("fitting")
+    y_predict = fit_predict_skmodel(
+        X_merged_train, X_merged_valid, y_train, inner_model
     )
+    r2 = r2_score(y_valid, y_predict)
+    print(r2)
 
-    X = df.drop("target")
-    y = df["target"]
 
-    query_info = {
-        "data_lake": "wordnet_full",
-        "table_path": "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
-        "query_column": "col_to_embed",
-        "top_k": 10,
-        "join_discovery_method": "exact_matching",
-    }
-
-    query_tab_path = Path(query_info["table_path"])
-    if not query_tab_path.exists():
-        raise FileNotFoundError(f"File {query_tab_path} not found.")
-
-    tab_name = query_tab_path.stem
-    query_result = load_query_result(
-        query_info["data_lake"],
-        query_info["join_discovery_method"],
-        tab_name,
-        query_info["query_column"],
-        top_k=query_info["top_k"],
+# %%
+def test_catboost(X_merged_train, X_merged_valid, y_train, y_valid):
+    print("preparing catboost")
+    model = prepare_catboost(X_merged_train)
+    print("fitting")
+    _X_train, _X_valid = prepare_table_catboost(X_merged_train), prepare_table_catboost(
+        X_merged_valid
     )
+    _y = y_train.to_pandas()
+    y_predict = fit_predict_catboost(_X_train, _X_valid, _y, model)
 
-    candidate_joins = query_result.candidates
-
-    return X, y, candidate_joins
-
-
-#%%
-def prep_cjoin(candidates):
-    clean_cjoin = {}
-
-    with open("candidates.txt", "w") as fp:
-        for k, v in candidates.items():
-            clean_cjoin[k] = {
-                "candidate_path": Path(v.candidate_metadata["full_path"]).name,
-                "left_on": v.left_on,
-                "right_on": v.right_on,
-            }
-            fp.write(clean_cjoin[-k]["candidate_path"] + "\n")
-    return clean_cjoin
+    r2 = r2_score(y_valid, y_predict)
+    print(r2)
 
 
-#%%
-X, y, cjoin = prepare()
-#%%
-clean_cjoin = prep_cjoin(cjoin)
+# %%
+df = pl.read_parquet("company_employees-yadl-depleted.parquet")
 
-pickle.dump(clean_cjoin, open("candidates.pickle", "wb"))
+X = df.drop("target")
+y = df["target"]
+
+candidates = pickle.load(open("candidates.pickle", "rb"))
+
+model = "sklearn"
+test_multi(X, y, candidates, "sklearn")
 # %%
