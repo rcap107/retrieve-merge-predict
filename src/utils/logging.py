@@ -7,8 +7,6 @@ from pathlib import Path
 
 import polars as pl
 
-import src.utils.plotting as plotting
-
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
 
@@ -161,49 +159,6 @@ def archive_experiment(exp_name):
         tar.add(results_path, arcname=exp_name)
 
 
-def wrap_up_plot(exp_name, task="regression", variable_of_interest=None):
-    """Prepare and save the plots relevant to the task under consideration.
-    If the task is `regression`, plot `r2score`, if the task is `classification`,
-    plot `f1score`.
-
-    Args:
-        exp_name (str): Name of the current experiment.
-        task (str, optional): Task under consideration, either `regression` or
-        `classification`. Defaults to "regression".
-    """
-    df_raw = read_logs(exp_name=exp_name)
-
-    if task == "regression":
-        current_score = "r2score"
-    else:
-        current_score = "f1score"
-
-    path_target_run = Path("results/logs/", exp_name)
-
-    if variable_of_interest is not None:
-        for gname, group in df_raw.group_by(variable_of_interest):
-            for case in [current_score, "time_run"]:
-                path_plot = Path(path_target_run, "plots", f"{gname}_{case}.png")
-                ax = plotting.base_barplot(group.to_pandas(), result_variable=case)
-                ax.savefig(path_plot)
-
-            path_plot = Path(
-                path_target_run, "plots", f"{gname}_scatter_time_{current_score}.png"
-            )
-            ax = plotting.base_relplot(group.to_pandas(), y_variable=current_score)
-            ax.savefig(path_plot)
-
-    else:
-        for case in [current_score, "time_run"]:
-            path_plot = Path(path_target_run, "plots", f"overall_{case}.png")
-            ax = plotting.base_barplot(df_raw.to_pandas(), result_variable=case)
-            ax.savefig(path_plot)
-
-        path_plot = Path(path_target_run, "plots", f"scatter_time_{current_score}.png")
-        ax = plotting.base_relplot(df_raw.to_pandas(), y_variable=current_score)
-        ax.savefig(path_plot)
-
-
 def prepare_data_for_plotting(df: pl.DataFrame) -> pl.DataFrame:
     max_diff = df.select(pl.col("difference").abs().max()).item()
     df = df.with_columns((pl.col("difference") / max_diff).alias("scaled_diff"))
@@ -211,6 +166,14 @@ def prepare_data_for_plotting(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def read_and_process(df_results):
+    """This function processes all runs in a fixed way to have consistent results.
+
+    Args:
+        df_results (pl.DataFrame): Dataframe that contains the results.
+
+    Returns:
+        results: Prepared results
+    """
     keep_cases = [
         "us_accidents_2021-yadl-depleted",
         "housing_prices-yadl-depleted",
@@ -223,8 +186,8 @@ def read_and_process(df_results):
         "housing_prices-depleted_County-open_data",
         "us_elections-yadl-depleted",
         "schools-depleted-open_data",
-        "movies_large-yadl-depleted",
-        "movies_large-depleted-open_data",
+        # "movies_large-yadl-depleted",
+        # "movies_large-depleted-open_data",
         "us_accidents_2021-depleted-open_data_County",
         "us_accidents_large-depleted-open_data_County",
     ]
@@ -247,6 +210,8 @@ def read_and_process(df_results):
                 "time_fit",
                 "time_predict",
                 "time_run",
+                "peak_fit",
+                "peak_predict",
             ]
         )
     ).with_columns(
@@ -276,11 +241,13 @@ def read_and_process(df_results):
         "time_fit",
         "time_predict",
         "time_run",
+        "peak_fit",
+        "peak_predict",
         "difference",
     ]
     joined = joined.select(projection)
 
-    results_depleted = joined.filter(pl.col("base_table").str.contains("depleted"))
-    results_depleted = prepare_data_for_plotting(results_depleted)
+    _results = joined.filter(pl.col("base_table").str.contains("depleted"))
+    _results = prepare_data_for_plotting(_results)
 
-    return results_depleted
+    return _results
