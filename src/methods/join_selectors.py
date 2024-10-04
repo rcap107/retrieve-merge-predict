@@ -22,9 +22,7 @@ from sklearn.compose import (
     make_column_selector,
     make_column_transformer,
 )
-from sklearn.ensemble import (
-    HistGradientBoostingClassifier,
-    HistGradientBoostingRegressor,
+from sklearn.ensemble import (  # HistGradientBoostingClassifier,; HistGradientBoostingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
 )
@@ -92,6 +90,16 @@ def measure_containment(
 
 
 def build_containment_ranking(X: pd.DataFrame, candidate_joins: dict):
+    """Given a table X and a list of candidates in any ranking, re-rank everything
+    based on Jaccard containment.
+
+    Args:
+        X (pd.DataFrame): The base table to evaluate the containment on.
+        candidate_joins (dict): All the candidate join objects to be ranked.
+
+    Returns:
+        pl.DataFrame: The candidate ranking.
+    """
     containment_list = []
     for hash_, mdata in tqdm(
         candidate_joins.items(),
@@ -391,8 +399,8 @@ class BaseJoinSelector(BaseEstimator):
             X_train, y_train = X, y
             X_valid, y_valid = validation_set
             if self.chosen_model == "catboost":
-                X_train = self.prepare_table(X_train)
-                X_valid = self.prepare_table(X_valid)
+                X_train = (self.prepare_table(X_train)).to_pandas()
+                X_valid = (self.prepare_table(X_valid)).to_pandas()
                 y_train, y_valid = y_train.to_pandas(), y_valid.to_pandas()
                 self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
             elif self.chosen_model in ["resnet", "realmlp"]:
@@ -427,7 +435,7 @@ class BaseJoinSelector(BaseEstimator):
 
     def predict_model(self, X):
         if self.chosen_model == "catboost":
-            X = self.prepare_table(X)
+            X = (self.prepare_table(X)).to_pandas()
             y_pred = self.model.predict(X)
         else:
             X, _ = self.prepare_table_preprocessing(X)
@@ -548,8 +556,6 @@ class BaseJoinSelector(BaseEstimator):
             pd.DataFrame: Prepared dataframe
             list: List of categorical columns
         """
-        table = pl.from_pandas(table)
-
         cat_features = table.select(cs.string()).columns
         # Storing the original column order
         _columns = table.columns
@@ -558,7 +564,7 @@ class BaseJoinSelector(BaseEstimator):
         table = table.select(
             cs.string().fill_null("null"), cs.numeric().fill_null("mean")
         ).select(_columns)
-        return table, cat_features
+        return table.to_pandas(), cat_features
 
 
 class BaseJoinWithCandidatesMethod(BaseJoinSelector):
@@ -590,7 +596,7 @@ class BaseJoinWithCandidatesMethod(BaseJoinSelector):
     ) -> Union[pl.DataFrame, Tuple[pl.DataFrame, pl.DataFrame]]:
         # Execute the join on the main table
         merged_train = ju.execute_join_with_aggregation(
-            pl.from_pandas(X_train),
+            X_train,
             cnd_table,
             left_on=left_on,
             right_on=right_on,
@@ -601,7 +607,7 @@ class BaseJoinWithCandidatesMethod(BaseJoinSelector):
         # Join separately to avoid aggr. leakage
         if X_valid is not None:
             merged_valid = ju.execute_join_with_aggregation(
-                pl.from_pandas(X_valid),
+                X_valid,
                 cnd_table,
                 left_on=left_on,
                 right_on=right_on,
@@ -657,12 +663,10 @@ class NoJoin(BaseJoinSelector):
 
             self._start_time("model_train")
             self.fit_model(X_train, y_train, validation_set=(X_valid, y_valid))
-            _end = dt.datetime.now()
             self._end_time("model_train")
         else:
             self._start_time("prepare")
             self.build_model(X)
-            _end = dt.datetime.now()
             self.n_joined_columns = len(X.columns)
             self._end_time("prepare")
 
