@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 # %%
 import polars as pl
 
-from src.utils import plotting
+from src.utils import constants, plotting
 from src.utils.logging import read_and_process
-from src.utils import constants
+
 
 #%%
 def prepare_general():
@@ -23,9 +23,13 @@ def prepare_general():
     # Use the standard method for reading all results for consistency.
     df_results = pl.read_parquet(result_path)
     current_results = read_and_process(df_results)
-    others = [col for col in current_results.columns if col not in constants.GROUPING_KEYS + ["case"]]
+    others = [
+        col
+        for col in current_results.columns
+        if col not in constants.GROUPING_KEYS + ["case"]
+    ]
     current_results = current_results.group_by(constants.GROUPING_KEYS + ["case"]).agg(
-    pl.mean(others)
+        pl.mean(others)
     )
     current_results = current_results.filter(pl.col("estimator") != "nojoin")
     _d = current_results.filter(
@@ -37,7 +41,7 @@ def prepare_general():
 def prepare_aggr():
     target_tables = [
         "company_employees",
-        "movies_large",
+        # "movies_large",
         "us_accidents_2021",
         "us_county_population",
         "schools",

@@ -4,11 +4,11 @@ This script is used to prepare the special case of aggregation in figure 5(c) in
 
 # %%
 # %cd ~/bench
+
 # %%
 import polars as pl
 
-from src.utils import plotting, constants
-
+from src.utils import constants, plotting
 from src.utils.logging import read_and_process
 
 cfg = pl.Config()
@@ -19,20 +19,26 @@ this_case = "dep"
 target_tables = [
     "company_employees",
     # "housing_prices",
-    "movies_large",
+    # "movies_large",
     "us_accidents_2021",
     # "us_accidents_large",
     "us_county_population",
     # "us_elections",
     "schools",
 ]
+
+
 # %%
 aggr_result_path = "stats/overall/overall_aggr.parquet"
 df_results = pl.read_parquet(aggr_result_path)
 current_results = read_and_process(df_results)
-others = [col for col in current_results.columns if col not in constants.GROUPING_KEYS + ["case"]]
+others = [
+    col
+    for col in current_results.columns
+    if col not in constants.GROUPING_KEYS + ["case"]
+]
 results_aggr = current_results.group_by(constants.GROUPING_KEYS + ["case"]).agg(
-pl.mean(others)
+    pl.mean(others)
 )
 
 results_aggr = results_aggr.filter(
@@ -53,7 +59,7 @@ plotting.draw_pair_comparison(
     scatterplot_dimension=scatter_d,
     figsize=(10, 2.1),
     scatter_mode="split",
-    savefig=True,
+    savefig=False,
     savefig_type=["png", "pdf"],
     case=this_case,
     colormap_name="Set1",

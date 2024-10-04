@@ -4,7 +4,7 @@ Main script for figure 3: plot the comparison between different methods.
 #%%
 import polars as pl
 
-from src.utils import plotting, constants
+from src.utils import constants, plotting
 from src.utils.logging import read_and_process
 
 cfg = pl.Config()
@@ -23,6 +23,7 @@ def get_cases(df: pl.DataFrame, keep_nojoin: bool = False) -> dict:
 
     return dict(zip(*list(cases.values())))
 
+
 #%%
 def prepare_general():
     result_path = "stats/overall/overall_first.parquet"
@@ -30,9 +31,13 @@ def prepare_general():
     # Use the standard method for reading all results for consistency.
     df_results = pl.read_parquet(result_path)
     current_results = read_and_process(df_results)
-    others = [col for col in current_results.columns if col not in constants.GROUPING_KEYS + ["case"]]
+    others = [
+        col
+        for col in current_results.columns
+        if col not in constants.GROUPING_KEYS + ["case"]
+    ]
     current_results = current_results.group_by(constants.GROUPING_KEYS + ["case"]).agg(
-    pl.mean(others)
+        pl.mean(others)
     )
     current_results = current_results.filter(pl.col("estimator") != "nojoin")
     _d = current_results.filter(
@@ -43,10 +48,10 @@ def prepare_general():
 
 #%%
 
-save_figures = True
+save_figures = False
 
 current_results = prepare_general()
-case="dep"
+case = "dep"
 
 # Plot estimator
 var = "estimator"
