@@ -11,8 +11,13 @@ from collections import deque
 from datetime import datetime as dt
 from pathlib import Path
 
+import submitit
 import toml
+from joblib import Memory
 from tqdm import tqdm
+
+mem = Memory(location="__cache__", verbose=0)
+
 
 # Fixing the number of polars threads for better reproducibility.
 os.environ["POLARS_MAX_THREADS"] = "32"
@@ -75,30 +80,30 @@ def parse_args():
     return parser.parse_args()
 
 
+@mem.cache
+def run_one(parameters, gpu=False):
+    # Setup device to use GPU or not
+    if gpu and torch.cuda.is_available():
+        device = "cuda"
+    elif gpu:
+        raise RuntimeError("requested GPU run but cuda is not available.")
+    else:
+        device = "cpu"
+    print("Using device:", device)
+
+    # do computation and save as file.
+    result = 42
+
+    return result
+
+
 if __name__ == "__main__":
     args = parse_args()
     os.makedirs("results/logs", exist_ok=True)
 
     start_run = dt.now()
-    # If args.recovery_path is provided, the script will look for the missing_runs.pickle file in the given path and
-    # try to reboot a run from there.
-    if args.recovery_path is not None:
-        if args.recovery_path.exists():
-            pth = args.recovery_path
-            missing_runs_path = Path(pth, "missing_runs.pickle")
-            missing_runs_config = Path(pth, pth.stem + ".cfg")
-            with open(missing_runs_config, "r") as fp:
-                base_config = json.load(fp)
-            run_variants = pickle.load(open(missing_runs_path, "rb"))
-        else:
-            raise IOError(f"File {args.recovery_path} not found.")
-    else:
-        # No recovery, simply read a toml file from the given input path.
-        base_config = toml.load(args.input_path)
-        run_variants = prepare_config_dict(base_config, args.debug)
-
-    # Using a queue for better convenience when preparing missing runs.
-    run_queue = deque(run_variants)
+    base_config = toml.load(args.input_path)
+    run_variants = prepare_config_dict(base_config, args.debug)
 
     if not args.debug:
         exp_name = setup_run_logging(base_config)
@@ -109,8 +114,8 @@ if __name__ == "__main__":
 
     # Submit one task per set of parameters
     executor = get_executor_marg(
-        "awesome_task",
-        timeout_hour=10,
+        "retrieve-merge-predict",
+        timeout_hour=72,
         n_cpus=args.n_cpus,
         max_parallel_tasks=10,
         gpu=args.gpu,
@@ -120,24 +125,10 @@ if __name__ == "__main__":
     print("Submitting jobs...", end="", flush=True)
     with executor.batch():
         tasks = [
-            executor.submit(run_one, **parameters, gpu=args.gpu)
-            for parameters in list_parameters
+            executor.submit(single_run, (parameters, exp_name), gpu=args.gpu)
+            for parameters in run_variants
         ]
 
-    while len(run_queue) > 0:
-        this_config = run_queue.pop()
-        # For each variant, overwrite the missing_runs.pickle file with the current missing runs
-        if not args.debug:
-            with open(pth_missing_runs, "wb") as fp:
-                pickle.dump(list(run_queue), fp)
-        pprint_config = pprint.pformat(this_config)
-        tqdm.write(pprint_config)
-        single_run(this_config, exp_name)
-        progress_bar.update(1)
-    progress_bar.close()
-
-    if args.archive:
-        archive_experiment(exp_name)
     end_run = dt.now()
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
