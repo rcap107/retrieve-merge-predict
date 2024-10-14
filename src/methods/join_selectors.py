@@ -3,6 +3,7 @@ import random
 import warnings
 from collections import deque
 from itertools import islice
+from multiprocessing import cpu_count
 from typing import Tuple, Union
 
 import numpy as np
@@ -22,6 +23,7 @@ from sklearn.compose import (
     make_column_selector,
     make_column_transformer,
 )
+from sklearn.decomposition import PCA
 from sklearn.ensemble import (  # HistGradientBoostingClassifier,; HistGradientBoostingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
@@ -38,7 +40,13 @@ from sklearn.preprocessing import (
     TargetEncoder,
 )
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from skrub import GapEncoder, MinHashEncoder, TableVectorizer, tabular_learner
+from skrub import (
+    DatetimeEncoder,
+    GapEncoder,
+    MinHashEncoder,
+    TableVectorizer,
+    tabular_learner,
+)
 from tqdm import tqdm
 
 import src.utils.joining as ju
@@ -48,6 +56,7 @@ from src.utils.constants import SUPPORTED_MODELS
 
 warnings.filterwarnings("ignore")
 
+MAX_THREADS = min([cpu_count(), 32, 1])
 
 SUPPORTED_BUDGET_TYPES = ["iterations"]
 SUPPORTED_RANKING_METHODS = ["containment"]
@@ -110,9 +119,7 @@ def build_containment_ranking(X: pd.DataFrame, candidate_joins: dict):
     ):
         _, cnd_md, left_on, right_on = mdata.get_join_information()
         cnd_table = pl.read_parquet(cnd_md["full_path"])
-        containment = measure_containment(
-            pl.from_pandas(X), cnd_table, left_on, right_on
-        )
+        containment = measure_containment(X, cnd_table, left_on, right_on)
         containment_list.append(
             {
                 "candidate": hash_,
@@ -136,33 +143,105 @@ def _split_X_y(X, y, test_size=0.2):
     return train_idx, valid_idx
 
 
-def _build_preprocessor(target_type="regressor"):
+def _build_preprocessor():
+
+    num_transformer = Pipeline(
+        steps=[
+            ("scaler", StandardScaler()),
+        ]
+    )
+
+    # Transformer for high cardinality categorical features
+    high_card_transformer = Pipeline(
+        steps=[
+            (
+                "onehot_encoder",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+            ),
+            ("pca", PCA(n_components=30)),
+        ],
+    )
+
+    low_card_transformer = Pipeline(
+        steps=[
+            (
+                "onehot_encoder",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+            ),
+        ],
+    )
+
+    tv = TableVectorizer(
+        low_cardinality=low_card_transformer,
+        high_cardinality=high_card_transformer,
+        numeric=num_transformer,
+        n_jobs=1,
+    )
+
+    ct = make_column_transformer(
+        (
+            SimpleImputer(strategy="mean", keep_empty_features=True),
+            make_column_selector(dtype_include=np.number),
+        ),
+        (
+            SimpleImputer(strategy="most_frequent", keep_empty_features=True),
+            make_column_selector(dtype_include=object),
+        ),
+    )
+
+    preprocessor = Pipeline(
+        steps=[
+            ("table_vectorizer", tv),
+            ("column_transformer", ct),
+        ]
+    )
+
+    return preprocessor
+
+
+def _build_preprocessor_old():
+
     num_transformer = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="mean", keep_empty_features=True)),
             ("scaler", StandardScaler()),
         ]
     )
-    cat_transformer = Pipeline(
+
+    # Transformer for high cardinality categorical features
+    high_card_transformer = Pipeline(
         steps=[
             (
                 "imputer",
                 SimpleImputer(strategy="most_frequent", keep_empty_features=True),
             ),
-            # ("target_encoder", TargetEncoder(target_type=target_type, smooth=5000.0)),
             (
-                "ordinal_encoder",
-                OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
+                "onehot_encoder",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
             ),
-            # ("onehot_encoder", OneHotEncoder(handle_unknown="ignore")),
-        ]
-    )
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", num_transformer, make_column_selector(dtype_include=np.number)),
-            ("cat", cat_transformer, make_column_selector(dtype_include=object)),
+            ("pca", PCA(n_components=30)),
         ],
-        remainder="passthrough",
+    )
+
+    low_card_transformer = Pipeline(
+        steps=[
+            (
+                "imputer",
+                SimpleImputer(strategy="most_frequent", keep_empty_features=True),
+            ),
+            (
+                "onehot_encoder",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+            ),
+        ],
+    )
+
+    preprocessor = TableVectorizer(
+        low_cardinality=low_card_transformer,
+        high_cardinality=high_card_transformer,
+        numeric=num_transformer,
+        datetime="drop",
+        n_jobs=MAX_THREADS,
     )
 
     return preprocessor
@@ -241,7 +320,7 @@ class BaseJoinSelector(BaseEstimator):
         self.model = None
         self.cat_features = None
 
-        self.preprocessor = _build_preprocessor(self.target_type)
+        self.preprocessor = _build_preprocessor()
 
         if self.chosen_model == "linear":
             self.with_validation = False
@@ -395,42 +474,39 @@ class BaseJoinSelector(BaseEstimator):
         y,
         validation_set: tuple | None = None,
     ):
-        if validation_set is not None:
-            X_train, y_train = X, y
-            X_valid, y_valid = validation_set
-            if self.chosen_model == "catboost":
-                X_train = (self.prepare_table(X_train)).to_pandas()
-                X_valid = (self.prepare_table(X_valid)).to_pandas()
-                y_train, y_valid = y_train.to_pandas(), y_valid.to_pandas()
-                self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
-            elif self.chosen_model in ["resnet", "realmlp"]:
-                X_train, _ = self.prepare_table_preprocessing(X_train)
-                self.preprocessor.fit(X_train, y_train)
-                X_train_enc = self.preprocessor.transform(X_train)
-                X_valid, _ = self.prepare_table_preprocessing(X_valid)
-                X_valid_enc = self.preprocessor.transform(X_valid)
+        X_train, y_train = X, y
+        X_valid, y_valid = validation_set
+        if self.chosen_model == "catboost":
+            X_train = (self.prepare_table(X_train)).to_pandas()
+            X_valid = (self.prepare_table(X_valid)).to_pandas()
+            y_train, y_valid = y_train.to_pandas(), y_valid.to_pandas()
+            self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
+        elif self.chosen_model in ["resnet", "realmlp"]:
+            X_train, _ = self.prepare_table_preprocessing(X_train)
+            X_train_enc = self.preprocessor.fit_transform(X_train, y_train)
+            X_valid, _ = self.prepare_table_preprocessing(X_valid)
+            X_valid_enc = self.preprocessor.transform(X_valid)
 
-                (
-                    X_concat,
-                    y_concat,
-                    _train_idx,
-                    _valid_idx,
-                ) = _reorder_indices_for_validation(
-                    X_train_enc, X_valid_enc, y_train, y_valid
-                )
+            (
+                X_concat,
+                y_concat,
+                _train_idx,
+                _valid_idx,
+            ) = _reorder_indices_for_validation(
+                X_train_enc, X_valid_enc, y_train, y_valid
+            )
 
-                self.model.fit(
-                    X=X_concat,
-                    y=y_concat,
-                    val_idxs=_valid_idx,
-                )
+            self.model.fit(
+                X=X_concat,
+                y=y_concat,
+                val_idxs=_valid_idx,
+            )
         else:
             # No validation set, keep all passed samples as train
             X_train, y_train = X, y
             # Linear
             X_train, _ = self.prepare_table_preprocessing(X_train)
-            self.preprocessor.fit(X_train, y_train)
-            X_train_enc = self.preprocessor.transform(X_train)
+            X_train_enc = self.preprocessor.fit_transform(X_train, y_train)
             self.model.fit(X=X_train_enc, y=y_train)
 
     def predict_model(self, X):
@@ -493,7 +569,7 @@ class BaseJoinSelector(BaseEstimator):
     def _fit_inner_model(self, X, y, method="rf"):
         if isinstance(X, pl.DataFrame):
             X = X.to_pandas()
-        # prep = _build_preprocessor(target_type=self.target_type)
+        # prep = _build_preprocessor()
         # prep.fit(X, y)
         # X_enc = prep.transform(X)
         if self.task == "regression":
@@ -562,7 +638,9 @@ class BaseJoinSelector(BaseEstimator):
 
         # We should try new and more clever imputation methods
         table = table.select(
-            cs.string().fill_null("null"), cs.numeric().fill_null("mean")
+            cs.string().fill_null("null"),
+            cs.numeric().fill_null("mean"),
+            cs.datetime().dt.to_string("%Y-%m-%d").fill_null("null"),
         ).select(_columns)
         return table.to_pandas(), cat_features
 
@@ -645,34 +723,31 @@ class NoJoin(BaseJoinSelector):
         if X.shape[0] != y.shape[0]:
             raise ValueError
 
-        if self.with_validation:
-            self._start_time("prepare")
+        self._start_time("prepare")
 
-            if validation_set is not None:
-                X_valid, y_valid = validation_set
-                X_train, y_train = X, y
-            else:
-                X_train, X_valid, y_train, y_valid = train_test_split(
-                    X, y, test_size=0.2
-                )
-
-            self.build_model(X_train)
-
-            self.n_joined_columns = len(X_train.columns)
-            self._end_time("prepare")
-
-            self._start_time("model_train")
-            self.fit_model(X_train, y_train, validation_set=(X_valid, y_valid))
-            self._end_time("model_train")
+        if validation_set is not None:
+            X_valid, y_valid = validation_set
+            X_train, y_train = X, y
         else:
-            self._start_time("prepare")
-            self.build_model(X)
-            self.n_joined_columns = len(X.columns)
-            self._end_time("prepare")
+            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
 
-            self._start_time("model_train")
-            self.fit_model(X, y)
-            self._end_time("model_train")
+        self.build_model(X_train)
+
+        self.n_joined_columns = len(X_train.columns)
+        self._end_time("prepare")
+
+        self._start_time("model_train")
+        self.fit_model(X_train, y_train, validation_set=(X_valid, y_valid))
+        self._end_time("model_train")
+        # else:
+        #     self._start_time("prepare")
+        #     self.build_model(X)
+        #     self.n_joined_columns = len(X.columns)
+        #     self._end_time("prepare")
+
+        #     self._start_time("model_train")
+        #     self.fit_model(X, y)
+        #     self._end_time("model_train")
 
     def predict(self, X):
         self._start_time("model_predict")
@@ -728,51 +803,47 @@ class HighestContainmentJoin(BaseJoinWithCandidatesMethod):
 
         self.best_cnd_table = pl.read_parquet(best_cnd_md["full_path"])
 
-        # Models with validation (i.e., not linear)
-        if self.with_validation:
-            # Split in train and validation
-            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+        # Split in train and validation
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
 
-            self._end_time("prepare")
-            self._start_time("join_train")
-            # Execute join separately on each split (to avoid contamination with aggr)
-            merged_train, merged_valid = self._execute_joins(
-                X_train=X_train,
-                X_valid=X_valid,
-                cnd_table=self.best_cnd_table,
-                left_on=self.left_on,
-                right_on=self.right_on,
-            )
-            self.n_joined_columns = len(merged_train.columns)
-            self._end_time("join_train")
-            self._start_time("model_train")
-            self.build_model(merged_train)
+        self._end_time("prepare")
+        self._start_time("join_train")
+        # Execute join separately on each split (to avoid contamination with aggr)
+        merged_train, merged_valid = self._execute_joins(
+            X_train=X_train,
+            X_valid=X_valid,
+            cnd_table=self.best_cnd_table,
+            left_on=self.left_on,
+            right_on=self.right_on,
+        )
+        self.n_joined_columns = len(merged_train.columns)
+        self._end_time("join_train")
+        self._start_time("model_train")
+        self.build_model(merged_train)
 
-            # Fit the given model
-            self.fit_model(
-                merged_train, y_train, validation_set=(merged_valid, y_valid)
-            )
-            self._end_time("model_train")
-        else:
-            self._end_time("prepare")
-            self._start_time("join_train")
-            merged_train = self._execute_joins(
-                X_train=X,
-                cnd_table=self.best_cnd_table,
-                left_on=self.left_on,
-                right_on=self.right_on,
-            )
-            self.n_joined_columns = len(merged_train.columns)
-            self._end_time("join_train")
-            self._start_time("model_train")
-            self.build_model(merged_train)
-            self.fit_model(merged_train, y)
-            self._end_time("model_train")
+        # Fit the given model
+        self.fit_model(merged_train, y_train, validation_set=(merged_valid, y_valid))
+        self._end_time("model_train")
+        # else:
+        #     self._end_time("prepare")
+        #     self._start_time("join_train")
+        #     merged_train = self._execute_joins(
+        #         X_train=X,
+        #         cnd_table=self.best_cnd_table,
+        #         left_on=self.left_on,
+        #         right_on=self.right_on,
+        #     )
+        #     self.n_joined_columns = len(merged_train.columns)
+        #     self._end_time("join_train")
+        #     self._start_time("model_train")
+        #     self.build_model(merged_train)
+        #     self.fit_model(merged_train, y)
+        #     self._end_time("model_train")
 
     def predict(self, X):
         self._start_time("join_predict")
         merged_test = ju.execute_join_with_aggregation(
-            pl.from_pandas(X),
+            X,
             self.best_cnd_table,
             left_on=self.left_on,
             right_on=self.right_on,
@@ -1031,45 +1102,42 @@ class FullJoin(BaseJoinWithCandidatesMethod):
             return None
 
     def fit(self, X=None, y=None):
-        if self.with_validation:
-            self._start_time("prepare")
-            X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
-            merged_train = pl.from_pandas(X_train).clone().lazy()
-            self._end_time("prepare")
-            self._start_time("join_train")
-            merged_train = ju.execute_join_all_candidates(
-                merged_train, self.candidate_joins, self.join_parameters["aggregation"]
-            )
-            merged_valid = pl.from_pandas(X_valid).clone().lazy()
-            merged_valid = ju.execute_join_all_candidates(
-                merged_valid, self.candidate_joins, self.join_parameters["aggregation"]
-            )
-            self._end_time("join_train")
-            self._start_time("model_train")
-            self.build_model(merged_train)
-            self.fit_model(
-                merged_train, y_train, validation_set=(merged_valid, y_valid)
-            )
-            self._end_time("model_train")
+        self._start_time("prepare")
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+        merged_train = X_train.clone().lazy()
+        self._end_time("prepare")
+        self._start_time("join_train")
+        merged_train = ju.execute_join_all_candidates(
+            merged_train, self.candidate_joins, self.join_parameters["aggregation"]
+        )
+        merged_valid = X_valid.clone().lazy()
+        merged_valid = ju.execute_join_all_candidates(
+            merged_valid, self.candidate_joins, self.join_parameters["aggregation"]
+        )
+        self._end_time("join_train")
+        self._start_time("model_train")
+        self.build_model(merged_train)
+        self.fit_model(merged_train, y_train, validation_set=(merged_valid, y_valid))
+        self._end_time("model_train")
 
-        else:
-            self._start_time("prepare")
-            merged_train = pl.from_pandas(X).clone().lazy()
-            self._end_time("prepare")
-            self._start_time("join_train")
-            merged_train = ju.execute_join_all_candidates(
-                merged_train, self.candidate_joins, self.join_parameters["aggregation"]
-            )
-            self._end_time("join_train")
-            self._start_time("model_train")
-            self.build_model(merged_train)
-            self.fit_model(merged_train, y)
-            self._end_time("model_train")
+        # else:
+        #     self._start_time("prepare")
+        #     merged_train = X.clone().lazy()
+        #     self._end_time("prepare")
+        #     self._start_time("join_train")
+        #     merged_train = ju.execute_join_all_candidates(
+        #         merged_train, self.candidate_joins, self.join_parameters["aggregation"]
+        #     )
+        #     self._end_time("join_train")
+        #     self._start_time("model_train")
+        #     self.build_model(merged_train)
+        #     self.fit_model(merged_train, y)
+        #     self._end_time("model_train")
         self.n_joined_columns = len(merged_train.columns)
 
     def predict(self, X: pd.DataFrame):
         self._start_time("join_predict")
-        merged_test = pl.from_pandas(X).clone().lazy()
+        merged_test = X.clone().lazy()
         merged_test = ju.execute_join_all_candidates(
             merged_test, self.candidate_joins, self.join_parameters["aggregation"]
         )
@@ -1350,7 +1418,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
         suffix="_right",
     ):
         if isinstance(X_train, pd.DataFrame):
-            X_train = pl.from_pandas(X_train)
+            X_train = X_train
         merged_train = ju.execute_join_with_aggregation(
             X_train,
             cnd_table,
@@ -1362,7 +1430,7 @@ class StepwiseGreedyJoin(BaseJoinWithCandidatesMethod):
 
         if X_valid is not None:
             if isinstance(X_valid, pd.DataFrame):
-                X_valid = pl.from_pandas(X_valid)
+                X_valid = X_valid
             merged_valid = ju.execute_join_with_aggregation(
                 X_valid,
                 cnd_table,
