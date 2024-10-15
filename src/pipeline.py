@@ -3,7 +3,7 @@ import logging
 import os
 from pathlib import Path
 
-import git
+# import git
 import polars as pl
 
 print(f"polars pool size: {pl.threadpool_size()}")
@@ -14,9 +14,17 @@ from src.data_structures.loggers import ScenarioLogger
 from src.utils.constants import SUPPORTED_MODELS
 from src.utils.indexing import load_query_result
 
-repo = git.Repo(search_parent_directories=True)
-repo_sha = repo.head.object.hexsha
+import subprocess
 
+def get_git_revision_hash():
+    full_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+    full_hash = str(full_hash, "utf-8").strip()
+    return full_hash
+
+repo_sha = get_git_revision_hash()
+
+# repo = git.Repo(search_parent_directories=True)
+# repo_sha = repo.head.object.hexsha
 
 def prepare_logger():
     logger = logging.getLogger("main")
@@ -131,10 +139,8 @@ def validate_configuration(run_config: dict):
     if not path_bt.exists():
         raise IOError(f"Base table file {path_bt} not found.")
 
-    suffix = path_bt.suffix
-    if not suffix in [".parquet", ".csv"]:
-        raise ValueError(f"Extension {suffix} not supported.")
-
+    # Loading the dataframe for testing columns
+    suffix = path_bt.suffix    
     if suffix == ".parquet":
         df = pl.read_parquet(path_bt)
     elif suffix == ".csv":
@@ -142,11 +148,13 @@ def validate_configuration(run_config: dict):
     else:
         raise ValueError(f"Base table type {suffix} not supported.")
 
+    # Checking that the query column is in the base table
     if not query_info["query_column"] in df.columns:
         raise ValueError(
             f"Query column {query_info['query_column']} not in {df.columns}."
         )
 
+    # Checking that the target column is in the base table
     _tgt = run_parameters.get("target_column", "target")
     if not _tgt in df.columns:
         raise ValueError(f"Target column {_tgt} not in {df.columns}.")
@@ -156,14 +164,18 @@ def validate_configuration(run_config: dict):
         "regression",
         "classification",
     ], f"Task {run_parameters['task']} not supported"
+
     assert run_parameters["debug"] in [True, False]
+
     assert (
         isinstance(run_parameters["n_splits"], int) and run_parameters["n_splits"] > 0
     ), f"Incorrect value {run_parameters['n_splits']} for n_splits."
+
     assert (
         isinstance(run_parameters["test_size"], float)
         and 0 < run_parameters["test_size"] < 1
     )
+    # TODO: this should be removed, we only use group_shuffle
     assert run_parameters["split_kind"] in ["group_shuffle"]
 
     # Check estimator parameters
