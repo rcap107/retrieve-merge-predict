@@ -16,6 +16,8 @@ telegram_*
 .DS_Store
 _site/
 results
+retrieve-merge-predict/
+rtdl_checkpoints/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
