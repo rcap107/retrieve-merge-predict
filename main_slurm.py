@@ -97,14 +97,68 @@ def run_one(parameters, gpu=False):
     return result
 
 
+def get_executor_marg(
+    job_name, timeout_hour=60, n_cpus=10, max_parallel_tasks=256, gpu=False
+):
+    """Return a submitit executor to launch various tasks on a SLURM cluster.
+
+    Parameters
+    ----------
+    job_name: str
+        Name of the tasks that will be run. It will be used to create an output
+        directory and display task info in squeue.
+    timeout_hour: int
+        Maximal number of hours the task will run before being interupted.
+    n_cpus: int
+        Number of CPUs requested for each task.
+    max_parallel_tasks: int
+        Maximal number of tasks that will run at once. This can be used to
+        limit the total amount of the cluster used by a script.
+    gpu: bool
+        If set to True, require one GPU per task.
+    """
+
+    executor = submitit.AutoExecutor(job_name)
+    executor.update_parameters(
+        timeout_min=180,
+        slurm_job_name=job_name,
+        slurm_time=f"{timeout_hour}:00:00",
+        array_parallelism=max_parallel_tasks,
+        slurm_additional_parameters={
+            "ntasks": 1,
+            "cpus-per-task": n_cpus,
+            "distribution": "block:block",
+        },
+    )
+    if gpu:
+        executor.update_parameters(
+            slurm_gres=f"gpu:1",
+            slurm_setup=[
+                "#SBATCH -p parietal,gpu,gpu-best",
+            ],
+        )
+    return executor
+
+
 if __name__ == "__main__":
     args = parse_args()
     os.makedirs("results/logs", exist_ok=True)
 
     start_run = dt.now()
-    base_config = toml.load(args.input_path)
-    run_variants = prepare_config_dict(base_config, args.debug)
-
+    if args.recovery_path is not None:
+        if args.recovery_path.exists():
+            pth = args.recovery_path
+            missing_runs_path = Path(pth, "missing_runs.pickle")
+            missing_runs_config = Path(pth, pth.stem + ".cfg")
+            with open(missing_runs_config, "r") as fp:
+                base_config = json.load(fp)
+            run_variants = pickle.load(open(missing_runs_path, "rb"))
+        else:
+            raise IOError(f"File {args.recovery_path} not found.")
+    else:
+        # No recovery, simply read a toml file from the given input path.
+        base_config = toml.load(args.input_path)
+        run_variants = prepare_config_dict(base_config, args.debug)
     if not args.debug:
         exp_name = setup_run_logging(base_config)
     else:
@@ -120,15 +174,22 @@ if __name__ == "__main__":
         max_parallel_tasks=10,
         gpu=args.gpu,
     )
+    for p in run_variants:
+        print(p)
 
     # Run the computation on SLURM cluster with `submitit`
     print("Submitting jobs...", end="", flush=True)
     with executor.batch():
         tasks = [
-            executor.submit(single_run, (parameters, exp_name), gpu=args.gpu)
+            executor.submit(
+                single_run, **{"run_config": parameters, "run_name": exp_name}
+            )
             for parameters in run_variants
         ]
 
     end_run = dt.now()
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
+
+    # for j in tasks:
+    #    print(j.result())
