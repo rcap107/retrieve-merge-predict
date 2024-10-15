@@ -272,3 +272,5 @@ def single_run(run_config: dict, run_name=None):
     scl.finish_run()
     # logger_scn.debug(scl.to_string())
     logger.info("Run end.")
+
+    return scl
