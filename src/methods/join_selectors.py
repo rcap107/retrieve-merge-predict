@@ -40,13 +40,7 @@ from sklearn.preprocessing import (
     TargetEncoder,
 )
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from skrub import (
-    DatetimeEncoder,
-    GapEncoder,
-    MinHashEncoder,
-    TableVectorizer,
-    tabular_learner,
-)
+from skrub import MinHashEncoder, TableVectorizer, tabular_learner
 from tqdm import tqdm
 
 import src.utils.joining as ju
@@ -56,7 +50,7 @@ from src.utils.constants import SUPPORTED_MODELS
 
 warnings.filterwarnings("ignore")
 
-MAX_THREADS = min([cpu_count(), 32, 1])
+MAX_THREADS = min([cpu_count(), 32])
 
 SUPPORTED_BUDGET_TYPES = ["iterations"]
 SUPPORTED_RANKING_METHODS = ["containment"]
@@ -194,54 +188,6 @@ def _build_preprocessor():
             ("table_vectorizer", tv),
             ("column_transformer", ct),
         ]
-    )
-
-    return preprocessor
-
-
-def _build_preprocessor_old():
-
-    num_transformer = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="mean", keep_empty_features=True)),
-            ("scaler", StandardScaler()),
-        ]
-    )
-
-    # Transformer for high cardinality categorical features
-    high_card_transformer = Pipeline(
-        steps=[
-            (
-                "imputer",
-                SimpleImputer(strategy="most_frequent", keep_empty_features=True),
-            ),
-            (
-                "onehot_encoder",
-                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-            ),
-            ("pca", PCA(n_components=30)),
-        ],
-    )
-
-    low_card_transformer = Pipeline(
-        steps=[
-            (
-                "imputer",
-                SimpleImputer(strategy="most_frequent", keep_empty_features=True),
-            ),
-            (
-                "onehot_encoder",
-                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-            ),
-        ],
-    )
-
-    preprocessor = TableVectorizer(
-        low_cardinality=low_card_transformer,
-        high_cardinality=high_card_transformer,
-        numeric=num_transformer,
-        datetime="drop",
-        n_jobs=MAX_THREADS,
     )
 
     return preprocessor
