@@ -10,7 +10,7 @@ join_strategy = "left"
 aggregation = ["first"]
 
 ["evaluation_models"]
-chosen_model = ["catboost"]
+chosen_model = ["linear"]
 # chosen_model = ["linear", "realmlp", "resnet"]
 catboost.iterations = 300
 catboost.od_type = "Iter"
@@ -23,10 +23,10 @@ catboost.thread_count = 32
 no_join.active = false
 top_k_full_join.active = false
 best_single_join.active = true
-best_single_join.use_rf = [true]
+best_single_join.use_rf = false
 full_join.active = false
 stepwise_greedy_join.active = false
-stepwise_greedy_join.use_rf = true
+stepwise_greedy_join.use_rf = false
 highest_containment.active=false
 # Parameters
 top_k_full_join.top_k = 5

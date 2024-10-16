@@ -21,8 +21,8 @@ catboost.l2_leaf_reg=0.01
 no_join.active=false
 stepwise_greedy_join.active=false
 highest_containment.active=false
-best_single_join.active=true
-full_join.active=false
+best_single_join.active=false
+full_join.active=true
 stepwise_greedy_join.budget_type="iterations"
 stepwise_greedy_join.budget_amount=[3]
 stepwise_greedy_join.epsilon=[0.0]
@@ -34,8 +34,8 @@ join_discovery_method=["exact_matching"]
 table_path=[
 # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
 # "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
-# "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
-"data/source_tables/yadl/movies-yadl-depleted.parquet",
+"data/source_tables/yadl/company_employees-yadl-depleted.parquet",
+# "data/source_tables/yadl/movies-yadl-depleted.parquet",
 # "data/source_tables/yadl/movies_vote-yadl-depleted.parquet",
 # "data/source_tables/yadl/us_accidents-yadl-depleted.parquet",
 # "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",

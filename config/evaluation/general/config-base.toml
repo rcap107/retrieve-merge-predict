@@ -1,7 +1,7 @@
 ["run_parameters"]
 task = "regression"
 debug = false
-n_splits = [5]
+n_splits = [10]
 test_size = 0.2
 split_kind = "group_shuffle"
 
@@ -11,43 +11,41 @@ join_strategy = "left"
 aggregation = ["first"]
 
 ["evaluation_models"]
-chosen_model = ["catboost"]
+chosen_model = ["linear"]
 catboost.iterations = 300
 catboost.od_type = "Iter"
 catboost.od_wait = 10
 catboost.l2_leaf_reg = 0.01
 catboost.thread_count = 32
 
-
 ["estimators"]
-no_join.active = false
-highest_containment.active = false
-full_join.active = false
+no_join.active = true
+highest_containment.active = true
+full_join.active = true
 
 top_k_full_join.active = false
 top_k_full_join.top_k = 1
 
 best_single_join.active = true
-best_single_join.use_rf = [true, false]
+best_single_join.use_rf = false
 
-stepwise_greedy_join.active = false
+stepwise_greedy_join.active = true
 stepwise_greedy_join.budget_type = "iterations"
 stepwise_greedy_join.budget_amount = [30]
 stepwise_greedy_join.epsilon = [0.0]
 stepwise_greedy_join.ranking_metric = "containment"
-stepwise_greedy_join.use_rf=true
+stepwise_greedy_join.use_rf=false
 
 ["query_cases"]
-data_lake = ["wordnet_vldb_10"]
-join_discovery_method = ["exact_matching"]
+data_lake = ["wordnet_vldb_10", "wordnet_full", "wordnet_vldb_50", "binary_update"]
+join_discovery_method = ["exact_matching", "minhash", "minhash_hybrid"]
 table_path = [
-    # "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
-    # "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
+    "data/source_tables/yadl/us_elections-yadl-depleted.parquet",
+    "data/source_tables/yadl/housing_prices-yadl-depleted.parquet",
     "data/source_tables/yadl/company_employees-yadl-depleted.parquet",
-    # "data/source_tables/yadl/movies_large-yadl-depleted.parquet",
-    # "data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet",
-    # "data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet",
-    # "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
+    "data/source_tables/yadl/us_accidents_2021-yadl-depleted.parquet",
+    "data/source_tables/yadl/us_accidents_large-yadl-depleted.parquet",
+    "data/source_tables/yadl/us_county_population-yadl-depleted.parquet",
 ]
 query_column = "col_to_embed"
 top_k = [30]
