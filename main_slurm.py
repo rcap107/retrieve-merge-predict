@@ -174,8 +174,6 @@ if __name__ == "__main__":
         max_parallel_tasks=10,
         gpu=args.gpu,
     )
-    for p in run_variants:
-        print(p)
 
     # Run the computation on SLURM cluster with `submitit`
     print("Submitting jobs...", end="", flush=True)
@@ -190,6 +188,3 @@ if __name__ == "__main__":
     end_run = dt.now()
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
-
-    # for j in tasks:
-    #    print(j.result())
