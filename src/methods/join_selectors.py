@@ -29,7 +29,7 @@ from sklearn.ensemble import (  # HistGradientBoostingClassifier,; HistGradientB
     RandomForestRegressor,
 )
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LinearRegression, SGDClassifier
+from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.metrics import f1_score, r2_score
 from sklearn.model_selection import ShuffleSplit, train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
@@ -380,20 +380,17 @@ class BaseJoinSelector(BaseEstimator):
             raise ValueError
 
     def build_linear(self):
-        """Build either a LinearRegression estimator for regression tasks, or a
-        SGDClassifier model for classification. Additionally, an OneHotEncoder
-        encoder is used to encode categorical values.
-
-
+        """Build either a Ridge regressor, or a LogisticRegression classifier
+        with default parameters.
 
         Raises:
             ValueError: Raise ValueError if the value in `self.task` is not a
             valid task (`regression` or `classification`).
         """
         if self.task == "regression":
-            self.model = LinearRegression()
+            self.model = Ridge()
         elif self.task == "classification":
-            self.model = SGDClassifier()
+            self.model = LogisticRegression()
         else:
             raise ValueError
 
