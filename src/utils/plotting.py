@@ -84,7 +84,7 @@ def get_difference_from_mean(
             )
         )
     else:
-        # By what % is method X better/worse than the reference? 
+        # By what % is method X better/worse than the reference?
         prepared_df = prepared_df.with_columns(
             (pl.col(result_column) - pl.col("reference_column")).alias(
                 f"diff_{column_to_average}_{result_column}"
@@ -392,7 +392,7 @@ def prepare_case_subplot(
 
     # This is the reference vertical line.
     ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
-    ax.axvline(ref_vline, alpha=0.4, zorder=0, color="blue", linestyle="--")
+    ax.axvline(ref_vline, alpha=0.6, zorder=0, color="tab:blue", linestyle="--")
 
     if kind == "violin":
         parts = ax.violinplot(
@@ -574,17 +574,17 @@ def draw_pair_comparison(
     figsize=(10, 4),
     axes=None,
 ):
-    """This function is used to prepare the paired plots used for the paper and other material. 
-    
-    It will prepare two subplots side-by-side; the first plot presents the relative difference in prediction performance 
-    from the "reference method" (i.e., the method provided as `grouping_dimension`). 
-    
-    The performance of the "reference method" itself is measured by finding the maximum difference between all methods 
+    """This function is used to prepare the paired plots used for the paper and other material.
+
+    It will prepare two subplots side-by-side; the first plot presents the relative difference in prediction performance
+    from the "reference method" (i.e., the method provided as `grouping_dimension`).
+
+    The performance of the "reference method" itself is measured by finding the maximum difference between all methods
     and that measured for the NoJoin case. This difference is then used as "reference point" against which all other methods
-    are compared. The median difference from the reference is also shown on the right of each plot.  
+    are compared. The median difference from the reference is also shown on the right of each plot.
 
     Args:
-        df (pl.DataFrame): Dataframe that contains the results. 
+        df (pl.DataFrame): Dataframe that contains the results.
         grouping_dimension (str): Which variable should be used to find the "reference" method (data lake, ml method, retrieval method etc.)
         scatterplot_dimension (str): Which variable should be use to plot the scatterplot. Normally, this should be "case".
         scatter_mode (str, optional): How to plot the scatterplot. Either "split" or "overlapping". Defaults to "overlapping".
