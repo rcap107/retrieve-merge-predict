@@ -5,7 +5,11 @@ the project.
 """
 
 # Supported models
-SUPPORTED_MODELS = ["linear", "catboost", "realmlp", "resnet"]
+SUPPORTED_MODELS = ["linear", "catboost", "realmlp", "resnet", "ridge", "ridgecv"]
+
+# Supported retrieval methods
+SUPPORTED_RETRIEVAL_METHODS = ["exact_matching", "minhash", "minhash_hybrid", "starmie"]
+
 
 # Grouping keys used to find the "difference from the mean"
 GROUPING_KEYS = [

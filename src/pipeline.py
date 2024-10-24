@@ -7,24 +7,27 @@ from pathlib import Path
 import polars as pl
 
 print(f"polars pool size: {pl.threadpool_size()}")
+import subprocess
+
 import polars.selectors as cs
 
 import src.methods.evaluation as em
 from src.data_structures.loggers import ScenarioLogger
-from src.utils.constants import SUPPORTED_MODELS
+from src.utils.constants import SUPPORTED_MODELS, SUPPORTED_RETRIEVAL_METHODS
 from src.utils.indexing import load_query_result
 
-import subprocess
 
 def get_git_revision_hash():
-    full_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+    full_hash = subprocess.check_output(["git", "rev-parse", "HEAD"])
     full_hash = str(full_hash, "utf-8").strip()
     return full_hash
+
 
 repo_sha = get_git_revision_hash()
 
 # repo = git.Repo(search_parent_directories=True)
 # repo_sha = repo.head.object.hexsha
+
 
 def prepare_logger():
     logger = logging.getLogger("main")
@@ -140,7 +143,7 @@ def validate_configuration(run_config: dict):
         raise IOError(f"Base table file {path_bt} not found.")
 
     # Loading the dataframe for testing columns
-    suffix = path_bt.suffix    
+    suffix = path_bt.suffix
     if suffix == ".parquet":
         df = pl.read_parquet(path_bt)
     elif suffix == ".csv":
@@ -201,12 +204,7 @@ def validate_configuration(run_config: dict):
     assert join_parameters["aggregation"] in ["dfs", "mean", "first"]
 
     # Check query parameters
-    # TODO: fix this so it can be generalized
-    # assert query_info["join_discovery_method"] in [
-    #     "exact_matching",
-    #     "minhash_hybrid",
-    #     "minhash",
-    # ]
+    assert query_info["join_discovery_method"] in SUPPORTED_RETRIEVAL_METHODS
 
     # Check query existence
     load_query_result(
