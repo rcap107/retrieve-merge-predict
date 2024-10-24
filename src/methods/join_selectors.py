@@ -29,7 +29,7 @@ from sklearn.ensemble import (  # HistGradientBoostingClassifier,; HistGradientB
     RandomForestRegressor,
 )
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.linear_model import LogisticRegression, Ridge, RidgeCV
 from sklearn.metrics import f1_score, r2_score
 from sklearn.model_selection import ShuffleSplit, train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
@@ -288,7 +288,7 @@ class BaseJoinSelector(BaseEstimator):
         if self.chosen_model == "catboost":
             cat_features = self.get_cat_features(X)
             self.build_catboost(cat_features)
-        elif self.chosen_model == "linear":
+        elif self.chosen_model == "ridgecv":
             self.build_linear()
         elif self.chosen_model == "resnet":
             self.build_resnet()
@@ -334,7 +334,7 @@ class BaseJoinSelector(BaseEstimator):
             valid task (`regression` or `classification`).
         """
         if self.task == "regression":
-            self.model = Ridge()
+            self.model = RidgeCV()
         elif self.task == "classification":
             self.model = LogisticRegression()
         else:
