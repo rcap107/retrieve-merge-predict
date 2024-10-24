@@ -73,8 +73,16 @@ def parse_args():
         "--n-cpus",
         "-w",
         type=int,
-        default=10,
+        default=32,
         help="Number of CPUs per run of run_one.",
+    )
+
+    parser.add_argument(
+        "--n-tasks",
+        "-n",
+        type=int,
+        default=10,
+        help="Number of concurrent tasks to run. ",
     )
 
     return parser.parse_args()
@@ -134,7 +142,8 @@ def get_executor_marg(
         executor.update_parameters(
             slurm_gres=f"gpu:1",
             slurm_setup=[
-                "#SBATCH -p parietal,gpu,gpu-best",
+                "#SBATCH -p parietal,gpu",
+                # "#SBATCH -p parietal,gpu,gpu-best",
             ],
         )
     return executor
@@ -171,7 +180,7 @@ if __name__ == "__main__":
         "retrieve-merge-predict",
         timeout_hour=72,
         n_cpus=args.n_cpus,
-        max_parallel_tasks=10,
+        max_parallel_tasks=args.n_tasks,
         gpu=args.gpu,
     )
 
