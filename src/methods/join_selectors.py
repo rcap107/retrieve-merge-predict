@@ -582,6 +582,7 @@ class BaseJoinSelector(BaseEstimator):
         # We should try new and more clever imputation methods
         table = table.select(
             cs.string().fill_null("null"),
+            cs.boolean().fill_null("null"),
             cs.numeric().fill_null("mean"),
             cs.datetime().dt.to_string("%Y-%m-%d").fill_null("null"),
         ).select(_columns)
