@@ -6,6 +6,7 @@ import tarfile
 from pathlib import Path
 
 import polars as pl
+from polars import Float64, Int64, String
 
 RUN_ID_PATH = Path("results/run_id")
 SCENARIO_ID_PATH = Path("results/scenario_id")
@@ -52,6 +53,35 @@ HEADER_RUN_LOGFILE = [
     "epsilon",
 ]
 
+REQUIRED_SCHEMA = {
+    "scenario_id": Int64,
+    "status": String,
+    "target_dl": String,
+    "jd_method": String,
+    "base_table": String,
+    "query_column": String,
+    "estimator": String,
+    "aggregation": String,
+    "chosen_model": String,
+    "fold_id": Int64,
+    "time_fit": Float64,
+    "time_predict": Float64,
+    "time_run": Float64,
+    "time_prepare": Float64,
+    "time_model_train": Float64,
+    "time_join_train": Float64,
+    "time_model_predict": Float64,
+    "time_join_predict": Float64,
+    "peak_fit": Float64,
+    "peak_predict": Float64,
+    "peak_test": Float64,
+    "r2score": Float64,
+    "rmse": Float64,
+    "f1score": Float64,
+    "auc": Float64,
+    "n_cols": String,
+}
+
 
 def get_exp_name(debug=False):
     alphabet = string.ascii_lowercase + string.digits
@@ -67,11 +97,34 @@ def read_logs(exp_name=None, exp_path=None):
         path_target_run = Path("results/logs/", exp_name)
     else:
         path_target_run = Path(exp_path)
+        exp_name = path_target_run.stem
+
+    config = json.load(open(Path(path_target_run, exp_name + ".cfg"), "r"))
+
+    exp_task = config["run_parameters"]["task"]
+
     path_agg_logs = Path(path_target_run, "run_logs")
 
     logs = []
     for f in path_agg_logs.glob("*.log"):
-        logs.append(pl.read_csv(f))
+        _df = (
+            pl.read_csv(f)
+            .drop(["budget_type", "budget_amount", "epsilon"])
+            .fill_null(0)
+        )
+        if exp_task == "regression":
+            _df = _df.with_columns(
+                pl.lit(0.0).alias("auc"),
+                pl.lit(0.0).alias("f1score"),
+                prediction_metric=pl.col("r2score"),
+            )
+        else:
+            _df = _df.with_columns(
+                pl.lit(0.0).alias("r2score"),
+                pl.lit(0.0).alias("rmse"),
+                prediction_metric=pl.col("f1score"),
+            )
+        logs.append(_df)
     df_agg = pl.concat(logs)
 
     return df_agg
@@ -84,7 +137,6 @@ def setup_run_logging(setup_config=None):
     os.makedirs(f"results/logs/{exp_name}/json/failed")
     os.makedirs(f"results/logs/{exp_name}/plots")
     os.makedirs(f"results/logs/{exp_name}/run_logs")
-    os.makedirs(f"results/logs/{exp_name}/raw_logs")
 
     if setup_config is not None:
         with open(f"results/logs/{exp_name}/{exp_name}.cfg", "w") as fp:
