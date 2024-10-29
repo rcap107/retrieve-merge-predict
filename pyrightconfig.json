@@ -5,11 +5,14 @@
 
   "exclude": [
     "data/",
-    "results/"
+    "results/",
+    "bnc/",
+    ".venv/",
   ],
 
 
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
+  "reportArgumentType": false,
 
 }
