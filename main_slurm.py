@@ -10,11 +10,14 @@ import pprint
 from collections import deque
 from datetime import datetime as dt
 from pathlib import Path
+from pprint import pformat
 
 import submitit
 import toml
 from joblib import Memory
 from tqdm import tqdm
+
+from src.utils.notifications import get_apobj
 
 mem = Memory(location="__cache__", verbose=0)
 
@@ -150,6 +153,8 @@ def get_executor_marg(
 
 
 if __name__ == "__main__":
+    apobj = get_apobj()
+
     args = parse_args()
     os.makedirs("results/logs", exist_ok=True)
 
@@ -184,8 +189,18 @@ if __name__ == "__main__":
         gpu=args.gpu,
     )
 
+    print("Exp Name: {exp_name}")
     # Run the computation on SLURM cluster with `submitit`
     print("Submitting jobs...", end="", flush=True)
+    msg = f"""
+    Submitted job `{exp_name}`
+
+    ---
+
+    {pformat(base_config)}
+
+    """
+    apobj.notify(msg)
     with executor.batch():
         tasks = [
             executor.submit(
@@ -197,3 +212,4 @@ if __name__ == "__main__":
     end_run = dt.now()
     run_duration = end_run - start_run
     print(f"Run duration: {run_duration.total_seconds():.2f} seconds")
+    apobj.notify(f"Completed job.\n\nExp Name: {exp_name}")
