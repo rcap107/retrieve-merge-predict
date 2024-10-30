@@ -1,0 +1,35 @@
+{
+    "jd_method": [
+        "exact_matching",
+        "minhash",
+        "minhash_hybrid",
+        "starmie"
+    ],
+    "estimator": [
+        "nojoin",
+        "highest_containment",
+        "full_join",
+        "best_single_join",
+        "stepwise_greedy_join"
+    ],
+    "chosen_model": [
+        "catboost",
+        "ridgecv"
+    ],
+    "target_dl": [
+        "binary_update",
+        "wordnet_full",
+        "wordnet_vldb_10"
+    ],
+    "base_table": [
+        "company_employees",
+        "housing_prices",
+        "us_accidents_2021",
+        "us_accidents_large",
+        "us_county_population",
+        "us_elections"
+    ],
+    "aggregation": [
+        "first"
+    ]
+}

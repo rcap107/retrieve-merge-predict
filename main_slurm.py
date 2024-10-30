@@ -24,7 +24,7 @@ mem = Memory(location="__cache__", verbose=0)
 
 # Fixing the number of polars threads for better reproducibility.
 os.environ["POLARS_MAX_THREADS"] = "32"
-from src.pipeline import prepare_config_dict, single_run
+from src.pipeline import prepare_config_dict, prepare_specific_configs, single_run
 from src.utils.logging import archive_experiment, get_exp_name, setup_run_logging
 
 
@@ -51,6 +51,14 @@ def parse_args():
         action="store",
         default=None,
         help="Path of the experiment to recover",
+        type=Path,
+    )
+
+    group.add_argument(
+        "--selected_config",
+        action="store",
+        default=None,
+        help="Path to the pickle of specific configurations to run.",
         type=Path,
     )
 
@@ -160,6 +168,9 @@ if __name__ == "__main__":
 
     start_run = dt.now()
     if args.recovery_path is not None:
+        # If args.recovery_path is provided, the script will look for the
+        # missing_runs.pickle file in the given path and
+        # try to reboot a run from there.
         if args.recovery_path.exists():
             pth = args.recovery_path
             missing_runs_path = Path(pth, "missing_runs.pickle")
@@ -169,10 +180,16 @@ if __name__ == "__main__":
             run_variants = pickle.load(open(missing_runs_path, "rb"))
         else:
             raise IOError(f"File {args.recovery_path} not found.")
+    elif args.selected_config is not None:
+        # Using a specific set of configurations
+        if args.selected_config.exists():
+            run_variants = prepare_specific_configs(args.selected_config)
+            base_config = run_variants
     else:
         # No recovery, simply read a toml file from the given input path.
         base_config = toml.load(args.input_path)
         run_variants = prepare_config_dict(base_config, args.debug)
+
     if not args.debug:
         exp_name = setup_run_logging(base_config)
     else:
@@ -189,7 +206,7 @@ if __name__ == "__main__":
         gpu=args.gpu,
     )
 
-    print("Exp Name: {exp_name}")
+    print(f"Exp Name: {exp_name}")
     # Run the computation on SLURM cluster with `submitit`
     print("Submitting jobs...", end="", flush=True)
     msg = f"""

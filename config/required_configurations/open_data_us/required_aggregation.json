@@ -1,0 +1,28 @@
+{
+    "jd_method": [
+        "exact_matching",
+        "minhash",
+        "minhash_hybrid"
+    ],
+    "estimator": [
+        "nojoin",
+        "highest_containment",
+        "best_single_join"
+    ],
+    "chosen_model": [
+        "catboost",
+        "ridgecv"
+    ],
+    "target_dl": [
+        "open_data_us"
+    ],
+    "base_table": [
+        "company_employees",
+        "us_accidents_2021",
+        "us_county_population",
+        "schools"
+    ],
+    "aggregation": [
+        "first"
+    ]
+}

@@ -1,6 +1,7 @@
 import itertools
 import logging
 import os
+import pickle
 from pathlib import Path
 
 # import git
@@ -121,6 +122,15 @@ def prepare_config_dict(base_config: dict, debug=False):
     config_combinations = get_comb(flattened_)
 
     config_list = [pack(comb) for comb in config_combinations]
+
+    for rv in config_list:
+        validate_configuration(rv)
+
+    return config_list
+
+
+def prepare_specific_configs(specific_config_path: Path):
+    config_list = pickle.load(open(specific_config_path, "rb"))
 
     for rv in config_list:
         validate_configuration(rv)
