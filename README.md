@@ -18,9 +18,9 @@ The base tables used for the experiments are provided in `data/source_tables/`.
 More detail on the functioning of the code is available on the [repository website](https://rcap107.github.io/retrieve-merge-predict/).
 
 **NOTE:** The repository relies heavily on the `parquet` format [ref](https://parquet.apache.org/docs/file-format/), and will expect all tables (both source tables, and data lake
-tables) to be stored in `parquet` format. Please convert your data to parquet before working on the pipeline. 
+tables) to be stored in `parquet` format. Please convert your data to parquet before working on the pipeline.
 
-**NOTE:** We recommend to use the smaller `binary_update` data lake and its corresponding configurations to set up the data structures and debug potential issues, as all preparation steps are significantly faster than with larger data lakes. 
+**NOTE:** We recommend to use the smaller `binary_update` data lake and its corresponding configurations to set up the data structures and debug potential issues, as all preparation steps are significantly faster than with larger data lakes.
 
 # Dataset info
 We used the following sources for our dataset:
@@ -30,19 +30,19 @@ We used the following sources for our dataset:
 - *US Accidents* [source](https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents) - CC BY-NC-SA 4.0
 - *US Elections* [source](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ) - CC0
 
-The *Schools* dataset is an internal dataset found in the Open Data US data lake. The *US County Population* dataset is 
-an internal dataset found in YADL. 
+The *Schools* dataset is an internal dataset found in the Open Data US data lake. The *US County Population* dataset is
+an internal dataset found in YADL.
 
 YADL is derived from YAGO3 [source](https://yago-knowledge.org/getting-started) and shares its CC BY 4.0 license.
 
-Datasets were pre-processed before they were used in our experiments. Pre-processing steps are reported in the [preparation 
-repository](https://github.com/rcap107/YADL) and this repository. 
+Datasets were pre-processed before they were used in our experiments. Pre-processing steps are reported in the [preparation
+repository](https://github.com/rcap107/YADL) and this repository.
 
 **Important**: in the current version of the code, all base tables are expected to include a column named `target` that contains the variable that should
-be predicted by the ML model. Please process any new input table so that the prediction column is named `target`. 
+be predicted by the ML model. Please process any new input table so that the prediction column is named `target`.
 
 ### Starmie
-To implement Starmie in our pipeline, we implemented modifications that are tracked in a [fork](https://github.com/megagonlabs/starmie) of the [original repository](https://github.com/rcap107/starmie). 
+To implement Starmie in our pipeline, we implemented modifications that are tracked in a [fork](https://github.com/megagonlabs/starmie) of the [original repository](https://github.com/rcap107/starmie).
 
 # Installing the requirements
 We recommend to use conda environments to fetch the required packages. File `environment.yaml` contains the
@@ -80,23 +80,23 @@ metadata is used in all steps of the pipeline.
 The script `prepare_metadata.py`is used to generate the files for a given data lake case.
 
 **NOTE:** This scripts assumes that all tables are saved in `.parquet` format, and will raise an error if it finds no `.parquet`
-files in the given path. Please convert your files to parquet before running this script. 
+files in the given path. Please convert your files to parquet before running this script.
 
 Use the command:
 ```
 python prepare_metadata.py PATH_DATA_FOLDER
 ```
-where `PATH_DATA_FOLDER` is the root path of the data lake. The stem of `PATH_DATA_FOLDER` will be used as identifier for 
+where `PATH_DATA_FOLDER` is the root path of the data lake. The stem of `PATH_DATA_FOLDER` will be used as identifier for
 the data lake throughout the program (e.g., for `data/binary_update`, the data lake will be stored under the name `binary_update`).
 
 The script will recursively scan all folders found in `PATH_DATA_FOLDER` and generate a json file for each parquet file
-encountered. By providing the `--flat` parameter, it is possible to scan only the files in the root directory rather than 
-working on all folders and files. 
+encountered. By providing the `--flat` parameter, it is possible to scan only the files in the root directory rather than
+working on all folders and files.
 
 Metadata will be saved in `data/metadata/DATA_LAKE_NAME`, with an auxiliary file stored in `data/metadata/_mdi/md_index_DATA_LAKE_NAME.pickle`.
 
 ## Preparing the Retrieval methods
-This step is an offline operation during which the retrieval methods are prepared by building the data structures they rely on to function. This operation can require a long time and a large amount of disk space (depending on the method); it is not required for 
+This step is an offline operation during which the retrieval methods are prepared by building the data structures they rely on to function. This operation can require a long time and a large amount of disk space (depending on the method); it is not required for
 the querying step and thus it can be executed only once for each data lake (and retrieval method).
 
 Different retrieval methods require different data structures and different starting configurations, which should be stored in `config/retrieval/prepare`. In all configurations,
@@ -107,7 +107,7 @@ CPU cores will be used.
 python prepare_retrieval_methods.py [--repeats REPEATS] config_file
 ```
 `config_file` is the path to the configuration file. `repeats` is a parameter that can be
-added to re-run the current configuration `repeats` times (this should be used only for measuring the time required 
+added to re-run the current configuration `repeats` times (this should be used only for measuring the time required
 for running the indexing operation).
 
 ### Config files
@@ -145,19 +145,19 @@ To prepare the retrieval methods for data lake `binary_update`:
 python prepare_retrieval_methods.py config/retrieval/prepare/prepare-exact_matching-binary_update.toml
 python prepare_retrieval_methods.py config/retrieval/prepare/prepare-minhash-binary_update.toml
 ```
-This will create the index structures for the different retrieval methods in `data/metadata/_indices/binary_update`. 
+This will create the index structures for the different retrieval methods in `data/metadata/_indices/binary_update`.
 
 Data lake preparation should be repeated for any new data lake, and each data lake will have its own directory in `data/metadata/_indices/`.
 
 ## Querying the retrieval methods
-The querying operation is decoupled from the indexing step for practical reasons (querying is much faster than indexing). 
+The querying operation is decoupled from the indexing step for practical reasons (querying is much faster than indexing).
 Moreover, methods such as MinHash attempt to optimize the query operation by building the data structures offline in the indexing
-step. 
+step.
 
 For these reason, querying is done using the `query_indices.py` script and is based on the configurations in `config/retrieval/query`.
 
 In principle, queries could be done at runtime during the pipeline execution. For efficiency and simplicity, they are executed
-offline and stored in `results/query_results`. The pipeline then loads the appropriate query at runtime. 
+offline and stored in `results/query_results`. The pipeline then loads the appropriate query at runtime.
 
 To build the queries for `binary_update`:
 ```sh
@@ -168,12 +168,12 @@ python query_indices.py config/retrieval/query/query-exact_matching-binary_updat
 
 ### Hybrid MinHash
 To use the Hybrid MinHash variant, the `query` configuration file should include the parameter `hybrid=true`: the re-ranking
-operation is done at query time. 
+operation is done at query time.
 
 # Executing the pipeline
-The configurations used to run the experiments in the paper are available in directory `config/evaluation`. 
+The configurations used to run the experiments in the paper are available in directory `config/evaluation`.
 
-The experiment configurations that tested default parameters are stored in `config/evaluation/general`; experiment configurations 
+The experiment configurations that tested default parameters are stored in `config/evaluation/general`; experiment configurations
 testing aggregation are in `config/evaluation/aggregation`; additional experiments that test specific parameters and scenarios are in `config/evaluation/other`.
 
 To run experiments with `binary_update`:
