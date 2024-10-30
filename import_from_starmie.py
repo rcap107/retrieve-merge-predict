@@ -1,8 +1,8 @@
 """
-Simple script used to import the results obtained by Starmie. 
+Simple script used to import the results obtained by Starmie.
 
-Given the path to the Starmie results, this script builds the data structures 
-needed to run the pipeline. 
+Given the path to the Starmie results, this script builds the data structures
+needed to run the pipeline.
 """
 
 import argparse

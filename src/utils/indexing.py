@@ -1,7 +1,7 @@
 """
-This file contains all the "index" objects that are used during the retrieval step to find join candidates. 
+This file contains all the "index" objects that are used during the retrieval step to find join candidates.
 
-The objects defined here are used throughout the pipeline. 
+The objects defined here are used throughout the pipeline.
 """
 
 import logging

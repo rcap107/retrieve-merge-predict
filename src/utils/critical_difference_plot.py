@@ -1,26 +1,23 @@
-'''
-Original from 
+"""
+Original from
 https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.critical_difference_diagram.html
 
-The code was slightly modified to have a ranking-based order. 
-'''
+The code was slightly modified to have a ranking-based order.
+"""
 
-from typing import Union, List, Tuple, Dict, Set
+from typing import Dict, List, Set, Tuple, Union
 
-import numpy as np
-from matplotlib import colors
-from matplotlib.axes import SubplotBase
-from matplotlib.colorbar import ColorbarBase, Colorbar
-from matplotlib.colors import ListedColormap
 import matplotlib.ticker as ticker
-from matplotlib import pyplot
+import numpy as np
+from matplotlib import colors, pyplot
+from matplotlib.axes import SubplotBase
+from matplotlib.colorbar import Colorbar, ColorbarBase
+from matplotlib.colors import ListedColormap
 from pandas import DataFrame, Series
 from seaborn import heatmap
 
 
-def sign_array(
-        p_values: Union[List, np.ndarray],
-        alpha: float = 0.05) -> np.ndarray:
+def sign_array(p_values: Union[List, np.ndarray], alpha: float = 0.05) -> np.ndarray:
     """Significance array.
 
     Converts an array with p values to a significance array where
@@ -58,6 +55,7 @@ def sign_array(
     np.fill_diagonal(p_values, 1)
 
     return p_values
+
 
 def _find_maximal_cliques(adj_matrix: DataFrame) -> List[Set]:
     """Wrapper function over the recursive Bron-Kerbosch algorithm.
@@ -103,11 +101,12 @@ def _find_maximal_cliques(adj_matrix: DataFrame) -> List[Set]:
 
 
 def _bron_kerbosch(
-        current_clique: Set,
-        candidates: Set,
-        visited: Set,
-        adj_matrix: DataFrame,
-        result: List[Set]) -> None:
+    current_clique: Set,
+    candidates: Set,
+    visited: Set,
+    adj_matrix: DataFrame,
+    result: List[Set],
+) -> None:
     """Recursive algorithm to find the maximal fully connected subgraphs.
 
     See [1]_ for more information.
@@ -154,23 +153,21 @@ def _bron_kerbosch(
         result.append(current_clique)
 
 
-
-
 def critical_difference_diagram(
-        ranks: Union[dict, Series],
-        sig_matrix: DataFrame,
-        *,
-        ax: SubplotBase = None,
-        label_fmt_left: str = '{label} ({rank:.2g})',
-        label_fmt_right: str = '({rank:.2g}) {label}',
-        label_props: dict = None,
-        marker_props: dict = None,
-        elbow_props: dict = None,
-        crossbar_props: dict = None,
-        color_palette:Union[Dict[str, str], List] = {},
-        text_h_margin: float = 0.01,
-        ascending=True
-        ) -> Dict[str, list]:
+    ranks: Union[dict, Series],
+    sig_matrix: DataFrame,
+    *,
+    ax: SubplotBase = None,
+    label_fmt_left: str = "{label} ({rank:.2g})",
+    label_fmt_right: str = "({rank:.2g}) {label}",
+    label_props: dict = None,
+    marker_props: dict = None,
+    elbow_props: dict = None,
+    crossbar_props: dict = None,
+    color_palette: Union[Dict[str, str], List] = {},
+    text_h_margin: float = 0.01,
+    ascending=True,
+) -> Dict[str, list]:
     """Plot a Critical Difference diagram from ranks and post-hoc results.
 
     The diagram arranges the average ranks of multiple groups on the x axis
@@ -259,33 +256,42 @@ def critical_difference_diagram(
     ## check color_palette consistency
     if len(color_palette) == 0:
         pass
-    elif isinstance(color_palette, Dict) and ((len(set(ranks.keys()) & set(color_palette.keys())))== len(ranks)):
+    elif isinstance(color_palette, Dict) and (
+        (len(set(ranks.keys()) & set(color_palette.keys()))) == len(ranks)
+    ):
         pass
-    elif isinstance(color_palette, List) and (len(ranks) <= len(color_palette)) :
+    elif isinstance(color_palette, List) and (len(ranks) <= len(color_palette)):
         pass
     else:
-        raise ValueError("color_palette keys are not consistent, or list size too small")
+        raise ValueError(
+            "color_palette keys are not consistent, or list size too small"
+        )
 
     elbow_props = elbow_props or {}
     marker_props = {"zorder": 3, **(marker_props or {})}
     label_props = {"va": "center", **(label_props or {})}
-    crossbar_props = {"color": "k", "zorder": 3,
-                      "linewidth": 2, **(crossbar_props or {})}
+    crossbar_props = {
+        "color": "k",
+        "zorder": 3,
+        "linewidth": 2,
+        **(crossbar_props or {}),
+    }
 
     ax = ax or pyplot.gca()
     ax.yaxis.set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.xaxis.set_ticks_position('top')
-    ax.spines['top'].set_position('zero')
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.xaxis.set_ticks_position("top")
+    ax.spines["top"].set_position("zero")
 
     def flip_label(x, pos):
         return f"{-x:.0f}"
+
     if not ascending:
         formatter = ticker.FuncFormatter(flip_label)
         ax.xaxis.set_major_formatter(formatter)
-    
+
     # lists of artists to be returned
     markers = []
     elbows = []
@@ -309,10 +315,9 @@ def critical_difference_diagram(
 
     # Sort by lowest rank and filter single-valued sets
     crossbar_sets = sorted(
-        (x for x in crossbar_sets if len(x) > 1),
-        key=lambda x: ranks[list(x)].min()
+        (x for x in crossbar_sets if len(x) > 1), key=lambda x: ranks[list(x)].min()
     )
-        
+
     # Create stacking of crossbars: for each level, try to fit the crossbar,
     # so that it does not intersect with any other in the level. If it does not
     # fit in any level, create a new level for it.
@@ -320,29 +325,33 @@ def critical_difference_diagram(
     for bar in crossbar_sets:
         for level, bars_in_level in enumerate(crossbar_levels):
             if not any(bool(bar & bar_in_lvl) for bar_in_lvl in bars_in_level):
-                ypos = -level-1
+                ypos = -level - 1
                 bars_in_level.append(bar)
                 break
         else:
             ypos = -len(crossbar_levels) - 1
             crossbar_levels.append([bar])
 
-        crossbars.append(ax.plot(
-            # Adding a separate line between each pair enables showing a
-            # marker over each elbow with crossbar_props={'marker': 'o'}.
-            [ranks[i] for i in bar],
-            [ypos] * len(bar),
-            **crossbar_props,
-        ))
+        crossbars.append(
+            ax.plot(
+                # Adding a separate line between each pair enables showing a
+                # marker over each elbow with crossbar_props={'marker': 'o'}.
+                [ranks[i] for i in bar],
+                [ypos] * len(bar),
+                **crossbar_props,
+            )
+        )
 
     lowest_crossbar_ypos = -len(crossbar_levels)
 
-    def plot_items(points, xpos, label_fmt,color_palette, label_props, ascending=True):
+    def plot_items(points, xpos, label_fmt, color_palette, label_props, ascending=True):
         """Plot each marker + elbow + label."""
         ypos = lowest_crossbar_ypos - 1
-        if ascending: flip = 1 
-        else: flip = -1
-        
+        if ascending:
+            flip = 1
+        else:
+            flip = -1
+
         for idx, (label, rank) in enumerate(points.items()):
             if len(color_palette) == 0:
                 elbow, *_ = ax.plot(
@@ -354,20 +363,20 @@ def critical_difference_diagram(
                 elbow, *_ = ax.plot(
                     [xpos, rank, rank],
                     [ypos, ypos, 0],
-                    c=color_palette[label] if isinstance(color_palette, Dict) else color_palette[idx],
+                    c=color_palette[label]
+                    if isinstance(color_palette, Dict)
+                    else color_palette[idx],
                     **elbow_props,
                 )
 
             elbows.append(elbow)
             curr_color = elbow.get_color()
-            markers.append(
-                ax.scatter(rank, 0, **{"color": curr_color, **marker_props})
-            )
+            markers.append(ax.scatter(rank, 0, **{"color": curr_color, **marker_props}))
             labels.append(
                 ax.text(
                     xpos,
                     ypos,
-                    label_fmt.format(label=label, rank=flip*rank),
+                    label_fmt.format(label=label, rank=flip * rank),
                     **{"color": curr_color, **label_props},
                 )
             )
@@ -377,18 +386,20 @@ def critical_difference_diagram(
         points_left,
         xpos=points_left.iloc[0] - text_h_margin,
         label_fmt=label_fmt_left,
-        color_palette = color_palette,
-        label_props={"ha": "right", **label_props,
+        color_palette=color_palette,
+        label_props={
+            "ha": "right",
+            **label_props,
         },
-        ascending=ascending
+        ascending=ascending,
     )
     plot_items(
         points_right[::-1],
         xpos=points_right.iloc[-1] + text_h_margin,
         label_fmt=label_fmt_right,
-        color_palette = color_palette,
+        color_palette=color_palette,
         label_props={"ha": "left", **label_props},
-        ascending=ascending
+        ascending=ascending,
     )
 
     return {

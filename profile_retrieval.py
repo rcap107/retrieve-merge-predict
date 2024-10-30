@@ -1,12 +1,12 @@
 """
-This script is used to profile the runtime and peak memory usage of the different retrieval methods. It incorporates 
+This script is used to profile the runtime and peak memory usage of the different retrieval methods. It incorporates
 various functions to improve the reliability of the measurements: it is possible to repeat the same operations multiple
-times to reduce the variance in the results. 
+times to reduce the variance in the results.
 
-To improve reliability, this script first builds the index and then queries it: it will overwrite any pre-built index in 
+To improve reliability, this script first builds the index and then queries it: it will overwrite any pre-built index in
 each iteration.
 
-Note that Starmie is profiled in a different repository, so it is not included here. 
+Note that Starmie is profiled in a different repository, so it is not included here.
 """
 
 import argparse
@@ -29,8 +29,7 @@ from src.utils.indexing import get_metadata_index
 
 
 def wrapper_prepare_exact_matching(queries, method_config, index_dir):
-    """Utility function to collect the functions required to prepare Exact Matching.
-    """
+    """Utility function to collect the functions required to prepare Exact Matching."""
     time_save = 0
     time_create = 0
     for query_case in tqdm(queries, position=1, total=len(queries), desc="Query: "):
@@ -225,7 +224,11 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_lake_version", action="store")
     parser.add_argument("--retrieval_method", action="store")
-    parser.add_argument("--rerank", action="store_true", help="Set True with retrieval_method=minhash to test hybrid minhash.")
+    parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="Set True with retrieval_method=minhash to test hybrid minhash.",
+    )
 
     return parser.parse_args()
 
@@ -238,7 +241,7 @@ if __name__ == "__main__":
 
     data_lake_version = args.data_lake_version
 
-    # Open Data US has specific queries, so they're prepared explicitly here. 
+    # Open Data US has specific queries, so they're prepared explicitly here.
     if data_lake_version == "open_data_us":
         base_table_root = "data/source_tables/open_data_us"
         queries = [
@@ -286,7 +289,7 @@ if __name__ == "__main__":
         ]
 
     else:
-        # All YADL data lakes have the same format for the queries. 
+        # All YADL data lakes have the same format for the queries.
         base_table_root = "data/source_tables/yadl/"
         queries = [
             (
@@ -321,7 +324,7 @@ if __name__ == "__main__":
 
     retrieval_method = args.retrieval_method
 
-    # In the following: add new parameters to build a parameter grid and test all combinations. 
+    # In the following: add new parameters to build a parameter grid and test all combinations.
     if retrieval_method == "exact_matching":
         method_config = {
             "metadata_dir": [f"data/metadata/{data_lake_version}"],

@@ -1,10 +1,10 @@
 """
-One-time script to be run on each data lake to prepare the metadata that is used for all successive operations. 
+One-time script to be run on each data lake to prepare the metadata that is used for all successive operations.
 
 Provide a path to the root data folder that contains the data lake, then the script will recursively explore all folders
 and add all files with  ".parquet" extension to the metadata index.
 
-The metadata index is used throughout the pipeline to identify each table a data lake. 
+The metadata index is used throughout the pipeline to identify each table a data lake.
 """
 
 import argparse
@@ -53,7 +53,7 @@ def prepare_metadata_from_case(data_folder, flat=False):
             raise RuntimeError("No parquet files found. Is the path correct? ")
 
         metadata_dest = f"data/metadata/{case}"
-        
+
         # Prepare the metadata by running on all available cores
         Parallel(n_jobs=-1, verbose=0)(
             delayed(save_single_table)(dataset_path, "yadl", metadata_dest)

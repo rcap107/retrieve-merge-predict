@@ -1,5 +1,5 @@
 """
-This script runs a profiling operation over all tables in different data lakes, and saves the results in a table. 
+This script runs a profiling operation over all tables in different data lakes, and saves the results in a table.
 """
 
 # %%
