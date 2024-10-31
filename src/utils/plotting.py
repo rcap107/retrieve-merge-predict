@@ -798,3 +798,59 @@ def prepare_grouped_stacked_barplot_time(
 
     fig.savefig(f"images/breakdown_time_{first_var}_{second_var}.png")
     # fig.savefig(f"images/breakdown_time_{first_var}_{second_var}.pdf")
+
+
+def pareto_frontier_plot(
+    data,
+    x_var,
+    y_var,
+    hue_var,
+    palette,
+    hue_order,
+    ax,
+    ax_title,
+    ax_xlabel,
+):
+    if not isinstance(data, pd.DataFrame):
+        raise ValueError()
+    x = data[x_var]
+    y = data[y_var]
+
+    ax.set_xscale("log")
+
+    xs = np.array(x)
+    ys = np.array(y)
+    perm = np.argsort(xs)
+    xs = xs[perm]
+    ys = ys[perm]
+    sns.scatterplot(
+        data=data,
+        x=x_var,
+        y=y_var,
+        hue=hue_var,
+        ax=ax,
+        palette=palette,
+        hue_order=hue_order,
+    )
+
+    xs_pareto = [xs[0], xs[0]]
+    ys_pareto = [ys[0], ys[0]]
+    for i in range(1, len(xs)):
+        if ys[i] > ys_pareto[-1]:
+            xs_pareto.append(xs[i])
+            ys_pareto.append(ys_pareto[-1])
+            xs_pareto.append(xs[i])
+            ys_pareto.append(ys[i])
+    xs_pareto.append(ax.get_xlim()[1])
+    ys_pareto.append(ys_pareto[-1])
+
+    ax.plot(xs_pareto, ys_pareto, "--", color="k", linewidth=2, zorder=0.8)
+
+    ax.set_title(ax_title)
+    h, l = ax.get_legend_handles_labels()
+    ax.legend(
+        h,
+        [constants.LABEL_MAPPING[hue_var][_] for _ in l],
+        title=None,
+    )
+    ax.set_xlabel(ax_xlabel)
