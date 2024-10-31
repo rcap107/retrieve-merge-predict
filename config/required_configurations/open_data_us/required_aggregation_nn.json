@@ -19,7 +19,6 @@
     "base_table": [
         "company_employees",
         "us_accidents_2021",
-        "us_county_population",
         "schools"
     ],
     "aggregation": [

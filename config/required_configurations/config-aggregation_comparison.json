@@ -27,6 +27,8 @@
         "us_county_population"
     ],
     "aggregation": [
-        "first"
+        "first",
+        "dfs",
+        "mean"
     ]
 }

@@ -12,8 +12,8 @@
         "stepwise_greedy_join"
     ],
     "chosen_model": [
-        "catboost",
-        "ridgecv"
+        "resnet",
+        "realmlp"
     ],
     "target_dl": [
         "binary_update",

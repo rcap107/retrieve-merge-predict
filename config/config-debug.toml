@@ -10,8 +10,7 @@ join_strategy = "left"
 aggregation = ["first"]
 
 ["evaluation_models"]
-chosen_model = ["linear"]
-# chosen_model = ["linear", "realmlp", "resnet"]
+chosen_model = ["catboost"]
 catboost.iterations = 300
 catboost.od_type = "Iter"
 catboost.od_wait = 10

@@ -12,8 +12,8 @@
         "stepwise_greedy_join"
     ],
     "chosen_model": [
-        "realmlp",
-        "resnet"
+        "ridgecv",
+        "catboost"
     ],
     "target_dl": [
         "open_data_us"
@@ -22,7 +22,8 @@
         "company_employees",
         "housing_prices",
         "us_accidents_2021",
-        "us_county_population",
+        "us_accidents_large",
+        "us_elections"
     ],
     "aggregation": [
         "first"

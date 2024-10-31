@@ -5,7 +5,6 @@
         "minhash_hybrid"
     ],
     "estimator": [
-        "nojoin",
         "highest_containment",
         "full_join",
         "best_single_join",
