@@ -816,7 +816,7 @@ def pareto_frontier_plot(
     x = data[x_var]
     y = data[y_var]
 
-    ax.set_xscale("log")
+    # ax.set_xscale("log")
 
     xs = np.array(x)
     ys = np.array(y)
@@ -831,6 +831,7 @@ def pareto_frontier_plot(
         ax=ax,
         palette=palette,
         hue_order=hue_order,
+        # legend=False
     )
 
     xs_pareto = [xs[0], xs[0]]
@@ -845,12 +846,14 @@ def pareto_frontier_plot(
     ys_pareto.append(ys_pareto[-1])
 
     ax.plot(xs_pareto, ys_pareto, "--", color="k", linewidth=2, zorder=0.8)
-
-    ax.set_title(ax_title)
+    ax.set_ylabel("")
+    # ax.set_title(ax_title)
     h, l = ax.get_legend_handles_labels()
-    ax.legend(
-        h,
-        [constants.LABEL_MAPPING[hue_var][_] for _ in l],
-        title=None,
-    )
+    # ax.legend(
+    #     h,
+    #     [constants.LABEL_MAPPING[hue_var][_] for _ in l],
+    #     title=None,
+    # )
     ax.set_xlabel(ax_xlabel)
+
+    return h, l
