@@ -2,9 +2,8 @@
 # %load_ext autoreload
 # %autoreload 2
 
+#%%
 import json
-
-# %%
 import pickle
 from copy import deepcopy
 from pathlib import Path
@@ -63,6 +62,34 @@ default_config = {
     },
 }
 
+open_data_mapping = {
+    "company_employees": (
+        "data/source_tables/open_data_us/company_employees-depleted_name-open_data.parquet",
+        "name",
+    ),
+    "housing_prices": (
+        "data/source_tables/open_data_us/housing_prices-depleted_County-open_data.parquet",
+        "County",
+    ),
+    "us_elections": (
+        "data/source_tables/open_data_us/us_elections-depleted_county_name-open_data.parquet",
+        "county_name",
+    ),
+    "us_accidents_2021": (
+        "data/source_tables/open_data_us/us_accidents_2021-depleted-open_data_County.parquet",
+        "County",
+    ),
+    "us_accidents_large": (
+        "data/source_tables/open_data_us/us_accidents_large-depleted-open_data_County.parquet",
+        "County",
+    ),
+    "schools": (
+        "data/source_tables/open_data_us/schools-depleted-open_data.parquet",
+        "col_to_embed",
+    ),
+}
+# %%
+
 
 def configs_missing(df):
     # Configurations missing from the current file
@@ -95,7 +122,6 @@ def prepare_config(config_dict):
     return df_config
 
 
-# %%
 def get_configs_to_review(df_config, df_results):
     group_keys = df_config.columns
     df_test = df_config.join(
@@ -110,23 +136,6 @@ def get_configs_to_review(df_config, df_results):
     return (_cm, _cnf)
 
 
-# %%
-cfg_path = Path("config/required_configurations/yadl/required_general.json")
-
-required_config = json.load(open(cfg_path, "r"))
-
-# Given the configuration grid specified above, prepare a dataframe that contains
-# all the configurations that should be run
-df_config = prepare_config(required_config)
-group_keys = df_config.columns
-# %%
-df_overall = pl.read_csv("results/master_list.csv")
-
-_cm, _cnf = get_configs_to_review(df_config, df_overall)
-configs_to_review = pl.concat([_cm.select(group_keys), _cnf.select(group_keys)])
-
-
-# %%
 def prepare_specific_configs(
     cfg_to_review,
     config_name,
@@ -137,11 +146,16 @@ def prepare_specific_configs(
         up_["evaluation_models"]["chosen_model"] = d["chosen_model"]
         up_["query_cases"]["data_lake"] = d["target_dl"]
         up_["query_cases"]["join_discovery_method"] = d["jd_method"]
-        up_["query_cases"]["query_column"] = "col_to_embed"
 
-        table_path = Path(
-            "data/source_tables/yadl", f'{d["base_table"]}-yadl-depleted.parquet'
-        )
+        if d["target_dl"] == "open_data_us":
+            table_path, query_column = open_data_mapping[d["base_table"]]
+            table_path = Path(table_path)
+            up_["query_cases"]["query_column"] = query_column
+        else:
+            up_["query_cases"]["query_column"] = "col_to_embed"
+            table_path = Path(
+                "data/source_tables/yadl", f'{d["base_table"]}-yadl-depleted.parquet'
+            )
         up_["query_cases"]["table_path"] = str(table_path)
 
         updated_configs.append(deepcopy(up_))
@@ -149,7 +163,25 @@ def prepare_specific_configs(
     print(f"Writing file config/{config_name}")
     pickle.dump(updated_configs, open(f"config/{config_name}", "wb"))
 
-    return updated_configs
 
+# %%
+df_overall = pl.read_csv("results/master_list.csv")
 
+# %%
+cfg_path = Path("config/required_configurations/open_data_us/required_general_nn.json")
+
+required_config = json.load(open(cfg_path, "r"))
+
+# Given the configuration grid specified above, prepare a dataframe that contains
+# all the configurations that
+#  should be run
+df_config = prepare_config(required_config)
+group_keys = df_config.columns
+
+_cm, _cnf = get_configs_to_review(df_config, df_overall)
+configs_to_review = pl.concat([_cm.select(group_keys), _cnf.select(group_keys)])
+
+configs_to_review
+# %%
+prepare_specific_configs(configs_to_review, "review-nn-open_data-general.pickle")
 # %%
