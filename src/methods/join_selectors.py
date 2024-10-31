@@ -420,8 +420,8 @@ class BaseJoinSelector(BaseEstimator):
         X_train, y_train = X, y
         X_valid, y_valid = validation_set
         if self.chosen_model == "catboost":
-            X_train = (self.prepare_table(X_train)).to_pandas()
-            X_valid = (self.prepare_table(X_valid)).to_pandas()
+            X_train = self.prepare_table(X_train)
+            X_valid = self.prepare_table(X_valid)
             y_train, y_valid = y_train.to_pandas(), y_valid.to_pandas()
             self.model.fit(X=X_train, y=y_train, eval_set=(X_valid, y_valid))
         elif self.chosen_model in ["resnet", "realmlp"]:
@@ -454,7 +454,7 @@ class BaseJoinSelector(BaseEstimator):
 
     def predict_model(self, X):
         if self.chosen_model == "catboost":
-            X = (self.prepare_table(X)).to_pandas()
+            X = self.prepare_table(X)
             y_pred = self.model.predict(X)
         else:
             X, _ = self.prepare_table_preprocessing(X)
