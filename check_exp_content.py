@@ -89,141 +89,46 @@ def duplicate_configs(df):
 
 
 def prepare_config(config_dict):
-    pars = ParameterGrid(required_config)
+    pars = ParameterGrid(config_dict)
     df_config = pl.from_dicts(list(pars))
     return df_config
 
 
 # %%
-required_config = {
-    "jd_method": ["exact_matching", "minhash", "minhash_hybrid", "starmie"],
-    "estimator": [
-        "nojoin",
-        "highest_containment",
-        "full_join",
-        "best_single_join",
-        "stepwise_greedy_join",
-    ],
-    "chosen_model": [
-        # "ridgecv",
-        # "catboost",
-        "realmlp",
-        "resnet",
-    ],
-    "target_dl": [
-        "binary_update",
-        "wordnet_full",
-        "wordnet_vldb_10",
-        # "wordnet_vldb_50",
-        # "open_data_us",
-    ],
-    "base_table": [
-        "company_employees",
-        "housing_prices",
-        "us_accidents_2021",
-        "us_accidents_large",
-        "us_county_population",
-        "us_elections",
-        # "schools",
-    ],
-    "aggregation": [
-        "first",
-        # "mean",
-        # "dfs"
-    ],
-}
+cfg_path = Path("config/required_configurations/yadl/required_general.json")
 
+required_config = json.load(open(cfg_path, "r"))
 
-# %%
+# Given the configuration grid specified above, prepare a dataframe that contains
+# all the configurations that should be run
 df_config = prepare_config(required_config)
 group_keys = df_config.columns
-# %%
-run_ids = [
-    "0428",
-    "0429",
-    "0430",
-    "0453",
-    "0454",
-    "0459",
-    "0457",
-    "0467",
-    "0468",
-    "0476",
-    "0477",
-    "0478",
-    "0481",
-    "0482",
-    "0483",
-    "0485",
-    "0471",
-    "0484",
-    "0486",
-    "0487",
-    "0494",
-    "0495",
-    "0496",
-    "0497",
-    "0501",
-    "0500",
-    "0502",
-    "0503",
-    "0635",
-    "0636",
-    "0637",
-    "0638",
-    "0665",
-    "0671",
-    "0672",
-    "0673",
-    "0674",
-    "0680",
-    "0682",
-    "0683",
-    "0686",
-]
-run_ids = sorted(list(set(run_ids)))
+#%%
+df_overall = pl.read_csv("results/master_list.csv")
 
-base_path = "results/logs/"
-dest_path = Path("results/overall")
-overall_list = []
-
-for r_path in tqdm(
-    Path(base_path).iterdir(), total=sum(1 for _ in Path(base_path).iterdir())
-):
-    r_id = str(r_path.stem).split("-")[0]
-    if r_id in run_ids:
-        try:
-            df_raw = read_logs(exp_name=None, exp_path=r_path)
-            if r_id == "0673":
-                df_raw = df_raw.with_columns(chosen_model=pl.lit("ridgecv"))
-            overall_list.append(df_raw)
-        except pl.exceptions.SchemaError:
-            print("Failed ", r_path)
-
-df_overall = pl.concat(overall_list).with_columns(
-    base_table=pl.col("base_table").str.split("-").list.first()
-)
 df_test = df_config.join(df_overall, on=group_keys, how="left")
 _cm = configs_missing(df_test)
 _cnf = configs_not_finished(df_test)
 configs_to_review = pl.concat([_cm.select(group_keys), _cnf.select(group_keys)])
 
 # %%
-updated_configs = []
-for d in configs_to_review.to_dicts():
-    up_ = dict(default_config)
-    up_["evaluation_models"]["chosen_model"] = d["chosen_model"]
-    up_["query_cases"]["data_lake"] = d["target_dl"]
-    up_["query_cases"]["join_discovery_method"] = d["jd_method"]
-    up_["query_cases"]["query_column"] = "col_to_embed"
+def prepare_specific_configs(
+    cfg_to_review,
+    config_name,
+):
+    updated_configs = []
+    for d in cfg_to_review.to_dicts():
+        up_ = dict(default_config)
+        up_["evaluation_models"]["chosen_model"] = d["chosen_model"]
+        up_["query_cases"]["data_lake"] = d["target_dl"]
+        up_["query_cases"]["join_discovery_method"] = d["jd_method"]
+        up_["query_cases"]["query_column"] = "col_to_embed"
 
-    table_path = Path(
-        "data/source_tables/yadl", f'{d["base_table"]}-yadl-depleted.parquet'
-    )
-    up_["query_cases"]["table_path"] = table_path
+        table_path = Path(
+            "data/source_tables/yadl", f'{d["base_table"]}-yadl-depleted.parquet'
+        )
+        up_["query_cases"]["table_path"] = table_path
 
-    updated_configs.append(deepcopy(up_))
+        updated_configs.append(deepcopy(up_))
 
-pickle.dump(updated_configs, open("config/missing_starmie_nn.pickle", "wb"))
-
-# %%
+    pickle.dump(updated_configs, open(f"config/{config_mame}", "wb"))
