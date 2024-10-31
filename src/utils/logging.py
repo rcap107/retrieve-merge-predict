@@ -130,18 +130,16 @@ def read_logs(exp_name=None, exp_path=None):
     return df_agg
 
 
-def setup_run_logging(setup_config=None):
+def setup_run_logging(setup_config=None, run_configs=None):
     exp_name = get_exp_name()
     os.makedirs(f"results/logs/{exp_name}")
     os.makedirs(f"results/logs/{exp_name}/json")
     os.makedirs(f"results/logs/{exp_name}/json/failed")
-    os.makedirs(f"results/logs/{exp_name}/plots")
     os.makedirs(f"results/logs/{exp_name}/run_logs")
 
     if setup_config is not None:
         with open(f"results/logs/{exp_name}/{exp_name}.cfg", "w") as fp:
             json.dump(setup_config, fp, indent=2)
-
     return exp_name
 
 

@@ -4,7 +4,7 @@
 
 import json
 
-#%%
+# %%
 import pickle
 from copy import deepcopy
 from pathlib import Path
@@ -16,9 +16,10 @@ from tqdm import tqdm
 
 from src.utils.logging import read_and_process, read_logs
 
+pl.Config.set_fmt_str_lengths(150)
 # %%
 # %%
-# For general use
+# Defining the default configuration that will be updated by the others
 default_config = {
     "estimators": {
         "best_single_join": {"active": True, "use_rf": False},
@@ -68,7 +69,7 @@ def configs_missing(df):
     return df.filter(pl.col("status").is_null())
 
 
-def configs_not_finished(df):
+def configs_not_finished(df, group_keys):
     # Configs with fewer than 10 folds done in the current file
     return (
         df.filter(~pl.col("status").is_null())
@@ -78,7 +79,7 @@ def configs_not_finished(df):
     )
 
 
-def duplicate_configs(df):
+def duplicate_configs(df, group_keys):
     # Configs with more than 10 folds done in the current file (duplicates?)
     return (
         df.filter(~pl.col("status").is_null())
@@ -95,6 +96,21 @@ def prepare_config(config_dict):
 
 
 # %%
+def get_configs_to_review(df_config, df_results):
+    group_keys = df_config.columns
+    df_test = df_config.join(
+        df_results.with_columns(
+            base_table=pl.col("base_table").str.split("-").list.first()
+        ),
+        on=group_keys,
+        how="left",
+    )
+    _cm = configs_missing(df_test)
+    _cnf = configs_not_finished(df_test, group_keys)
+    return (_cm, _cnf)
+
+
+# %%
 cfg_path = Path("config/required_configurations/yadl/required_general.json")
 
 required_config = json.load(open(cfg_path, "r"))
@@ -103,13 +119,12 @@ required_config = json.load(open(cfg_path, "r"))
 # all the configurations that should be run
 df_config = prepare_config(required_config)
 group_keys = df_config.columns
-#%%
+# %%
 df_overall = pl.read_csv("results/master_list.csv")
 
-df_test = df_config.join(df_overall, on=group_keys, how="left")
-_cm = configs_missing(df_test)
-_cnf = configs_not_finished(df_test)
+_cm, _cnf = get_configs_to_review(df_config, df_overall)
 configs_to_review = pl.concat([_cm.select(group_keys), _cnf.select(group_keys)])
+
 
 # %%
 def prepare_specific_configs(
@@ -127,8 +142,14 @@ def prepare_specific_configs(
         table_path = Path(
             "data/source_tables/yadl", f'{d["base_table"]}-yadl-depleted.parquet'
         )
-        up_["query_cases"]["table_path"] = table_path
+        up_["query_cases"]["table_path"] = str(table_path)
 
         updated_configs.append(deepcopy(up_))
 
-    pickle.dump(updated_configs, open(f"config/{config_mame}", "wb"))
+    print(f"Writing file config/{config_name}")
+    pickle.dump(updated_configs, open(f"config/{config_name}", "wb"))
+
+    return updated_configs
+
+
+# %%

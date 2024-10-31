@@ -95,6 +95,7 @@ if __name__ == "__main__":
         # Using a specific set of configurations
         if args.selected_config.exists():
             run_variants = prepare_specific_configs(args.selected_config)
+            base_config = run_variants
         else:
             raise IOError(f"File {args.selected_config} not found.")
     else:
