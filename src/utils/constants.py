@@ -197,6 +197,7 @@ LABEL_MAPPING = {
         "jd_method": "Retrieval method",
         "chosen_model": "ML model",
         "base_table": "Base table",
+        "aggregation": "Aggregation",
     },
     "aggregation": {"first": "Any", "mean": "Mean", "dfs": "DFS"},
     "budget_amount": {10: 10, 30: 30, 100: 100},

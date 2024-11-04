@@ -856,4 +856,7 @@ def pareto_frontier_plot(
     # )
     ax.set_xlabel(ax_xlabel)
 
+    ax.set_ylim([-0.5, 0.6])
+    ax.axhspan(0, -0.5, zorder=0, alpha=0.05, color="red")
+
     return h, l
