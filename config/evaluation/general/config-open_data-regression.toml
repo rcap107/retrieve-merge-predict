@@ -11,7 +11,7 @@ join_strategy = "left"
 aggregation = ["first"]
 
 ["evaluation_models"]
-chosen_model = ["ridgecv"]
+chosen_model = ["realmlp", "resnet"]
 catboost.iterations = 300
 catboost.od_type = "Iter"
 catboost.od_wait = 10
