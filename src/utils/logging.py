@@ -101,7 +101,11 @@ def read_logs(exp_name=None, exp_path=None):
 
     config = json.load(open(Path(path_target_run, exp_name + ".cfg"), "r"))
 
-    exp_task = config["run_parameters"]["task"]
+    if isinstance(config, dict):
+        exp_task = config["run_parameters"]["task"]
+    else:
+        first_task = config[0]
+        exp_task = first_task["run_parameters"]["task"]
 
     path_agg_logs = Path(path_target_run, "run_logs")
 
