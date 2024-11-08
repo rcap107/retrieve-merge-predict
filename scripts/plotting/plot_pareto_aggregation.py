@@ -14,6 +14,7 @@ from src.utils.logging import read_and_process
 
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
+plt.rc("font", family="serif")
 
 
 def major_gigabyte_formatter(x, pos):
@@ -226,7 +227,7 @@ ax.xaxis.set_major_locator(major_time_locator)
 ax.set_ylabel("Prediction Performance")
 ax.set_xlabel("Time run (s)")
 
-fig.savefig("images/pareto_aggregation_time_single.png")
+fig.savefig("images/pareto_aggregation_time_single.png", bbox_inches="tight")
 fig.savefig("images/pareto_aggregation_time_single.pdf", bbox_inches="tight")
 
 # %%
