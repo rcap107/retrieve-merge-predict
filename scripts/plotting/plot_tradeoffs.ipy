@@ -2,8 +2,8 @@
 Figure 10: tradeoffs between retrieval methods.
 """
 
-# # %%
-# %cd ..
+# %%
+# %cd ~/bench
 # # %%
 # %load_ext autoreload
 # %autoreload 2
@@ -16,14 +16,14 @@ import polars as pl
 
 plt.style.use("seaborn-v0_8-talk")
 # %%
-methods = ["Exact", "Minhash", "Hybrid"]
-dd = {"method": methods, "fixed_cost": [0, 3000, 3000], "column_cost": [500, 20, 250]}
+methods = ["Exact", "Minhash", "Hybrid", "Starmie"]
+dd = {"method": methods, "fixed_cost": [0, 2000, 2000, 18000], "column_cost": [800, 5, 470, 510]}
 # %%
 # %%
 df = pl.from_dict(dd)
 # %%
 rows = []
-for _n in range(15):
+for _n in range(11):
     for m in methods:
         fc = df.filter(pl.col("method") == m).select("fixed_cost").item()
         cc = df.filter(pl.col("method") == m).select("column_cost").item()
@@ -32,30 +32,29 @@ for _n in range(15):
 res = pl.DataFrame(rows)
 _r = res.group_by(pl.col("column_0")).agg(pl.all())
 # %%
-fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(5, 2.5))
+fig, ax = plt.subplots(squeeze=True, layout="constrained", figsize=(5, 3))
 for c in _r.iter_rows():
     ax.plot(c[1], c[2], label=c[0], marker="o", markersize=5)
     ax.fill_between(c[1], c[2], y2=0, alpha=0.2)
-ax.legend()
+ax.legend(    loc="upper left",
+    bbox_to_anchor=(0.5, 1.4),
+    # title=constants.LABEL_MAPPING["variables"][groups[pl_id]],
+    ncols=2,
+    mode="expand",
+    edgecolor="white",
+)
 ax.set_xlabel("Number of query columns")
 ax.set_ylabel("Retrieval time")
-major_locator = ticker.FixedLocator(np.arange(0, 7200, 900))
-major_formatter = ticker.FixedFormatter(
-    [
-        "0",
-        "15m",
-        "30m",
-        "45m",
-        "1h",
-        "1h15m",
-        "1h30m",
-        "1h45m",
-        "2h",
-    ]
-)
+major_locator = ticker.FixedLocator(np.arange(0, 34000, 3600))
+
+def func_form(x, pos):
+    return f"{x/3600:.0f}h"
+
+major_formatter = ticker.FuncFormatter(func_form)
+
 ax.yaxis.set_major_locator(major_locator)
 ax.yaxis.set_major_formatter(major_formatter)
 
-# fig.savefig("images/tradeoff-retrieval.pdf")
-# fig.savefig("images/tradeoff-retrieval.png")
+fig.savefig("images/tradeoff-retrieval.pdf", bbox_inches="tight")
+fig.savefig("images/tradeoff-retrieval.png", bbox_inches="tight")
 # %%
