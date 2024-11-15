@@ -14,7 +14,7 @@ from src.utils.logging import read_and_process
 
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
-plt.rc("font", family="serif")
+plt.rc("font", family="sans-serif")
 
 
 def major_gigabyte_formatter(x, pos):
@@ -98,7 +98,7 @@ for pl_id in range(4):
     ax = axs[pl_id // 2][pl_id % 2]
     ax.set_xscale("log")
     idx_ = pl_id
-    h, l = plotting.pareto_frontier_plot(
+    (h, l), _ = plotting.pareto_frontier_plot(
         data,
         variable,
         y_var,
@@ -152,7 +152,7 @@ for pl_id in range(4):
     ax = axs[pl_id // 2][pl_id % 2]
     ax.set_xscale("log")
     idx_ = pl_id
-    h, l = plotting.pareto_frontier_plot(
+    (h, l), _ = plotting.pareto_frontier_plot(
         data,
         variable,
         y_var,
@@ -197,7 +197,7 @@ y_var = "y"
 group_variable = "aggregation"
 ax.set_xscale("log")
 idx_ = pl_id
-h, l = plotting.pareto_frontier_plot(
+(h, l), _ = plotting.pareto_frontier_plot(
     data,
     variable,
     y_var,
@@ -215,7 +215,7 @@ ax.legend(
     l,
     # loc="upper center",
     # bbox_to_anchor=(0.5, 1.4),
-    title=constants.LABEL_MAPPING["variables"][groups[pl_id]],
+    title="Aggregation",
     ncols=1,
     # mode="expand",
     edgecolor="white",

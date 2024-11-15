@@ -14,7 +14,7 @@ from src.utils.logging import read_and_process
 
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
-plt.rc("font", family="serif")
+plt.rc("font", family="sans-serif")
 
 
 def major_gigabyte_formatter(x, pos):
@@ -243,7 +243,7 @@ for idx_row in range(2):
             _xlabel = map_xlabel[x_var]
         else:
             _xlabel = ""
-        h, l = plotting.pareto_frontier_plot(
+        (h, l), _ = plotting.pareto_frontier_plot(
             data,
             x_var,
             y_var,
