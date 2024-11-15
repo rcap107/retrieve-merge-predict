@@ -5,7 +5,7 @@ Figure 8:
 """
 
 # %%
-# %cd ..
+# %cd ~/bench
 # %load_ext autoreload
 # %autoreload 2
 # %%
@@ -146,11 +146,11 @@ def prepare_containment_plot(fig, ax):
 
     # Comment out the names of the data lakes that should not be printed
     dl_names = [
-        # "binary_update",
+        "binary_update",
         "wordnet_full",
         "wordnet_vldb_10",
         "wordnet_vldb_50",
-        # "open_data_us",
+        "open_data_us",
     ]
 
     list_df = []
@@ -185,7 +185,7 @@ def prepare_containment_plot(fig, ax):
         loc="upper left",
         fontsize=10,
         ncols=5,
-        bbox_to_anchor=(0, 1.0, 1, 0.1),
+        bbox_to_anchor=(0, 1.0, 1, 0.15),
         mode="expand",
     )
     ax.set_yticklabels(
@@ -198,12 +198,12 @@ def prepare_containment_plot(fig, ax):
 
 # %%
 fig, ax = plt.subplots(
-    1, 2, squeeze=True, figsize=(8, 3), layout="constrained", sharex=True
+    1, 2, squeeze=True, figsize=(10, 2.5), layout="constrained", sharex=True
 )
 
 prepare_containment_plot(fig, ax[0])
 prepare_regression(fig, ax[1])
 
-# fig.savefig("images/containment-regression.pdf", bbox_inches="tight")
-# fig.savefig("images/containment-regression.png", bbox_inches="tight")
+fig.savefig("images/containment-regression.pdf", bbox_inches="tight")
+fig.savefig("images/containment-regression.png", bbox_inches="tight")
 # %%
