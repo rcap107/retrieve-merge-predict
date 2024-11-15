@@ -339,7 +339,7 @@ def prepare_case_subplot(
     box_width: float = 0.9,
     xmax: float = 1,
     sorting_method: str = "prediction",
-    sorting_variable: str = "y",
+    sorting_variable: str = "prediction_metric",
     qle: float = 0.05,
     symlog_ticks=None,
 ):
@@ -569,10 +569,12 @@ def draw_pair_comparison(
     qle: float = 0.05,
     add_titles: bool = True,
     subplot_titles=None,
-    sorting_variable: str = "y",
+    sorting_variable: str = "prediction_metric",
     sorting_method: str = "prediction",
+    result_column: str = "prediction_metric",
     figsize=(10, 4),
     axes=None,
+    figure=None,
 ):
     """This function is used to prepare the paired plots used for the paper and other material.
 
@@ -603,8 +605,9 @@ def draw_pair_comparison(
         figsize (tuple, optional): Tuple that defines the size of the resulting figure. Defaults to (10, 4).
         axes (_type_, optional): Optional parameter to pass the axes from an external function. Defaults to None.
     """
+
     df_rel_y = get_difference_from_mean(
-        df, column_to_average=grouping_dimension, result_column="y"
+        df, column_to_average=grouping_dimension, result_column=result_column
     )
     df_time = get_difference_from_mean(
         df,
@@ -628,16 +631,18 @@ def draw_pair_comparison(
             sharey=True,
             width_ratios=(2, 2),
         )
+    else:
+        fig = figure
     # axes[1].sharey(axes[0])
     # axes[1].set_yticks([])
 
     plotting_variables = [
-        f"diff_{grouping_dimension}_y",
+        f"diff_{grouping_dimension}_{result_column}",
         f"diff_{grouping_dimension}_time_run",
     ]
 
     formatting_dict = {
-        f"diff_{grouping_dimension}_y": {"xtick_format": "percentage"},
+        f"diff_{grouping_dimension}_{result_column}": {"xtick_format": "percentage"},
         f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
     }
     if subplot_titles is None:

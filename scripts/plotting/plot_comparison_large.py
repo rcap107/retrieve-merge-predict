@@ -3,7 +3,7 @@ Alternative code for Figure 5: comparing across data lakes over selector, aggreg
 """
 
 # %%
-# %cd ..
+# %cd ~/bench
 # %load_ext autoreload
 # %autoreload 2
 
@@ -13,63 +13,42 @@ import matplotlib.pyplot as plt
 import polars as pl
 
 from src.utils import constants, plotting
-from src.utils.logging import read_and_process
-
-
-#%%
-def prepare_general():
-    result_path = "stats/overall/overall_first.parquet"
-
-    # Use the standard method for reading all results for consistency.
-    df_results = pl.read_parquet(result_path)
-    current_results = read_and_process(df_results)
-    others = [
-        col
-        for col in current_results.columns
-        if col not in constants.GROUPING_KEYS + ["case"]
-    ]
-    current_results = current_results.group_by(constants.GROUPING_KEYS + ["case"]).agg(
-        pl.mean(others)
-    )
-    current_results = current_results.filter(pl.col("estimator") != "nojoin")
-    _d = current_results.filter(
-        (pl.col("estimator") != "top_k_full_join") & (pl.col("jd_method") != "starmie")
-    )
-    return _d
-
-
-def prepare_aggr():
-    target_tables = [
-        "company_employees",
-        # "movies_large",
-        "us_accidents_2021",
-        "us_county_population",
-        "schools",
-    ]
-    aggr_result_path = "stats/overall/overall_aggr.parquet"
-    df_results = pl.read_parquet(aggr_result_path)
-    results_aggr = read_and_process(df_results)
-    results_aggr = results_aggr.filter(
-        (pl.col("estimator").is_in(["best_single_join", "highest_containment"]))
-        & (pl.col("jd_method") != "starmie")
-    )
-
-    results_aggr = results_aggr.filter(
-        (pl.col("base_table").str.split("-").list.first()).is_in(target_tables)
-    )
-    return results_aggr
-
 
 # %%
 plot_case = "dep"
 
-savefig = False
+savefig = True
 # %%
-_results_general = prepare_general()
-_results_aggr = prepare_aggr()
+_results_general = (
+    pl.read_parquet("results/temp_results_general.parquet")
+    .with_columns(
+        case=(
+            pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
+        )
+    )
+    .with_columns(
+        prediction_metric=pl.when(pl.col("prediction_metric") < -1)
+        .then(-1)
+        .otherwise(pl.col("prediction_metric"))
+    )
+)
+_results_aggr = (
+    pl.read_parquet("results/temp_results_aggregation.parquet")
+    .with_columns(
+        case=(
+            pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
+        )
+    )
+    .with_columns(
+        prediction_metric=pl.when(pl.col("prediction_metric") < -1)
+        .then(-1)
+        .otherwise(pl.col("prediction_metric"))
+    )
+)
+
 # %%
 fig, axes = plt.subplots(
-    3, 2, figsize=(10, 6.5), layout="constrained", squeeze=True, height_ratios=(2, 2, 1)
+    3, 2, figsize=(10, 6.5), layout="constrained", squeeze=True, height_ratios=(2, 2, 2)
 )
 
 var = "estimator"
@@ -91,6 +70,7 @@ plotting.draw_pair_comparison(
     sorting_variable="estimator_comp",
     axes=axes[0, :],
     subplot_titles=subplot_titles,
+    figure=fig,
 )
 
 var = "chosen_model"
@@ -109,6 +89,7 @@ plotting.draw_pair_comparison(
     add_titles=True,
     axes=axes[2, :],
     subplot_titles=subplot_titles,
+    figure=fig,
 )
 
 var = "aggregation"
@@ -119,7 +100,7 @@ plotting.draw_pair_comparison(
     var,
     scatterplot_dimension=scatter_d,
     scatter_mode="split",
-    savefig=False,
+    savefig=savefig,
     savefig_type=["png", "pdf"],
     case=plot_case,
     colormap_name="Set1",
@@ -128,10 +109,15 @@ plotting.draw_pair_comparison(
     add_titles=True,
     axes=axes[1, :],
     subplot_titles=subplot_titles,
+    figure=fig,
 )
 
 for _ in range(3):
     # axes[_, 1].sharey(axes[_, 0])
     axes[_, 1].set_yticks([])
+
+# %%
+fig.savefig("images/dep_pair_full.png")
+fig.savefig("images/dep_pair_full.pdf")
 
 # %%
