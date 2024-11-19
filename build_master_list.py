@@ -59,10 +59,10 @@ run_ids = [
     "0686",
     "0688",
     "0692",
-    "0693",
-    "0694",
-    "0695",
-    "0696",
+    # "0693",
+    # "0694",
+    # "0695",
+    # "0696",
 ]
 run_ids = sorted(list(set(run_ids)))
 
@@ -88,3 +88,4 @@ df_overall = pl.concat(overall_list).with_columns(
 )
 
 df_overall.write_csv("results/master_list.csv")
+df_overall.write_parquet("results/master_list.parquet")

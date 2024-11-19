@@ -13,7 +13,7 @@ def prepare_config(config_dict):
 
 
 # %%
-df = pl.read_csv("results/master_list.csv")
+df = pl.read_parquet("results/master_list.parquet")
 #%%
 df = df.with_columns(base_table=pl.col("base_table").str.split("-").list.first())
 # %%
