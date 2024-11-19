@@ -17,7 +17,7 @@ from src.utils import constants, plotting
 # %%
 plot_case = "dep"
 
-savefig = True
+savefig = False
 # %%
 _results_general = (
     pl.read_parquet("results/temp_results_general.parquet")
@@ -46,15 +46,59 @@ _results_aggr = (
     )
 )
 
+_results_retrieval = (
+    pl.read_parquet("results/temp_results_retrieval.parquet")
+    .filter(pl.col("estimator") != "nojoin")
+    .with_columns(
+        case=(
+            pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
+        )
+    )
+    .with_columns(
+        prediction_metric=pl.when(pl.col("prediction_metric") < -1)
+        .then(-1)
+        .otherwise(pl.col("prediction_metric"))
+    )
+)
+
+
 # %%
 fig, axes = plt.subplots(
-    3, 2, figsize=(10, 6.5), layout="constrained", squeeze=True, height_ratios=(2, 2, 2)
+    4,
+    2,
+    figsize=(12, 6.5),
+    layout="constrained",
+    squeeze=True,
+    height_ratios=(2, 2, 2, 2),
 )
+
+var = "jd_method"
+scatter_d = "case"
+
+subplot_titles = ["a. Retrieval method", ""]
+plotting.draw_pair_comparison(
+    _results_retrieval,
+    var,
+    scatterplot_dimension=scatter_d,
+    scatter_mode="split",
+    savefig=savefig,
+    savefig_type=["png", "pdf"],
+    case=plot_case,
+    jitter_factor=0.02,
+    qle=0.05,
+    add_titles=True,
+    # sorting_method="manual",
+    # sorting_variable="estimator_comp",
+    axes=axes[0, :],
+    subplot_titles=subplot_titles,
+    figure=fig,
+)
+
 
 var = "estimator"
 scatter_d = "case"
 
-subplot_titles = ["a. Join selection method", ""]
+subplot_titles = ["b. Join selection method", ""]
 plotting.draw_pair_comparison(
     _results_general,
     var,
@@ -68,32 +112,13 @@ plotting.draw_pair_comparison(
     add_titles=True,
     sorting_method="manual",
     sorting_variable="estimator_comp",
-    axes=axes[0, :],
-    subplot_titles=subplot_titles,
-    figure=fig,
-)
-
-var = "chosen_model"
-scatter_d = "case"
-subplot_titles = ["c. Supervised learner", ""]
-plotting.draw_pair_comparison(
-    _results_general,
-    var,
-    scatterplot_dimension=scatter_d,
-    scatter_mode="split",
-    savefig=savefig,
-    savefig_type=["png", "pdf"],
-    case=plot_case,
-    jitter_factor=0.02,
-    qle=0.05,
-    add_titles=True,
-    axes=axes[2, :],
+    axes=axes[1, :],
     subplot_titles=subplot_titles,
     figure=fig,
 )
 
 var = "aggregation"
-subplot_titles = ["b. Aggregation method", ""]
+subplot_titles = ["c. Aggregation method", ""]
 
 plotting.draw_pair_comparison(
     _results_aggr,
@@ -107,17 +132,38 @@ plotting.draw_pair_comparison(
     jitter_factor=0.03,
     qle=0.01,
     add_titles=True,
-    axes=axes[1, :],
+    axes=axes[2, :],
     subplot_titles=subplot_titles,
     figure=fig,
 )
 
-for _ in range(3):
+
+var = "chosen_model"
+scatter_d = "case"
+subplot_titles = ["d. Supervised learner", ""]
+plotting.draw_pair_comparison(
+    _results_general,
+    var,
+    scatterplot_dimension=scatter_d,
+    scatter_mode="split",
+    savefig=savefig,
+    savefig_type=["png", "pdf"],
+    case=plot_case,
+    jitter_factor=0.02,
+    qle=0.05,
+    add_titles=True,
+    axes=axes[3, :],
+    subplot_titles=subplot_titles,
+    figure=fig,
+)
+
+
+for _ in range(4):
     # axes[_, 1].sharey(axes[_, 0])
     axes[_, 1].set_yticks([])
 
 # %%
-fig.savefig("images/dep_pair_full.png")
-fig.savefig("images/dep_pair_full.pdf")
+# fig.savefig("images/dep_pair_full.png")
+# fig.savefig("images/dep_pair_full.pdf")
 
 # %%
