@@ -14,6 +14,13 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 import polars as pl
 
+
+# Get the tab10 colormap
+tab10 = plt.cm.tab10
+
+# Extract the first four colors
+colors = [tab10(i) for i in range(4)]
+
 plt.style.use("seaborn-v0_8-talk")
 # %%
 methods = ["Exact", "Minhash", "Hybrid", "Starmie"]
@@ -42,9 +49,9 @@ fig.subplots_adjust(hspace=0.05)
 fig.supylabel("Retrieval time", x=-0.01, fontsize="x-large")
 
 for ax in (ax1, ax2):
-    for c in df_plotting.iter_rows():
-        ax.plot(c[1], c[2], label=c[0], marker="o", markersize=5)
-        ax.fill_between(c[1], c[2], y2=0, alpha=0.2)
+    for idx_, c in enumerate(df_plotting.iter_rows()):
+        ax.plot(c[1], c[2], label=c[0], marker="o", markersize=5, color=colors[idx_])
+        ax.fill_between(c[1], c[2], y2=0, alpha=0.2,color=colors[idx_])
 
 # Note that axes are in seconds
 ax1.set_ylim(17000, 24000)
@@ -96,17 +103,19 @@ kwargs = dict(
 ax1.plot([0, 1], [0, 0], transform=ax1.transAxes, **kwargs)
 ax2.plot([0, 1], [1, 1], transform=ax2.transAxes, **kwargs)
 
-# Plot the intersection between the slope for exact and that for minhash
-x_ = dd["fixed_cost"][1] / (dd["column_cost"][0] - dd["column_cost"][1])
-y_ = x_ * 800
-ax2.plot((x_, x_), (0, y_), color="black", linestyle="--")
+# # Plot the intersection between the slope for exact and that for minhash
+# x_ = dd["fixed_cost"][1] / (dd["column_cost"][0] - dd["column_cost"][1])
+# y_ = x_ * 800
+# ax2.plot((x_, x_), (0, y_), color="black", linestyle="--")
 
-# Plot the intersection between the slope for exact and that for hybrid minhash
-x_ = dd["fixed_cost"][2] / (dd["column_cost"][0] - dd["column_cost"][2])
-y_ = x_ * 800
-ax2.plot((x_, x_), (0, y_), linestyle="--", color="black")
+# # Plot the intersection between the slope for exact and that for hybrid minhash
+# x_ = dd["fixed_cost"][2] / (dd["column_cost"][0] - dd["column_cost"][2])
+# y_ = x_ * 800
+# ax2.plot((x_, x_), (0, y_), linestyle="--", color="black")
 
-ax2.plot(x_, y_, color="black", marker="+")
+# ax2.plot(x_, y_, color="black", marker="+")
 
-# fig.savefig("images/tradeoff-retrieval.pdf", bbox_inches="tight")
-# fig.savefig("images/tradeoff-retrieval.png", bbox_inches="tight")
+fig.savefig("images/tradeoff-retrieval.pdf", bbox_inches="tight")
+fig.savefig("images/tradeoff-retrieval.png", bbox_inches="tight")
+
+# %%
