@@ -378,6 +378,7 @@ def critical_difference_diagram(
                     ypos,
                     label_fmt.format(label=label, rank=flip * rank),
                     **{"color": curr_color, **label_props},
+                    fontsize="large",
                 )
             )
             ypos -= 1

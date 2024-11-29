@@ -27,15 +27,15 @@ COLORMAP_DATALAKE_MAPPING = {
     "binary_update": "gray",
     "wordnet_full": "spring",
     "open_data_us": "winter",
-    "wordnet_vldb_10": "cool",
-    "wordnet_vldb_50": "seismic",
+    "wordnet_vldb_10": "summer",
+    "wordnet_vldb_50": "cool",
 }
 
 # Formatting the labels in the big legend, also used for filtering in some places.
 LEGEND_LABELS = {
     "company_employees": "Company Employees",
     "housing_prices": "Housing Prices",
-    "movies_large": "Movie Revenue",
+    # "movies_large": "Movie Revenue",
     # "movies_vote": "Movie Ratings",
     "us_accidents_2021": "US Accidents 2021",
     "us_accidents_large": "US Accidents Large",

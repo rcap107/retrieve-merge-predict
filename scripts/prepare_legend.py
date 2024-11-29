@@ -1,6 +1,5 @@
 # %%
 # %cd ~/bench
-# #%%
 # %load_ext autoreload
 # %autoreload 2
 # %%
@@ -16,11 +15,12 @@ from src.utils.logging import read_and_process, read_logs
 from src.utils.plotting import prepare_scatterplot_mapping_case
 
 # %%
-result_path = "results/overall/overall_first.parquet"
+result_path = "results/temp_results_general.parquet"
 
-df_results = pl.read_parquet(result_path)
+df = pl.read_parquet(result_path)
 
-df = read_and_process(df_results)
+# df = read_and_process(df_results)
+
 # %%
 df = df.with_columns(
     (
@@ -95,7 +95,9 @@ for rid, this_data_lake in enumerate(data_lakes, start=1):
         t = this_table.split("-")[0]
         this_case = f"{t}-{this_data_lake}"
         print(this_case)
-        color = scatterplot_mapping.get(this_case, "white")
+        if this_table == "us_accidents_large" and this_data_lake == "wordnet_vldb_50":
+            print("aa")
+        # color = scatterplot_mapping.get(this_case, "white")
         if this_case == "us_county_population-open_data_us" or this_case in [
             "schools-wordnet_full",
             "schools-binary_update",
@@ -104,13 +106,17 @@ for rid, this_data_lake in enumerate(data_lakes, start=1):
         ]:
             cell.set(hatch="/")
             cell.set_text_props(text="")
+        else:
+            color = scatterplot_mapping[this_case]
+            # color = scatterplot_mapping.get(this_case, "white")
+
         # cell.set_facecolor(color=color)
         cell.set_text_props(color=color)  # Set dot color
         cell.set_text_props(color=color)  # Set dot color
         cell.set_fontsize(40)
 plt.show()
 
-fig.savefig("images/legend.png")
-fig.savefig("images/legend.pdf")
+# fig.savefig("images/legend.png")
+# fig.savefig("images/legend.pdf")
 
 # %%

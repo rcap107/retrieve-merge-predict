@@ -92,14 +92,15 @@ this_d = (
     # .with_columns(rank=-pl.col("rank"))
 )
 dd = dict(zip(*this_d.to_dict().values()))
-
+#%%
+figsize = (12, 14)
 # %% Coloring by retrieval method
 colors = ["green", "orange", "red", "blue"]
 mp = dict(zip(constants.LABEL_MAPPING["jd_method"].values(), colors))
 print(mp)
 color_props = {k: mp[k.split("-")[0]] for k in dd}
 
-fig, ax = plt.subplots(1, 1, squeeze=True, figsize=(12, 10))
+fig, ax = plt.subplots(1, 1, squeeze=True, figsize=figsize)
 _ = critical_difference_diagram(
     dd, p_values, color_palette=color_props, ascending=False
 )
@@ -119,7 +120,7 @@ mp = dict(zip(constants.LABEL_MAPPING["estimator"].values(), colors))
 color_props = {k: mp[k.split("-")[1]] for k in dd}
 print(mp)
 
-fig, ax = plt.subplots(1, 1, squeeze=True, figsize=(12, 10))
+fig, ax = plt.subplots(1, 1, squeeze=True, figsize=figsize)
 _ = critical_difference_diagram(
     dd, p_values, color_palette=color_props, ascending=False
 )
@@ -140,7 +141,7 @@ mp = dict(zip(constants.LABEL_MAPPING["chosen_model"].values(), colors))
 color_props = {k: mp[k.split("-")[2]] for k in dd}
 print(mp)
 
-fig, ax = plt.subplots(1, 1, squeeze=True, figsize=(12, 10))
+fig, ax = plt.subplots(1, 1, squeeze=True, figsize=figsize)
 _ = critical_difference_diagram(
     dd, p_values, color_palette=color_props, ascending=False
 )

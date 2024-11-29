@@ -32,7 +32,7 @@ def filter_df(df, data_lake):
     target_tables = list(LEGEND_LABELS.keys())
     filtered = df.filter(
         (pl.col("target_dl") == data_lake)
-        & (pl.col("base_table").str.contains("depleted"))
+        # & (pl.col("base_table").str.contains("depleted"))
     ).with_columns(case=pl.col("base_table").str.split("-").list.first())
     return filtered.filter(pl.col("case").is_in(target_tables))
 
@@ -71,7 +71,7 @@ def prepare_data(df_raw, df_analysis, top_k=200):
             pl.col("containment").mean().alias("avg_containment"),
         )
         .sort("retrieval_method", "table_name")
-    )
+    ).with_columns(table_name=pl.col("table_name").str.split("-").list.first())
 
     res = df_raw.join(
         df_agg,
@@ -87,7 +87,7 @@ def prepare_data(df_raw, df_analysis, top_k=200):
     f = {"jd_method": "exact_matching", "chosen_model": "catboost"}
     r = res.filter(**f)
     X = r.select("avg_containment").to_numpy()
-    y = r["y"].to_numpy()
+    y = r["prediction_metric"].to_numpy()
     return X, y
 
 
@@ -112,10 +112,10 @@ def prepare_regression(fig, ax):
     is expecting to find the data in the given path.
     """
     # Reading and preparing the results
-    result_path = "stats/overall/overall_first.parquet"
+    result_path = "results/temp_results_general.parquet"
     df_results = pl.read_parquet(result_path)
-    current_results = logging.read_and_process(df_results)
-    df_overall = current_results.filter(pl.col("estimator") != "nojoin")
+    # current_results = logging.read_and_process(df_results)
+    df_overall = df_results.filter(pl.col("estimator") != "nojoin")
 
     # Comment out the names of the data lakes that should not be printed
     dl_names = [
@@ -134,7 +134,7 @@ def prepare_regression(fig, ax):
 
     # Adding a horizontal line for the value of 0
     ax.axhline(alpha=0.3)
-    ax.set_xlabel("")
+    ax.set_xlabel("Containment")
 
 
 # %%
@@ -192,7 +192,7 @@ def prepare_containment_plot(fig, ax):
         [LABEL_MAPPING["jd_method"][x.get_text()] for x in ax.get_yticklabels()]
     )
     ax.set_xlabel("")
-    # ax.set_xlabel("Containment")
+    ax.set_xlabel("Containment")
     ax.set_ylabel("")
 
 
