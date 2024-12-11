@@ -15,7 +15,7 @@ from src.utils.logging import read_and_process, read_logs
 from src.utils.plotting import prepare_scatterplot_mapping_case
 
 # %%
-result_path = "results/temp_results_general.parquet"
+result_path = "results/results_general.parquet"
 
 df = pl.read_parquet(result_path)
 
@@ -116,7 +116,7 @@ for rid, this_data_lake in enumerate(data_lakes, start=1):
         cell.set_fontsize(40)
 plt.show()
 
-# fig.savefig("images/legend.png")
-# fig.savefig("images/legend.pdf")
+fig.savefig("images/legend.png")
+fig.savefig("images/legend.pdf")
 
 # %%

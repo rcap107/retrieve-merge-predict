@@ -42,7 +42,7 @@ major_time_locator = FixedLocator([10, 120, 600, 3600])
 gb_locator = FixedLocator([2000, 3000, 4000, 5000, 7000, 10000])
 
 #%% RESULTS WITH STARMIE, NO OPEN DATA OR YADL50K
-df = pl.read_parquet("results/temp_results_retrieval.parquet")
+df = pl.read_parquet("results/results_retrieval.parquet")
 df = df.with_columns(
     pl.when(pl.col("prediction_metric") < -1)
     .then(-1)
@@ -179,7 +179,7 @@ fig.supylabel("Prediction Performance")
 fig.savefig("images/pareto_comparison.png", bbox_inches="tight")
 fig.savefig("images/pareto_comparison.pdf", bbox_inches="tight")
 #%% RESULTS WITH ALL DATA LAKES, NO STARMIE
-df = pl.read_parquet("results/temp_results_general.parquet")
+df = pl.read_parquet("results/results_general.parquet")
 df = df.with_columns(
     pl.when(pl.col("prediction_metric") < -1)
     .then(-1)

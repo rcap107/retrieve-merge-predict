@@ -47,7 +47,7 @@ titles = {0: "Selector", 1: "Prediction Model", 2: "Retrieval method"}
 palettes = {0: "tab10", 1: "tab10", 2: "tab10"}
 
 
-df = pl.read_parquet("results/temp_results_aggregation.parquet")
+df = pl.read_parquet("results/results_aggregation.parquet")
 df = df.with_columns(
     pl.when(pl.col("prediction_metric") < -1)
     .then(-1)

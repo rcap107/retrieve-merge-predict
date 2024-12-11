@@ -17,50 +17,36 @@ from src.utils import constants, plotting
 # %%
 plot_case = "dep"
 
-savefig = False
+savefig = True
+
+
 # %%
-_results_general = (
-    pl.read_parquet("results/temp_results_general.parquet")
-    .with_columns(
-        case=(
-            pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
+def read_and_format(file_path):
+    return (
+        pl.read_parquet(file_path)
+        .with_columns(
+            case=(
+                pl.col("base_table").str.split("-").list.first()
+                + "-"
+                + pl.col("target_dl")
+            )
+        )
+        .with_columns(
+            prediction_metric=pl.when(pl.col("prediction_metric") < -1)
+            .then(-1)
+            .otherwise(pl.col("prediction_metric"))
         )
     )
-    .with_columns(
-        prediction_metric=pl.when(pl.col("prediction_metric") < -1)
-        .then(-1)
-        .otherwise(pl.col("prediction_metric"))
-    )
-)
-_results_aggr = (
-    pl.read_parquet("results/temp_results_aggregation.parquet")
-    .with_columns(
-        case=(
-            pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
-        )
-    )
-    .with_columns(
-        prediction_metric=pl.when(pl.col("prediction_metric") < -1)
-        .then(-1)
-        .otherwise(pl.col("prediction_metric"))
-    )
-)
 
-_results_retrieval = (
-    pl.read_parquet("results/temp_results_retrieval.parquet")
-    .filter(pl.col("estimator") != "nojoin")
-    .with_columns(
-        case=(
-            pl.col("base_table").str.split("-").list.first() + "-" + pl.col("target_dl")
-        )
-    )
-    .with_columns(
-        prediction_metric=pl.when(pl.col("prediction_metric") < -1)
-        .then(-1)
-        .otherwise(pl.col("prediction_metric"))
-    )
-)
 
+#%%
+_results_general = read_and_format("results/results_general.parquet")
+_results_aggr = read_and_format("results/results_aggregation.parquet")
+
+_results_aggr = _results_aggr.filter(pl.col("estimator") != "nojoin")
+_results_retrieval = read_and_format("results/results_retrieval.parquet")
+# _results_aggr = _results_aggr.filter(pl.col("jd_method") == "exact_matching")
+# _results_general = _results_general.filter(pl.col("jd_method") == "exact_matching")
 
 # %%
 fig, axes = plt.subplots(
@@ -75,9 +61,33 @@ fig, axes = plt.subplots(
 var = "jd_method"
 scatter_d = "case"
 
-subplot_titles = ["a. Retrieval method", ""]
+# subplot_titles = ["a. Retrieval method", ""]
+# plotting.draw_pair_comparison(
+#     _results_retrieval,
+#     var,
+#     scatterplot_dimension=scatter_d,
+#     scatter_mode="split",
+#     savefig=savefig,
+#     savefig_type=["png", "pdf"],
+#     case=plot_case,
+#     jitter_factor=0.02,
+#     qle=0.05,
+#     add_titles=True,
+#     # sorting_method="manual",
+#     # sorting_variable="estimator_comp",
+#     axes=axes[0, :],
+#     subplot_titles=subplot_titles,
+#     figure=fig,
+# )
+
+
+var = "estimator"
+scatter_d = "case"
+
+subplot_titles = ["b. Join selection method", ""]
 plotting.draw_pair_comparison(
-    _results_retrieval,
+    _results_aggr,
+    # _results_general,
     var,
     scatterplot_dimension=scatter_d,
     scatter_mode="split",
@@ -89,29 +99,6 @@ plotting.draw_pair_comparison(
     add_titles=True,
     # sorting_method="manual",
     # sorting_variable="estimator_comp",
-    axes=axes[0, :],
-    subplot_titles=subplot_titles,
-    figure=fig,
-)
-
-
-var = "estimator"
-scatter_d = "case"
-
-subplot_titles = ["b. Join selection method", ""]
-plotting.draw_pair_comparison(
-    _results_general,
-    var,
-    scatterplot_dimension=scatter_d,
-    scatter_mode="split",
-    savefig=savefig,
-    savefig_type=["png", "pdf"],
-    case=plot_case,
-    jitter_factor=0.02,
-    qle=0.05,
-    add_titles=True,
-    sorting_method="manual",
-    sorting_variable="estimator_comp",
     axes=axes[1, :],
     subplot_titles=subplot_titles,
     figure=fig,
@@ -142,7 +129,8 @@ var = "chosen_model"
 scatter_d = "case"
 subplot_titles = ["d. Supervised learner", ""]
 plotting.draw_pair_comparison(
-    _results_general,
+    _results_aggr,
+    # _results_general,
     var,
     scatterplot_dimension=scatter_d,
     scatter_mode="split",

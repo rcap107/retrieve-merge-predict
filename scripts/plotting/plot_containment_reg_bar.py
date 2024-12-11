@@ -112,7 +112,7 @@ def prepare_regression(fig, ax):
     is expecting to find the data in the given path.
     """
     # Reading and preparing the results
-    result_path = "results/temp_results_general.parquet"
+    result_path = "results/results_general.parquet"
     df_results = pl.read_parquet(result_path)
     # current_results = logging.read_and_process(df_results)
     df_overall = df_results.filter(pl.col("estimator") != "nojoin")

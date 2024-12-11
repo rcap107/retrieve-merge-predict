@@ -15,7 +15,7 @@ from src.utils.logging import read_and_process
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
 # %%
-df = pl.read_parquet("results/temp_results_retrieval.parquet")
+df = pl.read_parquet("results/results_retrieval.parquet")
 df = df.with_columns(
     pl.when(pl.col("prediction_metric") < -1)
     .then(-1)
