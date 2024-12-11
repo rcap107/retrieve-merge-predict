@@ -59,10 +59,10 @@ run_ids = [
     "0686",
     "0688",
     "0692",
-    # "0693",
-    # "0694",
-    # "0695",
-    # "0696",
+    "0693",
+    "0695",
+    "0698",
+    "0699",
 ]
 run_ids = sorted(list(set(run_ids)))
 
@@ -81,6 +81,8 @@ for r_path in tqdm(
                 df_raw = df_raw.with_columns(chosen_model=pl.lit("ridgecv"))
             overall_list.append(df_raw)
         except pl.exceptions.SchemaError:
+            print("Failed ", r_path)
+        except ValueError:
             print("Failed ", r_path)
 
 df_overall = pl.concat(overall_list).with_columns(
