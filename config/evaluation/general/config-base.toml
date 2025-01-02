@@ -11,7 +11,7 @@ join_strategy = "left"
 aggregation = ["first"]
 
 ["evaluation_models"]
-chosen_model = ["linear"]
+chosen_model = ["resnet", "realmlp"]
 catboost.iterations = 300
 catboost.od_type = "Iter"
 catboost.od_wait = 10
@@ -37,7 +37,7 @@ stepwise_greedy_join.ranking_metric = "containment"
 stepwise_greedy_join.use_rf=false
 
 ["query_cases"]
-data_lake = ["wordnet_vldb_10", "wordnet_full", "wordnet_vldb_50", "binary_update"]
+data_lake = ["wordnet_vldb_10", "wordnet_vldb_50"]
 join_discovery_method = ["exact_matching", "minhash", "minhash_hybrid"]
 table_path = [
     "data/source_tables/yadl/us_elections-yadl-depleted.parquet",

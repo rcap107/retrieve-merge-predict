@@ -19,7 +19,8 @@
         "binary_update",
         "wordnet_full",
         "wordnet_vldb_10",
-        "wordnet_vldb_50"
+        "wordnet_vldb_50",
+        "open_data_us"
     ],
     "base_table": [
         "company_employees",

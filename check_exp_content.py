@@ -2,7 +2,7 @@
 # %load_ext autoreload
 # %autoreload 2
 
-#%%
+# %%
 import json
 import pickle
 from copy import deepcopy
@@ -16,6 +16,7 @@ from tqdm import tqdm
 from src.utils.logging import read_and_process, read_logs
 
 pl.Config.set_fmt_str_lengths(150)
+pl.Config.set_tbl_rows(-1)
 # %%
 # Defining the default configuration that will be updated by the others
 default_config = {
