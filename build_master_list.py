@@ -63,6 +63,10 @@ run_ids = [
     "0695",
     "0698",
     "0699",
+    "0703",
+    "0705",
+    "0706",
+    "0706",
 ]
 run_ids = sorted(list(set(run_ids)))
 
@@ -88,6 +92,7 @@ for r_path in tqdm(
 df_overall = pl.concat(overall_list).with_columns(
     source_table=pl.col("base_table").str.split("-").list.first()
 )
+df_overall = df_overall.filter(pl.col("chosen_model") != "linear")
 
 df_overall.write_csv("results/master_list.csv")
 df_overall.write_parquet("results/master_list.parquet")
