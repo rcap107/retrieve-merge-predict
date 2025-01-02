@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # Submit one task per set of parameters
     executor = get_executor_marg(
         "retrieve-merge-predict",
-        timeout_hour=72,
+        timeout_hour=24 * 6 + 12,
         n_cpus=args.n_cpus,
         max_parallel_tasks=args.n_tasks,
         gpu=args.gpu,
