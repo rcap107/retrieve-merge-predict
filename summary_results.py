@@ -21,7 +21,7 @@ time_ = (
     .agg(pl.col("time_run").sum())
 )
 # %%
-time_.write_csv("total_time_final.csv")
+time_.write_csv("results/total_time_final.csv")
 # %%
 cutby = 0.2
 
@@ -70,13 +70,17 @@ df_reference = df_master.filter(
         pl.col("source_table").is_in(
             [
                 "company_employees",
-                "schools",
-                "us_county_population",
+                "housing_prices",
                 "us_accidents_2021",
+                # "us_accidents_large",
+                "us_county_population",
+                "us_elections",
+                "schools",
             ]
         )
     )
 )
+
 
 # %%
 # retrieval method
@@ -144,9 +148,9 @@ _4 = (
 )
 
 # %%
-_1.write_csv("results/retrieval_method.csv")
-_2.write_csv("results/selector.csv")
-_3.write_csv("results/aggregation.csv")
-_4.write_csv("results/ml_model.csv")
+_1.write_csv("results/diff_from_ref/retrieval_method.csv")
+_2.write_csv("results/diff_from_ref/selector.csv")
+_3.write_csv("results/diff_from_ref/ml_model.csv")
+_4.write_csv("results/diff_from_ref/aggregation.csv")
 
 # %%
