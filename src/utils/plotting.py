@@ -15,6 +15,107 @@ from src.utils import constants
 plt.style.use("seaborn-v0_8-talk")
 
 
+# fold vs fold difference
+def diff_fold_vs_fold(df: pl.DataFrame, column_to_average: str):
+    this_key = [_ for _ in constants.GROUPING_KEYS if not _ in [column_to_average]]
+
+    r = df.join(df.filter(**constants.REFERENCE_CONFIG), on=this_key).with_columns(
+        (pl.col("prediction_metric") - pl.col("prediction_metric_right")).alias(
+            f"diff_{column_to_average}_prediction_metric"
+        ),
+        (pl.col("time_run") / pl.col("time_run_right")).alias(
+            f"diff_{column_to_average}_time_run"
+        ),
+    )
+    return r
+
+
+def diff_fold_vs_reference_median(df: pl.DataFrame, column_to_average: str):
+    this_key = [_ for _ in constants.GROUPING_KEYS if not _ in [column_to_average]]
+    this_groupby = [
+        _ for _ in constants.GROUPING_KEYS if not _ in [column_to_average, "fold_id"]
+    ]
+
+    df_reference = df.filter(**constants.REFERENCE_CONFIG)
+    _temp = df_reference.group_by(this_groupby).agg(
+        median_prediction=pl.median("prediction_metric"),
+        median_time=pl.median("time_run"),
+    )
+    df_reference = df_reference.join(_temp, on=this_groupby)
+    r = df.join(df_reference, on=this_key).with_columns(
+        (pl.col("prediction_metric") - pl.col("median_prediction")).alias(
+            f"diff_{column_to_average}_prediction_metric"
+        ),
+        (pl.col("time_run") / pl.col("median_time")).alias(
+            f"diff_{column_to_average}_time_run"
+        ),
+    )
+    return r
+
+
+def diff_mean_vs_mean(df: pl.DataFrame, column_to_average: str):
+    grouping_nofold = [_ for _ in constants.GROUPING_KEYS if _ != "fold_id"]
+    this_groupby = [
+        _ for _ in constants.GROUPING_KEYS if not _ in [column_to_average, "fold_id"]
+    ]
+
+    _df = df.group_by(grouping_nofold).agg(
+        pl.mean("prediction_metric"), pl.mean("time_run")
+    )
+    r = _df.join(
+        _df.filter(**constants.REFERENCE_CONFIG), on=this_groupby
+    ).with_columns(
+        (pl.col("prediction_metric") - pl.col("prediction_metric_right")).alias(
+            f"diff_{column_to_average}_prediction_metric"
+        ),
+        (pl.col("time_run") / pl.col("time_run_right")).alias(
+            f"diff_{column_to_average}_time_run"
+        ),
+    )
+    return r
+
+
+def get_difference_from_reference(
+    df: pl.DataFrame,
+    column_to_average: str,
+    result_column: str,
+    geometric: bool = False,
+):
+    if column_to_average not in df:
+        raise ValueError
+    if result_column not in df:
+        raise ValueError
+
+    df_reference = (
+        df.filter(**constants.REFERENCE_CONFIG)
+        .group_by(
+            constants.GROUPING_KEYS
+            # [_ for _ in constants.GROUPING_KEYS if _ != "fold_id"]
+        )
+        .agg(pl.mean(result_column))
+    )
+
+    this_groupby = [
+        _ for _ in constants.GROUPING_KEYS if not _ in [column_to_average, "fold_id"]
+    ]
+
+    prepared_df = df.join(df_reference, on=this_groupby)
+
+    if geometric:
+        prepared_df = prepared_df.with_columns(
+            (pl.col(result_column) / pl.col(f"{result_column}_right")).alias(
+                f"diff_{column_to_average}_{result_column}"
+            )
+        )
+    else:
+        prepared_df = prepared_df.with_columns(
+            (pl.col(result_column) - pl.col(f"{result_column}_right")).alias(
+                f"diff_{column_to_average}_{result_column}"
+            )
+        )
+    return prepared_df.drop(cs.ends_with("_right"))
+
+
 def get_difference_from_mean(
     df: pl.DataFrame,
     column_to_average: str,
@@ -172,7 +273,8 @@ def format_xaxis(ax, case, limits, xmax=1, symlog_ticks=None):
         elif 0.30 <= max(np.abs(limits)):
             major_locator = ticker.MultipleLocator(0.20)
             minor_locator = ticker.MultipleLocator(0.05)
-
+        else:
+            raise ValueError
         ax.xaxis.set_major_locator(major_locator)
         ax.xaxis.set_minor_locator(minor_locator)
         ax.xaxis.set_major_formatter(ticker.PercentFormatter(xmax=xmax, decimals=0))
@@ -218,7 +320,7 @@ def format_xaxis(ax, case, limits, xmax=1, symlog_ticks=None):
         )
 
         if symlog_ticks is None:
-            locations = [0.5, 1, 1.5, 2, 3, 5, 10]
+            locations = [0.5, 1, 1.5, 2, 3, 5, 10, 20, 40]
             labels = [
                 r"$0.5x$",
                 r"$1x$",
@@ -226,6 +328,9 @@ def format_xaxis(ax, case, limits, xmax=1, symlog_ticks=None):
                 r"$2x$",
                 r"$3x$",
                 r"$5x$",
+                r"$10x$",
+                r"$20x$",
+                r"$40x$",
             ]
         else:
             locations = symlog_ticks[0]
@@ -335,7 +440,7 @@ def prepare_case_subplot(
     jitter_factor: float = 0.05,
     scatterplot_mapping=None,
     colormap_name: str = "viridis",
-    scatterplot_marker_size: float = 3,
+    scatterplot_marker_size: float = 6,
     box_width: float = 0.9,
     xmax: float = 1,
     sorting_method: str = "prediction",
@@ -348,7 +453,7 @@ def prepare_case_subplot(
             data = (
                 df.select(grouping_dimension, sorting_variable)
                 .group_by(grouping_dimension)
-                .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+                .agg(pl.all(), pl.median(sorting_variable).alias("sort_col"))
                 .sort("sort_col")
                 .to_dict()
             )
@@ -356,7 +461,7 @@ def prepare_case_subplot(
             data = (
                 df.select(grouping_dimension, plotting_variable, sorting_variable)
                 .group_by(grouping_dimension)
-                .agg(pl.all(), pl.mean(sorting_variable).alias("sort_col"))
+                .agg(pl.all(), pl.median(sorting_variable).alias("sort_col"))
                 .sort("sort_col")
                 .select(grouping_dimension, plotting_variable)
                 .to_dict()
@@ -394,39 +499,25 @@ def prepare_case_subplot(
     ref_vline = 1 if xtick_format in ["log", "symlog"] else 0
     ax.axvline(ref_vline, alpha=0.6, zorder=0, color="tab:blue", linestyle="--")
 
-    if kind == "violin":
-        parts = ax.violinplot(
-            data[plotting_variable],
-            showmedians=False,
-            showmeans=False,
-            vert=False,
-        )
-        for pc in parts["bodies"]:
-            pc.set_edgecolor("black")
-            pc.set_facecolor("none")
-            pc.set_alpha(1)
-            pc.set_linewidth(2)
-            pc.set_zorder(2)
-    elif kind == "box":
-        medianprops = dict(linewidth=2, color="red", zorder=3)
-        whiskerprops = dict(linewidth=2)
-        capprops = dict(linewidth=2)
-        if scatterplot_dimension is None:
-            boxprops = dict(facecolor="white", linewidth=2, zorder=2)
-        else:
-            boxprops = dict(facecolor="none", linewidth=2, zorder=3)
-        bp = ax.boxplot(
-            data[plotting_variable],
-            showfliers=False,
-            vert=False,
-            widths=box_width,
-            medianprops=medianprops,
-            boxprops=boxprops,
-            whiskerprops=whiskerprops,
-            capprops=capprops,
-            # zorder=3,
-            patch_artist=True,
-        )
+    medianprops = dict(linewidth=2, color="red", zorder=3)
+    whiskerprops = dict(linewidth=2)
+    capprops = dict(linewidth=2)
+    if scatterplot_dimension is None:
+        boxprops = dict(facecolor="white", linewidth=2, zorder=2)
+    else:
+        boxprops = dict(facecolor="white", linewidth=2, zorder=2)
+    bp = ax.boxplot(
+        data[plotting_variable],
+        showfliers=False,
+        vert=False,
+        widths=box_width,
+        medianprops=medianprops,
+        boxprops=boxprops,
+        whiskerprops=whiskerprops,
+        capprops=capprops,
+        # zorder=3,
+        patch_artist=True,
+    )
 
     # Find the medians of the values (to be added to the plot)
     df_medians = df.group_by(grouping_dimension).agg(pl.col(plotting_variable).median())
@@ -525,11 +616,11 @@ def prepare_case_subplot(
         annot_value = median_d[_l]
         if xtick_format == "percentage":
             annot_value *= 100
-            annot_string = f"{annot_value:.2f}%"
+            annot_string = f"{annot_value:+.2f}%"
         elif xtick_format == "symlog":
-            annot_string = f"{annot_value:.2f}x"
+            annot_string = f"{annot_value:+.2f}x"
         else:
-            annot_string = f"{annot_value:.2f}"
+            annot_string = f"{annot_value:+.2f}"
         ax.annotate(
             annot_string,
             xy=(limits[1], _i),
@@ -606,15 +697,9 @@ def draw_pair_comparison(
         axes (_type_, optional): Optional parameter to pass the axes from an external function. Defaults to None.
     """
 
-    df_rel_y = get_difference_from_mean(
-        df, column_to_average=grouping_dimension, result_column=result_column
-    )
-    df_time = get_difference_from_mean(
-        df,
-        column_to_average=grouping_dimension,
-        result_column="time_run",
-        geometric=True,
-    )
+    # df_rel = diff_mean_vs_mean(df, grouping_dimension)
+    # df_rel = diff_fold_vs_reference_median(df, grouping_dimension)
+    df_rel = diff_fold_vs_fold(df, grouping_dimension)
 
     if scatterplot_dimension == "case":
         scatterplot_mapping = prepare_scatterplot_mapping_case(df)
@@ -633,16 +718,17 @@ def draw_pair_comparison(
         )
     else:
         fig = figure
-    # axes[1].sharey(axes[0])
-    # axes[1].set_yticks([])
-
     plotting_variables = [
-        f"diff_{grouping_dimension}_{result_column}",
+        # f"prediction_metric",
+        f"diff_{grouping_dimension}_prediction_metric",
+        # f"time_run",
         f"diff_{grouping_dimension}_time_run",
     ]
 
     formatting_dict = {
-        f"diff_{grouping_dimension}_{result_column}": {"xtick_format": "percentage"},
+        # f"prediction_metric": {"xtick_format": "percentage"},
+        # f"time_run": {"xtick_format": "symlog"},
+        f"diff_{grouping_dimension}_prediction_metric": {"xtick_format": "percentage"},
         f"diff_{grouping_dimension}_time_run": {"xtick_format": "symlog"},
     }
     if subplot_titles is None:
@@ -654,14 +740,12 @@ def draw_pair_comparison(
     if scatter_mode is None:
         scatter_mode = "split" if len(scatterplot_mapping) > 2 else "overlapping"
 
-    plot_df = [df_rel_y, df_time]
-
     for idx, var_to_plot in enumerate(plotting_variables[::], start=0):
         ax = axes[idx]
         # ax.grid(which="both", axis="x", alpha=0.3)
         h, l = prepare_case_subplot(
             ax,
-            plot_df[idx],
+            df_rel,
             grouping_dimension,
             scatterplot_dimension,
             plotting_variable=var_to_plot,
