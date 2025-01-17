@@ -6,19 +6,15 @@ Alternative code for Figure 5: comparing across data lakes over selector, aggreg
 # %cd ~/bench
 # %load_ext autoreload
 # %autoreload 2
-
+#%%
 import matplotlib.pyplot as plt
-
-# %%
 import polars as pl
 
 from src.utils import constants, plotting
 
 # %%
 plot_case = "dep"
-
-savefig = True
-
+savefig = False
 
 # %%
 def read_and_format(file_path):
@@ -48,11 +44,12 @@ _results_retrieval = read_and_format("results/results_retrieval.parquet")
 # _results_aggr = _results_aggr.filter(pl.col("jd_method") == "exact_matching")
 # _results_general = _results_general.filter(pl.col("jd_method") == "exact_matching")
 
+
 # %%
 fig, axes = plt.subplots(
     4,
     2,
-    figsize=(12, 6.5),
+    figsize=(14, 6.5),
     layout="constrained",
     squeeze=True,
     height_ratios=(2, 2, 2, 2),
@@ -61,33 +58,9 @@ fig, axes = plt.subplots(
 var = "jd_method"
 scatter_d = "case"
 
-# subplot_titles = ["a. Retrieval method", ""]
-# plotting.draw_pair_comparison(
-#     _results_retrieval,
-#     var,
-#     scatterplot_dimension=scatter_d,
-#     scatter_mode="split",
-#     savefig=savefig,
-#     savefig_type=["png", "pdf"],
-#     case=plot_case,
-#     jitter_factor=0.02,
-#     qle=0.05,
-#     add_titles=True,
-#     # sorting_method="manual",
-#     # sorting_variable="estimator_comp",
-#     axes=axes[0, :],
-#     subplot_titles=subplot_titles,
-#     figure=fig,
-# )
-
-
-var = "estimator"
-scatter_d = "case"
-
-subplot_titles = ["b. Join selection method", ""]
+subplot_titles = ["a. Retrieval method", ""]
 plotting.draw_pair_comparison(
-    _results_aggr,
-    # _results_general,
+    _results_retrieval,
     var,
     scatterplot_dimension=scatter_d,
     scatter_mode="split",
@@ -98,7 +71,30 @@ plotting.draw_pair_comparison(
     qle=0.05,
     add_titles=True,
     # sorting_method="manual",
-    # sorting_variable="estimator_comp",
+    sorting_variable="diff_jd_method_prediction_metric",
+    axes=axes[0, :],
+    subplot_titles=subplot_titles,
+    figure=fig,
+)
+
+var = "estimator"
+scatter_d = "case"
+
+subplot_titles = ["b. Join selection method", ""]
+plotting.draw_pair_comparison(
+    # _results_aggr,
+    df=_results_general,
+    grouping_dimension=var,
+    scatterplot_dimension=scatter_d,
+    scatter_mode="split",
+    savefig=savefig,
+    savefig_type=["png", "pdf"],
+    case=plot_case,
+    jitter_factor=0.02,
+    qle=0.05,
+    add_titles=True,
+    # sorting_method="manual",
+    sorting_variable="diff_estimator_prediction_metric",
     axes=axes[1, :],
     subplot_titles=subplot_titles,
     figure=fig,
@@ -108,8 +104,8 @@ var = "aggregation"
 subplot_titles = ["c. Aggregation method", ""]
 
 plotting.draw_pair_comparison(
-    _results_aggr,
-    var,
+    df=_results_aggr,
+    grouping_dimension=var,
     scatterplot_dimension=scatter_d,
     scatter_mode="split",
     savefig=savefig,
@@ -127,10 +123,10 @@ plotting.draw_pair_comparison(
 
 var = "chosen_model"
 scatter_d = "case"
-subplot_titles = ["d. Supervised learner", ""]
+subplot_titles = ["d. Predictor", ""]
 plotting.draw_pair_comparison(
-    _results_aggr,
-    # _results_general,
+    # _results_aggr,
+    _results_general,
     var,
     scatterplot_dimension=scatter_d,
     scatter_mode="split",
@@ -151,7 +147,7 @@ for _ in range(4):
     axes[_, 1].set_yticks([])
 
 # %%
-# fig.savefig("images/dep_pair_full.png")
-# fig.savefig("images/dep_pair_full.pdf")
+fig.savefig("images/dep_pair_full.png")
+fig.savefig("images/dep_pair_full.pdf")
 
 # %%

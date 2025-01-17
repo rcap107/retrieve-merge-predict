@@ -4,7 +4,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-import scikit_posthocs as sp
 import seaborn as sns
 from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
 
@@ -79,23 +78,25 @@ hue_order = {
 
 #%% Time
 fig, axs = plt.subplots(
-    2,
-    2,
+    1,
+    4,
     squeeze=True,
     sharey=True,
     sharex=True,
-    figsize=(10, 8),
-    gridspec_kw={"hspace": 0.4},
+    figsize=(14, 4),
+    # gridspec_kw={"hspace": 0.4},
+    layout="constrained",
 )
 
 variable = "time_run"
 y_var = "y"
 
 
-groups = ["aggregation", "chosen_model", "jd_method", "estimator"]
+groups = ["jd_method", "estimator", "aggregation", "chosen_model"]
 for pl_id in range(4):
     group_variable = groups[pl_id]
-    ax = axs[pl_id // 2][pl_id % 2]
+    # ax = axs[pl_id // 2][pl_id % 2]
+    ax = axs[pl_id]
     ax.set_xscale("log")
     idx_ = pl_id
     (h, l), _ = plotting.pareto_frontier_plot(
@@ -133,23 +134,25 @@ fig.savefig("images/pareto_aggregation_time.pdf", bbox_inches="tight")
 
 #%% Peak RAM
 fig, axs = plt.subplots(
-    2,
-    2,
+    1,
+    4,
     squeeze=True,
     sharey=True,
     sharex=True,
-    figsize=(10, 8),
-    gridspec_kw={"hspace": 0.4},
+    figsize=(14, 4),
+    # gridspec_kw={"hspace": 0.4},
+    layout="constrained",
 )
 
 variable = "peak_fit"
 y_var = "y"
 
 
-groups = ["aggregation", "chosen_model", "jd_method", "estimator"]
+groups = ["jd_method", "estimator", "aggregation", "chosen_model"]
 for pl_id in range(4):
     group_variable = groups[pl_id]
-    ax = axs[pl_id // 2][pl_id % 2]
+    # ax = axs[pl_id // 2][pl_id % 2]
+    ax = axs[pl_id]
     ax.set_xscale("log")
     idx_ = pl_id
     (h, l), _ = plotting.pareto_frontier_plot(
@@ -188,7 +191,7 @@ fig.supxlabel("Peak RAM (MB)")
 fig.savefig("images/pareto_aggregation_ram.png")
 fig.savefig("images/pareto_aggregation_ram.pdf", bbox_inches="tight")
 #%% Only aggregation time for main body
-fig, ax = plt.subplots(1, 1, squeeze=True, sharey=True, sharex=True, figsize=(6, 4))
+fig, ax = plt.subplots(1, 1, squeeze=True, sharey=True, sharex=True, figsize=(5, 3))
 
 variable = "time_run"
 y_var = "y"

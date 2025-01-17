@@ -1,7 +1,5 @@
 """
-Figure 8:
-(a) distribution of containment in the query results produced by regression model on each data lake
-(b) prediction performance with respect to containment, with regression plot
+Figure: prediction performance with respect to containment, with regression plot
 """
 
 # %%

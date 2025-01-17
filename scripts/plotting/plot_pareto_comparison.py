@@ -4,12 +4,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-import scikit_posthocs as sp
 import seaborn as sns
 from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
 
 from src.utils import constants, plotting
-from src.utils.critical_difference_plot import critical_difference_diagram
 from src.utils.logging import read_and_process
 
 sns.set_context("talk")

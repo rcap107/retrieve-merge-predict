@@ -1,7 +1,5 @@
 # %%
 # %cd ~/bench
-# %load_ext autoreload
-# %autoreload 2
 # %%
 import matplotlib as mpl
 import matplotlib.pyplot as plt

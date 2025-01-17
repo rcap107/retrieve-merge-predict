@@ -10,6 +10,13 @@ SUPPORTED_MODELS = ["catboost", "realmlp", "resnet", "ridge", "ridgecv"]
 # Supported retrieval methods
 SUPPORTED_RETRIEVAL_METHODS = ["exact_matching", "minhash", "minhash_hybrid", "starmie"]
 
+# Reference configuration
+REFERENCE_CONFIG = {
+    "jd_method": "exact_matching",
+    "chosen_model": "catboost",
+    "estimator": "best_single_join",
+    "aggregation": "first",
+}
 
 # Grouping keys used to find the "difference from the mean"
 GROUPING_KEYS = [
@@ -195,7 +202,7 @@ LABEL_MAPPING = {
     "variables": {
         "estimator": "Selector",
         "jd_method": "Retrieval method",
-        "chosen_model": "ML model",
+        "chosen_model": "Predictor",
         "base_table": "Base table",
         "aggregation": "Aggregation",
     },

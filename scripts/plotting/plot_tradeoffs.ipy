@@ -4,9 +4,6 @@ Figure: tradeoffs between retrieval methods.
 
 # %%
 # %cd ~/bench
-# # %%
-# %load_ext autoreload
-# %autoreload 2
 
 # %%
 import numpy as np
@@ -22,6 +19,8 @@ tab10 = plt.cm.tab10
 colors = [tab10(i) for i in range(4)]
 
 plt.style.use("seaborn-v0_8-talk")
+#%%
+colors
 # %%
 methods = ["Exact", "Minhash", "Hybrid", "Starmie"]
 dd = {
@@ -40,7 +39,7 @@ for _n in range(11):
         r = [m, _n, fixed_cost + column_cost * _n]
         rows.append(r)
 res = pl.DataFrame(rows)
-df_plotting = res.group_by(pl.col("column_0")).agg(pl.all())
+df_plotting = res.group_by(pl.col("column_0")).agg(pl.all()).sort("column_0")
 
 # %%
 # Using a split axis because Starmie is throwing off the scale

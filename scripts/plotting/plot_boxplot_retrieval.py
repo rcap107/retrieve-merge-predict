@@ -34,7 +34,7 @@ df = df.rename({"index_name": "jd_method"}).filter(
 )
 # All this garbage is needed to aggregate properly the results
 _d = df.with_columns(
-    cat=pl.col("jd_method").cast(pl.Categorical).cast(int)
+    cat=pl.col("jd_method").cast(pl.Categorical).to_physical()
 ).with_columns(
     cat=pl.when((pl.col("cat") == 1) | (pl.col("cat") == 2))
     .then(1)
@@ -71,7 +71,7 @@ res_time = prep_difference(_df, "time_retrieval")
 
 # %%
 fig, axs = plt.subplots(
-    1, 2, squeeze=True, layout="constrained", figsize=(6, 2.5), sharey=True
+    1, 2, squeeze=True, layout="constrained", figsize=(7, 3.5), sharey=True
 )
 
 
