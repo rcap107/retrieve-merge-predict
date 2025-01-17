@@ -22,6 +22,7 @@ def fix_duplicate_runs(df):
 # %%
 df = pl.read_parquet("results/master_list.parquet")
 df = fix_duplicate_runs(df)
+df = df.filter(~pl.col("estimator").is_in(["nojoin", "top_k_full_join"]))
 #%%
 df = df.with_columns(base_table=pl.col("base_table").str.split("-").list.first())
 # %%

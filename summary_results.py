@@ -3,26 +3,24 @@
 # %%
 import polars as pl
 
-from src.utils.constants import GROUPING_KEYS
+from src.utils.constants import GROUPING_KEYS, REFERENCE_CONFIG
 
-keys = [_ for _ in GROUPING_KEYS if _ != "fold_id"]
 # %%
 df_aggregation = pl.read_parquet("results/results_aggregation.parquet")
 df_general = pl.read_parquet("results/results_general.parquet")
 df_retrieval = pl.read_parquet("results/results_retrieval.parquet")
-# %%
 df_master = pl.read_parquet("results/master_list.parquet")
 
-# %%
+# %% TOTAL RUNTIME IN SECONDS
 time_ = (
     df_master.group_by(GROUPING_KEYS)
     .agg(pl.col("time_run").mean())
     .group_by("chosen_model")
     .agg(pl.col("time_run").sum())
 )
-# %%
 time_.write_csv("results/total_time_final.csv")
 # %%
+# TRIMMED MEAN
 cutby = 0.2
 
 _d = (
@@ -43,109 +41,110 @@ _d = (
         trimmed_std=pl.col("trimmed").list.std(),
     )
 )
-
-# %%
+#%%
 _d.select("base_table", "target_dl", "trimmed_mean", "trimmed_std").pivot(
     values=["trimmed_mean", "trimmed_std"], index="base_table", columns="target_dl"
 ).sort("base_table").write_csv("trimmed_mean.csv")
+
+#%%
+_d.to_pandas().pivot_table(
+    values=["trimmed_mean", "trimmed_std"],
+    index="base_table",
+    columns="target_dl",
+    aggfunc="mean",
+).to_csv("trimmed_mean.csv")
 # %%
-dedup = df_master.group_by(GROUPING_KEYS).agg(
-    pl.col("prediction_metric").mean(), pl.col("time_run").mean()
+dedup = (
+    df_general.group_by(GROUPING_KEYS + ["source_table"])
+    .agg(pl.col("prediction_metric").mean(), pl.col("time_run").mean())
+    .with_columns(base_table=pl.col("source_table"))
 )
-# %%
-reference_config = {
-    "jd_method": "exact_matching",
-    "estimator": "best_single_join",
-    "chosen_model": "catboost",
-    "aggregation": "first",
-}
-all_variables = [k for k in reference_config.keys()]
 
-df_best = dedup.filter(**reference_config)
+df_reference = dedup.filter(**REFERENCE_CONFIG)
+df_reference.write_csv("results/results_reference.csv")
 
-df_reference = df_master.filter(
-    (~pl.col("estimator").is_in(["nojoin", "top_k_full_join"]))
-    & (pl.col("chosen_model") != "linear")
-    & (
-        pl.col("source_table").is_in(
-            [
-                "company_employees",
-                "housing_prices",
-                "us_accidents_2021",
-                # "us_accidents_large",
-                "us_county_population",
-                "us_elections",
-                "schools",
-            ]
+#%%
+
+# fold vs fold difference
+def diff_fold_vs_fold(df, key):
+    all_variables = [k for k in REFERENCE_CONFIG.keys()]
+
+    r = (
+        df.join(df.filter(**REFERENCE_CONFIG), on=key)
+        .with_columns(
+            diff_metric=pl.col("prediction_metric") - pl.col("prediction_metric_right"),
+            diff_time=pl.col("time_run") / pl.col("time_run_right"),
         )
+        .group_by(all_variables)
+        .agg(
+            metric_median=pl.median("diff_metric") * 100,
+            time_median=pl.median("diff_time"),
+            metric_mean=pl.mean("diff_metric") * 100,
+        )
+        .sort("metric_median", descending=True)
     )
-)
+    return r
+
+
+def diff_mean_vs_mean(df: pl.DataFrame, key):
+    all_variables = [k for k in REFERENCE_CONFIG.keys()]
+    grouping_nofold = [_ for _ in GROUPING_KEYS if _ != "fold_id"]
+
+    _df = df.group_by(grouping_nofold).agg(
+        pl.mean("prediction_metric"), pl.mean("time_run")
+    )
+    r = (
+        _df.join(_df.filter(**REFERENCE_CONFIG), on=key)
+        .with_columns(
+            diff_metric=pl.col("prediction_metric") - pl.col("prediction_metric_right"),
+            diff_time=pl.col("time_run") / pl.col("time_run_right"),
+        )
+        .group_by(all_variables)
+        .agg(
+            metric_median=pl.median("diff_metric") * 100,
+            time_median=pl.median("diff_time"),
+            metric_mean=pl.mean("diff_metric") * 100,
+        )
+        .sort("metric_median", descending=True)
+    )
+    return r
 
 
 # %%
 # retrieval method
 target = "jd_method"
 this_key = [_ for _ in GROUPING_KEYS if _ != target]
-_1 = (
-    df_reference.join(df_best, on=this_key)
-    .with_columns(
-        diff_metric=pl.col("prediction_metric") - pl.col("prediction_metric_right"),
-        diff_time=pl.col("time_run") / pl.col("time_run_right"),
-    )
-    .select(GROUPING_KEYS + ["diff_metric", "diff_time"])
-    .group_by(all_variables)
-    .agg(pl.median("diff_metric") * 100, pl.median("diff_time"))
-    .sort("diff_metric", descending=True)
-)
+this_groupby = [_ for _ in GROUPING_KEYS if not _ in [target, "fold_id"]]
+_1 = diff_fold_vs_fold(df_retrieval, this_key)
+_1_mean = diff_mean_vs_mean(df_retrieval, this_groupby)
+_1
 
 # %%
 # selector
 target = "estimator"
 this_key = [_ for _ in GROUPING_KEYS if _ != target]
-_2 = (
-    df_reference.join(df_best, on=this_key)
-    .with_columns(
-        diff_metric=pl.col("prediction_metric") - pl.col("prediction_metric_right"),
-        diff_time=pl.col("time_run") / pl.col("time_run_right"),
-    )
-    .select(GROUPING_KEYS + ["diff_metric", "diff_time"])
-    .group_by(all_variables)
-    .agg(pl.median("diff_metric") * 100, pl.median("diff_time"))
-    .sort("diff_metric", descending=True)
-)
-
+this_groupby = [_ for _ in GROUPING_KEYS if not _ in [target, "fold_id"]]
+_2 = diff_fold_vs_fold(df_general, this_key)
+_2_mean = diff_mean_vs_mean(df_general, this_groupby)
+_2
 # %%
 # ml model
 target = "chosen_model"
 this_key = [_ for _ in GROUPING_KEYS if _ != target]
-_3 = (
-    df_reference.join(df_best, on=this_key)
-    .with_columns(
-        diff_metric=pl.col("prediction_metric") - pl.col("prediction_metric_right"),
-        diff_time=pl.col("time_run") / pl.col("time_run_right"),
-    )
-    .select(GROUPING_KEYS + ["diff_metric", "diff_time"])
-    .group_by(all_variables)
-    .agg(pl.median("diff_metric") * 100, pl.median("diff_time"))
-    .sort("diff_metric", descending=True)
-)
+this_groupby = [_ for _ in GROUPING_KEYS if not _ in [target, "fold_id"]]
+_3 = diff_fold_vs_fold(df_general, this_key)
+_3_mean = diff_mean_vs_mean(df_general, this_groupby)
+_3
 
 
 # %%
 # aggregation
 target = "aggregation"
 this_key = [_ for _ in GROUPING_KEYS if _ != target]
-_4 = (
-    df_reference.join(df_best, on=this_key)
-    .with_columns(
-        diff_metric=pl.col("prediction_metric") - pl.col("prediction_metric_right"),
-        diff_time=pl.col("time_run") / pl.col("time_run_right"),
-    )
-    .select(GROUPING_KEYS + ["diff_metric", "diff_time"])
-    .group_by(all_variables)
-    .agg(pl.median("diff_metric") * 100, pl.median("diff_time"))
-    .sort("diff_metric", descending=True)
-)
+this_groupby = [_ for _ in GROUPING_KEYS if not _ in [target, "fold_id"]]
+_4 = diff_fold_vs_fold(df_aggregation, this_key)
+_4_mean = diff_mean_vs_mean(df_aggregation, this_groupby)
+_4
 
 # %%
 _1.write_csv("results/diff_from_ref/retrieval_method.csv")

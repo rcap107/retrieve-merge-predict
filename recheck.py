@@ -15,6 +15,9 @@ from src.utils.logging import read_and_process, read_logs
 pl.Config.set_fmt_str_lengths(150)
 pl.Config.set_tbl_rows(30)
 
+# %%
+df_overall = pl.read_csv("results/master_list.csv")
+
 
 all_configurations = {
     "source_table": [
@@ -22,7 +25,6 @@ all_configurations = {
         "housing_prices",
         "us_elections",
         "us_accidents_2021",
-        "us_accidents_large",
         "schools",
         "us_county_population",
     ],
@@ -57,9 +59,10 @@ df_all_config = prepare_config(all_configurations)
 keys = df_all_config.columns
 
 # preparing impossible configurations
+# impossible configurations are combinations that do not exist because the methods could not be run
 impossible_starmie = df_all_config.filter(
     (pl.col("jd_method") == "starmie")
-    & (pl.col("target_dl").is_in(["open_data_us", "wordnet_vldb_50k"]))
+    & (pl.col("target_dl").is_in(["open_data_us", "wordnet_vldb_50"]))
 )
 
 impossible_internal_tables = df_all_config.filter(
@@ -75,12 +78,15 @@ df_cleaned = df_all_config.join(impossible_starmie, on=keys, how="anti").join(
 )
 
 # %%
-# Configurations I need
+# Configurations I need for different plots
+
+# Compare retrieval methods
 runs_starmie = df_cleaned.filter(
     (pl.col("aggregation") == "first")
-    & ~(pl.col("target_dl").is_in(["open_data_us", "wordnet_vldb_50k"]))
+    & ~(pl.col("target_dl").is_in(["open_data_us", "wordnet_vldb_50"]))
 )
 
+# Compare methods across all data lakes/tables
 runs_general = df_cleaned.filter(
     (pl.col("aggregation") == "first") & (pl.col("jd_method") != "starmie")
 )
@@ -96,7 +102,7 @@ runs_aggr_1 = df_cleaned.filter(
     )
 )
 runs_aggr_2 = df_cleaned.filter(
-    (~pl.col("target_dl").is_in(["open_data_us", "wordnet_vldb_50k"]))
+    (~pl.col("target_dl").is_in(["open_data_us", "wordnet_vldb_50"]))
     & (
         (
             pl.col("estimator").is_in(
@@ -106,23 +112,21 @@ runs_aggr_2 = df_cleaned.filter(
     )
 )
 
-# %%
-df_overall = pl.read_csv("results/master_list.csv")
-
 
 # %%
 (
-    runs_general.join(df_overall, on=keys, how="left")
+    runs_aggr_1.join(df_overall, on=keys, how="left")
     .filter(~pl.col("status").is_null())
     .group_by(keys)
     .agg(pl.len())
     .filter(pl.col("len") < 10)
     .sort("target_dl")
-).write_csv("incomplete.csv")
+)
+# .write_csv("incomplete.csv")
 
 # %%
 (
-    runs_general.join(df_overall, on=keys, how="left")
+    runs_aggr_1.join(df_overall, on=keys, how="left")
     .filter(pl.col("status").is_null())
     .group_by(keys)
     .agg(pl.len())
