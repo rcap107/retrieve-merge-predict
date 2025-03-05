@@ -1,10 +1,11 @@
 """
-This script is used to profile the runtime and peak memory usage of the different retrieval methods. It incorporates
-various functions to improve the reliability of the measurements: it is possible to repeat the same operations multiple
-times to reduce the variance in the results.
+This script is used to profile the runtime and peak memory usage of the different 
+retrieval methods. It incorporates various functions to improve the reliability 
+of the measurements: it is possible to repeat the same operations multiple times 
+to reduce the variance in the results.
 
-To improve reliability, this script first builds the index and then queries it: it will overwrite any pre-built index in
-each iteration.
+To improve reliability, this script first builds the index and then queries it: 
+it will overwrite any pre-built index in each iteration.
 
 Note that Starmie is profiled in a different repository, so it is not included here.
 """
@@ -109,16 +110,16 @@ def wrapper_query_exact_matching(queries, index_dir, data_lake_version):
     return time_load, time_query
 
 
-def test_retrieval_method(data_lake_version, index_name, queries, index_config):
+def test_retrieval_method(data_lake_version, retrieval_method, queries, index_config):
     index_dir = Path(f"data/metadata/_indices/profiling/{data_lake_version}")
     os.makedirs(Path(index_dir), exist_ok=True)
 
     rerank = index_config.pop("rerank", False)
 
-    if index_name == "minhash" and rerank:
+    if retrieval_method == "minhash" and rerank:
         logger_name = "minhash_hybrid"
     else:
-        logger_name = index_name
+        logger_name = retrieval_method
 
     index_logger = SimpleIndexLogger(
         index_name=logger_name,
@@ -127,28 +128,34 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_parameters=index_config,
     )
 
-    if index_name == "minhash":
+    if retrieval_method == "minhash":
         index_logger.start_time("create")
-        mem_usage, this_index = memory_usage(
-            (
-                MinHashIndex,
-                [],
-                index_config,
-            ),
-            timestamps=True,
-            max_iterations=1,
-            retval=True,
-        )
+        # mem_usage, this_index = memory_usage(
+        #     (
+        #         MinHashIndex,
+        #         [],
+        #         index_config,
+        #     ),
+        #     timestamps=True,
+        #     max_iterations=1,
+        #     retval=True,
+        # )
         index_logger.end_time("create")
-        index_logger.mark_memory(mem_usage, label="create")
+        # index_logger.mark_memory(mem_usage, label="create")
         index_logger.start_time("save")
-        index_path = this_index.save_index(index_dir)
+        # index_path = this_index.save_index(index_dir)
         index_logger.end_time("save")
+
+        index_path = Path(
+            index_dir,
+            logger_name + "_20" + ".pickle",
+        )
+
 
         mem_usage, (time_load, time_query) = memory_usage(
             (
                 wrapper_query_index,
-                [queries, index_path, index_name, data_lake_version, rerank],
+                [queries, index_path, retrieval_method, data_lake_version, rerank],
                 {},
             ),
             timestamps=True,
@@ -159,7 +166,7 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_logger.durations["time_load"] = time_load
         index_logger.durations["time_query"] = time_query
 
-    elif index_name == "inverted_index":
+    elif retrieval_method == "inverted_index":
         index_logger.start_time("create")
         mem_usage, this_index = memory_usage(
             (
@@ -180,7 +187,7 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         mem_usage, (time_load, time_query) = memory_usage(
             (
                 wrapper_query_index,
-                [queries, index_path, index_name, data_lake_version, rerank],
+                [queries, index_path, retrieval_method, data_lake_version, rerank],
                 {},
             ),
             timestamps=True,
@@ -191,7 +198,7 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_logger.durations["time_load"] = time_load
         index_logger.durations["time_query"] = time_query
 
-    elif index_name == "exact_matching":
+    elif retrieval_method == "exact_matching":
         mem_usage, (time_create, time_save) = memory_usage(
             (wrapper_prepare_exact_matching, [queries, index_config, index_dir], {}),
             timestamps=True,
@@ -217,7 +224,7 @@ def test_retrieval_method(data_lake_version, index_name, queries, index_config):
         index_logger.durations["time_query"] = time_query
 
     index_logger.to_logfile()
-    index_logger.write_to_json("results/profiling/retrieval")
+    index_logger.write_to_json(f"results/profiling/retrieval/{retrieval_method}/{data_lake_version}")
 
 
 def parse_args():
@@ -229,6 +236,7 @@ def parse_args():
         action="store_true",
         help="Set True with retrieval_method=minhash to test hybrid minhash.",
     )
+    parser.add_argument("--n_iter", action="store", type=int, default=1)
 
     return parser.parse_args()
 
@@ -236,10 +244,15 @@ def parse_args():
 if __name__ == "__main__":
 
     args = parse_args()
+
+    data_lake_version = args.data_lake_version
+    retrieval_method = args.retrieval_method
+    n_iter = args.n_iter
+
     os.makedirs("data/metadata/_indices/profiling", exist_ok=True)
     os.makedirs("results/profiling/retrieval", exist_ok=True)
 
-    data_lake_version = args.data_lake_version
+    os.makedirs(f"results/profiling/retrieval/{retrieval_method}/{data_lake_version}", exist_ok=True)
 
     # Open Data US has specific queries, so they're prepared explicitly here.
     if data_lake_version == "open_data_us":
@@ -265,20 +278,9 @@ if __name__ == "__main__":
                 "county_name",
             ),
             (
-                Path(base_table_root, "movies_large-depleted-open_data.parquet"),
-                "original_title",
-            ),
-            (
                 Path(
                     base_table_root,
                     "us_accidents_2021-depleted-open_data_County.parquet",
-                ),
-                "County",
-            ),
-            (
-                Path(
-                    base_table_root,
-                    "us_accidents_large-depleted-open_data_County.parquet",
                 ),
                 "County",
             ),
@@ -305,15 +307,7 @@ if __name__ == "__main__":
                 "col_to_embed",
             ),
             (
-                Path(base_table_root, "movies_large-yadl-depleted.parquet"),
-                "col_to_embed",
-            ),
-            (
                 Path(base_table_root, "us_accidents_2021-yadl-depleted.parquet"),
-                "col_to_embed",
-            ),
-            (
-                Path(base_table_root, "us_accidents_large-yadl-depleted.parquet"),
                 "col_to_embed",
             ),
             (
@@ -322,33 +316,36 @@ if __name__ == "__main__":
             ),
         ]
 
-    retrieval_method = args.retrieval_method
-
-    # In the following: add new parameters to build a parameter grid and test all combinations.
-    if retrieval_method == "exact_matching":
-        method_config = {
-            "metadata_dir": [f"data/metadata/{data_lake_version}"],
-            "n_jobs": [32],
-        }
-        cases = ParameterGrid(method_config)
-        for config in cases:
-            test_retrieval_method(data_lake_version, retrieval_method, queries, config)
-    elif retrieval_method == "minhash":
-        method_config = {
-            "metadata_dir": [f"data/metadata/{data_lake_version}"],
-            "n_jobs": [32],
-            "thresholds": [20],
-            "no_tag": [False],
-            "rerank": [args.rerank],
-        }
-        cases = ParameterGrid(method_config)
-        for config in cases:
-            test_retrieval_method(data_lake_version, "minhash", queries, config)
-    elif retrieval_method == "inverted_index":
-        method_config = {
-            "metadata_dir": [f"data/metadata/{data_lake_version}"],
-            "n_jobs": [16],
-        }
-        cases = ParameterGrid(method_config)
-        for config in cases:
-            test_retrieval_method(data_lake_version, "inverted_index", queries, config)
+    for i in tqdm(range(n_iter), total=n_iter, desc="Iteration: ", position=2):
+        # In the following: add new parameters to build a parameter grid and test all combinations.
+        if retrieval_method == "exact_matching":
+            method_config = {
+                "metadata_dir": [f"data/metadata/{data_lake_version}"],
+                "n_jobs": [1],
+            }
+            cases = ParameterGrid(method_config)
+            for config in cases:
+                test_retrieval_method(
+                    data_lake_version, retrieval_method, queries, config
+                )
+        elif retrieval_method == "minhash":
+            method_config = {
+                "metadata_dir": [f"data/metadata/{data_lake_version}"],
+                "n_jobs": [32],
+                "thresholds": [20],
+                "no_tag": [False],
+                "rerank": [args.rerank],
+            }
+            cases = ParameterGrid(method_config)
+            for config in cases:
+                test_retrieval_method(data_lake_version, "minhash", queries, config)
+        elif retrieval_method == "inverted_index":
+            method_config = {
+                "metadata_dir": [f"data/metadata/{data_lake_version}"],
+                "n_jobs": [16],
+            }
+            cases = ParameterGrid(method_config)
+            for config in cases:
+                test_retrieval_method(
+                    data_lake_version, "inverted_index", queries, config
+                )
