@@ -15,6 +15,6 @@
 data_lakes=("open_data_us" "wordnet_base" "wordnet_vldb_10" "wordnet_vldb_50" "binary_update")
 retrieval_methods=("exact_matching" "minhash")
 
-srun python profile_retrieval.py --data_lake_version ${data_lake[$SLURM_ARRAY_TASK_ID]} --retrieval_method exact_matching --n_iter 3
+srun python profile_retrieval.py --data_lake_version ${data_lakes[$SLURM_ARRAY_TASK_ID]} --retrieval_method exact_matching --n_iter 3
 sleep 5
 
