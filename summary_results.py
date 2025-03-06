@@ -41,12 +41,12 @@ _d = (
         trimmed_std=pl.col("trimmed").list.std(),
     )
 )
-#%%
+# %%
 _d.select("base_table", "target_dl", "trimmed_mean", "trimmed_std").pivot(
-    values=["trimmed_mean", "trimmed_std"], index="base_table", columns="target_dl"
+    values=["trimmed_mean", "trimmed_std"], index="base_table", on="target_dl"
 ).sort("base_table").write_csv("trimmed_mean.csv")
 
-#%%
+# %%
 _d.to_pandas().pivot_table(
     values=["trimmed_mean", "trimmed_std"],
     index="base_table",
@@ -63,7 +63,28 @@ dedup = (
 df_reference = dedup.filter(**REFERENCE_CONFIG)
 df_reference.write_csv("results/results_reference.csv")
 
-#%%
+# %%
+query_times_retrieval = pl.read_csv(
+    "stats/avg_query_time_for_pareto_plot_retrieval.csv"
+)
+query_times_all_datalakes = pl.read_csv(
+    "stats/avg_query_time_for_pareto_plot_all_datalakes.csv"
+)
+
+# %%
+df_retrieval = df_retrieval.join(query_times_retrieval, on="jd_method").with_columns(
+    time_run=pl.col("time_run")*10 + pl.col("time_query")
+)
+df_general = df_general.join(query_times_retrieval, on="jd_method").with_columns(
+    time_run=pl.col("time_run")*10 + pl.col("time_query")
+)
+df_aggregation = df_aggregation.join(
+    query_times_retrieval, on="jd_method"
+).with_columns(time_run=pl.col("time_run")*10 + pl.col("time_query"))
+
+
+# %%
+
 
 # fold vs fold difference
 def diff_fold_vs_fold(df, key):
