@@ -148,7 +148,7 @@ def test_retrieval_method(data_lake_version, retrieval_method, queries, index_co
 
         index_path = Path(
             index_dir,
-            logger_name + "_20" + ".pickle",
+            logger_name + "_index_20" + ".pickle",
         )
 
 
