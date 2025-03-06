@@ -897,8 +897,8 @@ def pareto_frontier_plot(
     palette,
     hue_order,
     ax,
-    ax_title,
-    ax_xlabel,
+    ax_title="",
+    ax_xlabel="",
 ):
     if not isinstance(data, pd.DataFrame):
         raise ValueError()
