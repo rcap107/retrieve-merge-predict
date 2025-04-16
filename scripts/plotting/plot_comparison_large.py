@@ -4,9 +4,7 @@ Alternative code for Figure 5: comparing across data lakes over selector, aggreg
 
 # %%
 # %cd ~/bench
-# %load_ext autoreload
-# %autoreload 2
-#%%
+# %%
 import matplotlib.pyplot as plt
 import polars as pl
 
@@ -15,6 +13,7 @@ from src.utils import constants, plotting
 # %%
 plot_case = "dep"
 savefig = False
+
 
 # %%
 def read_and_format(file_path):
@@ -35,14 +34,24 @@ def read_and_format(file_path):
     )
 
 
-#%%
+# %%
 _results_general = read_and_format("results/results_general.parquet")
 _results_aggr = read_and_format("results/results_aggregation.parquet")
-
-_results_aggr = _results_aggr.filter(pl.col("estimator") != "nojoin")
 _results_retrieval = read_and_format("results/results_retrieval.parquet")
-# _results_aggr = _results_aggr.filter(pl.col("jd_method") == "exact_matching")
-# _results_general = _results_general.filter(pl.col("jd_method") == "exact_matching")
+
+# _results_aggr = _results_aggr.with_columns(time_run = pl.col("time_run")*10 + pl.col("time_query"))
+# _results_general = _results_general.with_columns(time_run = pl.col("time_run")*10 + pl.col("time_query"))
+# _results_retrieval = _results_retrieval.with_columns(time_run = pl.col("time_run")*10 + pl.col("time_query"))
+
+_results_aggr = _results_aggr.filter(pl.col("estimator") != "nojoin").with_columns(
+    time_run=pl.col("time_run") * 10 + pl.col("time_query")
+)
+_results_general = _results_general.filter(
+    pl.col("estimator") != "nojoin"
+).with_columns(time_run=pl.col("time_run") * 10 + pl.col("time_query"))
+_results_retrieval = _results_retrieval.filter(
+    pl.col("estimator") != "nojoin"
+).with_columns(time_run=pl.col("time_run") * 10 + pl.col("time_query"))
 
 
 # %%

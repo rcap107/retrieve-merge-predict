@@ -1,3 +1,7 @@
+"""This script is used to build the ablation table to compare the performance of each 
+configuration against the reference. 
+"""
+
 # %%
 # %cd ~/bench
 # %%
@@ -64,23 +68,15 @@ df_reference = dedup.filter(**REFERENCE_CONFIG)
 df_reference.write_csv("results/results_reference.csv")
 
 # %%
-query_times_retrieval = pl.read_csv(
-    "stats/avg_query_time_for_pareto_plot_retrieval.csv"
+df_retrieval = df_retrieval.filter(pl.col("estimator") != "nojoin").with_columns(
+    time_run=pl.col("time_run") * 10 + pl.col("time_query")
 )
-query_times_all_datalakes = pl.read_csv(
-    "stats/avg_query_time_for_pareto_plot_all_datalakes.csv"
+df_general = df_general.filter(pl.col("estimator") != "nojoin").with_columns(
+    time_run=pl.col("time_run") * 10 + pl.col("time_query")
 )
-
-# %%
-df_retrieval = df_retrieval.join(query_times_retrieval, on="jd_method").with_columns(
-    time_run=pl.col("time_run")*10 + pl.col("time_query")
+df_aggregation = df_aggregation.filter(pl.col("estimator") != "nojoin").with_columns(
+    time_run=pl.col("time_run") * 10 + pl.col("time_query")
 )
-df_general = df_general.join(query_times_retrieval, on="jd_method").with_columns(
-    time_run=pl.col("time_run")*10 + pl.col("time_query")
-)
-df_aggregation = df_aggregation.join(
-    query_times_retrieval, on="jd_method"
-).with_columns(time_run=pl.col("time_run")*10 + pl.col("time_query"))
 
 
 # %%

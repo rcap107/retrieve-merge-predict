@@ -1,3 +1,6 @@
+"""This script is used to prepare the Pareto plots that compare the performance 
+by value of top-k, considering both the run time and the peak RAM. 
+"""
 # %%
 # %cd ~/bench
 # %%
@@ -6,6 +9,9 @@ import polars as pl
 
 from src.utils import constants
 from src.utils.plotting import pareto_frontier_plot
+
+plt.style.use("seaborn-v0_8-talk")
+plt.rc("font", family="sans-serif")
 
 # %%
 df = pl.read_csv("results/results_topk.csv")
@@ -47,7 +53,7 @@ df_sem = prepare_sem_df(df, "time_run")
 xerr = df_sem["sem_time_run"].to_numpy()
 yerr = df_sem["sem_pred"].to_numpy()
 
-fig, ax = plt.subplots(1, 1, squeeze=True, figsize=(6, 4), layout="constrained")
+fig, ax = plt.subplots(1, 1, squeeze=True, figsize=(5, 3.5), layout="constrained")
 (h, l), _ = pareto_frontier_plot(
     df_pareto.to_pandas(),
     x_var="time_run",
@@ -78,14 +84,12 @@ for idx, c in enumerate(colors):
         ecolor=c,
     )
 
-ax.legend(h, l, title="Value of k", loc="upper right", bbox_to_anchor=(1.30, 1))
-
+ax.legend(h, l, title="Value of k", loc="upper right", bbox_to_anchor=(1.35, 1.05), frameon=False)
 _x, _y = df_pareto.filter(top_k=30).select("time_run", "prediction_metric")
 
 x_text = _x.item()
 y_text = _y.item()
 
-# Annotate the point (36, 0.52)
 ax.annotate(
     "k used in experiments",  # Annotation text
     xy=(x_text, y_text),  # Point to annotate
@@ -104,7 +108,7 @@ df_sem = prepare_sem_df(df, "peak_fit")
 xerr = df_sem["sem_peak_fit"].to_numpy()
 yerr = df_sem["sem_pred"].to_numpy()
 
-fig, ax = plt.subplots(1, 1, squeeze=True, figsize=(6, 4), layout="constrained")
+fig, ax = plt.subplots(1, 1, squeeze=True, figsize=(5, 3.5), layout="constrained")
 (h, l), _ = pareto_frontier_plot(
     df_pareto.to_pandas(),
     x_var="peak_fit",
@@ -135,7 +139,7 @@ for idx, c in enumerate(colors):
         ecolor=c,
     )
 
-ax.legend(h, l, title="Value of k", loc="upper right", bbox_to_anchor=(1.30, 1))
+ax.legend(h, l, title="Value of k", loc="upper right", bbox_to_anchor=(1.35, 1.05), frameon=False)
 fig.savefig("images/pareto_topk_ram.png", bbox_inches="tight")
 fig.savefig("images/pareto_topk_ram.pdf", bbox_inches="tight")
 

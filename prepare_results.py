@@ -44,7 +44,7 @@ config_general = json.load(
 df_config = prepare_config(config_general)
 group_keys = df_config.columns
 df_test = df_config.join(df, on=group_keys, how="inner")
-df_test.join(df_query_time_all_datalakes, on="jd_method").with_columns(
+df_test = df_test.join(df_query_time_all_datalakes, on="jd_method").with_columns(
     total_runtime=pl.col("time_run") + pl.col("time_query")
 )
 df_test.write_parquet("results/results_general.parquet")
