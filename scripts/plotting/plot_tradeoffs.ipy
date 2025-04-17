@@ -3,7 +3,8 @@ Figure: tradeoffs between retrieval methods.
 """
 
 # %%
-# %cd ~/bench
+import os
+os.chdir("../..")
 
 # %%
 import numpy as np
@@ -19,8 +20,6 @@ tab10 = plt.cm.tab10
 colors = [tab10(i) for i in range(4)]
 
 plt.style.use("seaborn-v0_8-talk")
-#%%
-colors
 # %%
 methods = ["Exact", "Minhash", "Hybrid", "Starmie"]
 dd = {
@@ -38,7 +37,7 @@ for _n in range(11):
         column_cost = df.filter(pl.col("method") == m).select("column_cost").item()
         r = [m, _n, fixed_cost + column_cost * _n]
         rows.append(r)
-res = pl.DataFrame(rows)
+res = pl.DataFrame(rows, orient="row")
 df_plotting = res.group_by(pl.col("column_0")).agg(pl.all()).sort("column_0")
 
 # %%
@@ -88,6 +87,8 @@ ax1.xaxis.tick_top()
 ax1.tick_params(labeltop=False)  # don't put tick labels at the top
 ax2.xaxis.tick_bottom()
 
+ax1.set_xlim([0,10])
+
 # Prepare the markers
 d = 0.5  # proportion of vertical to horizontal extent of the slanted line
 kwargs = dict(
@@ -101,19 +102,6 @@ kwargs = dict(
 )
 ax1.plot([0, 1], [0, 0], transform=ax1.transAxes, **kwargs)
 ax2.plot([0, 1], [1, 1], transform=ax2.transAxes, **kwargs)
-
-# # Plot the intersection between the slope for exact and that for minhash
-# x_ = dd["fixed_cost"][1] / (dd["column_cost"][0] - dd["column_cost"][1])
-# y_ = x_ * 800
-# ax2.plot((x_, x_), (0, y_), color="black", linestyle="--")
-
-# # Plot the intersection between the slope for exact and that for hybrid minhash
-# x_ = dd["fixed_cost"][2] / (dd["column_cost"][0] - dd["column_cost"][2])
-# y_ = x_ * 800
-# ax2.plot((x_, x_), (0, y_), linestyle="--", color="black")
-
-# ax2.plot(x_, y_, color="black", marker="+")
-
 fig.savefig("images/tradeoff-retrieval.pdf", bbox_inches="tight")
 fig.savefig("images/tradeoff-retrieval.png", bbox_inches="tight")
 

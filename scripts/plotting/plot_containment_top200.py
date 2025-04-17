@@ -3,25 +3,23 @@ Figure: distribution of containment by data lake and retrieval method
 """
 
 # %%
-# %cd ~/bench
-# %load_ext autoreload
-# %autoreload 2
+import os
+
+os.chdir("../..")
 # %%
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import polars as pl
 import seaborn as sns
-from sklearn.linear_model import LinearRegression
-
-from src.utils import logging, plotting
-from src.utils.constants import LABEL_MAPPING, LEGEND_LABELS, ORDER_MAPPING
+from src.utils.constants import LABEL_MAPPING, ORDER_MAPPING
 
 # %%
 sns.set_context("talk")
 plt.style.use("seaborn-v0_8-talk")
 
 STATS_DIR = Path("stats")
+
 
 # %%
 # PREPARE CONTAINMENT PLOT
