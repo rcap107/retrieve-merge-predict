@@ -14,7 +14,7 @@ from matplotlib.ticker import (
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from src.utils import constants
-from src.utils.plotting import pareto_frontier_plot
+
 
 sns.set_context("paper")
 plt.style.use("seaborn-v0_8-talk")
