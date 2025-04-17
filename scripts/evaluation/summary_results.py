@@ -1,6 +1,6 @@
-"""This script is used to build the ablation table to compare the performance of each
-configuration against the reference.
-
+"""
+This script includes various functions used to prepare some of the tables in the 
+main body of the paper. 
 """
 
 # %%
