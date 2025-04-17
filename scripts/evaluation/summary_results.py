@@ -114,7 +114,7 @@ df_trimmed.to_pandas().pivot_table(
     index="base_table",
     columns="target_dl",
     aggfunc="mean",
-).to_csv("trimmed_mean.csv")
+).to_csv("results/trimmed_mean.csv")
 # fold vs fold difference
 # %%
 # retrieval method
