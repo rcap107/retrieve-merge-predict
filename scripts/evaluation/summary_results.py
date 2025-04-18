@@ -10,8 +10,7 @@ os.chdir("../..")
 import polars as pl
 
 from src.utils.constants import GROUPING_KEYS, REFERENCE_CONFIG
-
-_gk = [_ for _ in GROUPING_KEYS if _ != "fold_id"]
+from src.utils.logging import prepare_full_time_run
 
 
 def diff_fold_vs_fold(df, key):
@@ -81,17 +80,6 @@ def prepare_reference(df_general):
     df_reference = dedup.filter(**REFERENCE_CONFIG)
     df_reference.write_csv("results/results_reference.csv")
 
-
-def prepare_full_time_run(df):
-    _d = df.group_by(_gk).agg(pl.sum("time_run")).select(_gk + ["time_run"])
-
-    df = (
-        df.drop("time_run")
-        .join(_d, on=_gk)
-        .with_columns(time_run=pl.col("time_run") + pl.col("time_query"))
-    )
-
-    return df
 
 
 # %%

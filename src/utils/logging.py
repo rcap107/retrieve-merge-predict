@@ -305,3 +305,15 @@ def read_and_process(df_results):
     _results = prepare_data_for_plotting(_results)
 
     return _results
+
+def prepare_full_time_run(df):
+    _gk = [_ for _ in GROUPING_KEYS if _ != "fold_id"]
+    _d = df.group_by(_gk).agg(pl.sum("time_run")).select(_gk + ["time_run"])
+
+    df = (
+        df.drop("time_run")
+        .join(_d, on=_gk)
+        .with_columns(time_run=pl.col("time_run") + pl.col("time_query"))
+    )
+
+    return df

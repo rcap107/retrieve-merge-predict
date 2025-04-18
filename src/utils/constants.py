@@ -42,10 +42,7 @@ COLORMAP_DATALAKE_MAPPING = {
 LEGEND_LABELS = {
     "company_employees": "Company Employees",
     "housing_prices": "Housing Prices",
-    # "movies_large": "Movie Revenue",
-    # "movies_vote": "Movie Ratings",
     "us_accidents_2021": "US Accidents 2021",
-    "us_accidents_large": "US Accidents Large",
     "us_county_population": "US County Population",
     "us_elections": "US Elections",
     "schools": "Schools",
