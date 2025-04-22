@@ -1,7 +1,7 @@
 # %%
 import os
 
-# os.chdir("../..")
+os.chdir("../..")
 # %%
 import matplotlib.pyplot as plt
 import polars as pl
@@ -570,3 +570,4 @@ data = get_results_aggregation()
 fig = prepare_pareto_plot_aggregation_single(data)
 fig.savefig("images/pareto_aggregation_time_single.png", bbox_inches="tight")
 fig.savefig("images/pareto_aggregation_time_single.pdf", bbox_inches="tight")
+# %%

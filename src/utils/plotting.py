@@ -921,6 +921,7 @@ def pareto_frontier_plot(
         palette=palette,
         hue_order=hue_order,
         # legend=False
+        alpha=0.5
     )
 
     xs_pareto = [xs[0], xs[0]]
