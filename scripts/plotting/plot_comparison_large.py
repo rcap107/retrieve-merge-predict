@@ -3,13 +3,14 @@ Alternative code for Figure 5: comparing across data lakes over selector, aggreg
 """
 
 # %%
-# %cd ~/bench
+import os
+os.chdir("../..")
 # %%
 import matplotlib.pyplot as plt
 import polars as pl
 
-from src.utils import constants, plotting
-
+from src.utils import  plotting
+from src.utils.logging import prepare_full_time_run
 # %%
 plot_case = "dep"
 savefig = False
@@ -17,7 +18,8 @@ savefig = False
 
 # %%
 def read_and_format(file_path):
-    return (
+    
+    df = (
         pl.read_parquet(file_path)
         .with_columns(
             case=(
@@ -30,29 +32,16 @@ def read_and_format(file_path):
             prediction_metric=pl.when(pl.col("prediction_metric") < -1)
             .then(-1)
             .otherwise(pl.col("prediction_metric"))
-        )
+        ).filter(pl.col("estimator") != "nojoin")
     )
-
+    
+    df = prepare_full_time_run(df)
+    return df
 
 # %%
 _results_general = read_and_format("results/results_general.parquet")
 _results_aggr = read_and_format("results/results_aggregation.parquet")
 _results_retrieval = read_and_format("results/results_retrieval.parquet")
-
-# _results_aggr = _results_aggr.with_columns(time_run = pl.col("time_run")*10 + pl.col("time_query"))
-# _results_general = _results_general.with_columns(time_run = pl.col("time_run")*10 + pl.col("time_query"))
-# _results_retrieval = _results_retrieval.with_columns(time_run = pl.col("time_run")*10 + pl.col("time_query"))
-
-_results_aggr = _results_aggr.filter(pl.col("estimator") != "nojoin").with_columns(
-    time_run=pl.col("time_run") * 10 + pl.col("time_query")
-)
-_results_general = _results_general.filter(
-    pl.col("estimator") != "nojoin"
-).with_columns(time_run=pl.col("time_run") * 10 + pl.col("time_query"))
-_results_retrieval = _results_retrieval.filter(
-    pl.col("estimator") != "nojoin"
-).with_columns(time_run=pl.col("time_run") * 10 + pl.col("time_query"))
-
 
 # %%
 fig, axes = plt.subplots(
@@ -158,5 +147,5 @@ for _ in range(4):
 # %%
 fig.savefig("images/dep_pair_full.png")
 fig.savefig("images/dep_pair_full.pdf")
-
+ 
 # %%

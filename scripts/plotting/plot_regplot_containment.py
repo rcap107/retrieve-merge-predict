@@ -3,7 +3,9 @@ Figure: prediction performance with respect to containment, with regression plot
 """
 
 # %%
-# %cd ~/bench
+import os
+
+os.chdir("../..")
 # %%
 from pathlib import Path
 
@@ -12,8 +14,8 @@ import polars as pl
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
 
-from src.utils import logging, plotting
-from src.utils.constants import LABEL_MAPPING, LEGEND_LABELS, ORDER_MAPPING
+from src.utils import plotting
+from src.utils.constants import LABEL_MAPPING, LEGEND_LABELS, REFERENCE_CONFIG
 
 # %%
 sns.set_context("talk")
@@ -28,14 +30,11 @@ def filter_df(df, data_lake):
     target_tables = list(LEGEND_LABELS.keys())
     filtered = df.filter(
         (pl.col("target_dl") == data_lake)
-        # & (pl.col("base_table").str.contains("depleted"))
     ).with_columns(case=pl.col("base_table").str.split("-").list.first())
     return filtered.filter(pl.col("case").is_in(target_tables))
 
-
-# %%
-### PREPARE REGRESSION
 def plot_reg(X, y, ax, label):
+    # Prepare regression plot
     model = LinearRegression()
     model.fit(X, y)
     ax.scatter(
@@ -51,7 +50,6 @@ def plot_reg(X, y, ax, label):
 
 
 def prepare_data(df_raw, df_analysis, top_k=200):
-    # Preparation function to have consistent results for every DL.
     df_agg = (
         df_analysis.filter(pl.col("top_k") == top_k)
         .group_by(
@@ -80,10 +78,8 @@ def prepare_data(df_raw, df_analysis, top_k=200):
         ],
     )
 
-    f = {"jd_method": "exact_matching", "chosen_model": "catboost"}
-    r = res.filter(**f)
-    X = r.select("avg_containment").to_numpy()
-    y = r["prediction_metric"].to_numpy()
+    X = res.select("avg_containment").to_numpy()
+    y = res["prediction_metric"].to_numpy()
     return X, y
 
 
@@ -102,8 +98,7 @@ def get_datalake_info(df, data_lake_version):
     return (df_, df_analysis)
 
 
-# %%
-def prepare_regression(fig, ax):
+def prepare_regression( ax):
     """Given the figure and axes object, prepare ther egression plot. The function
     is expecting to find the data in the given path.
     """
@@ -111,7 +106,8 @@ def prepare_regression(fig, ax):
     result_path = "results/results_general.parquet"
     df_results = pl.read_parquet(result_path)
     # current_results = logging.read_and_process(df_results)
-    df_overall = df_results.filter(pl.col("estimator") != "nojoin")
+    # df_overall = df_results.filter(pl.col("estimator") != "nojoin")
+    df_overall = df_results.filter(**REFERENCE_CONFIG)
 
     # Comment out the names of the data lakes that should not be printed
     dl_names = [
@@ -141,7 +137,7 @@ fig, ax = plt.subplots(
     1, 1, squeeze=True, figsize=(4, 3), layout="constrained", sharex=True
 )
 
-h, l = prepare_regression(fig, ax)
+h, l = prepare_regression(ax)
 
 fig.legend(
     h,
@@ -158,4 +154,3 @@ fig.legend(
 
 fig.savefig("images/containment-regplot.pdf", bbox_inches="tight")
 fig.savefig("images/containment-regplot.png", bbox_inches="tight")
-# %%

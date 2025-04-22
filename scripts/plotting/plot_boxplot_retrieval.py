@@ -1,17 +1,15 @@
 """
-Figure 4: Comparing retrieval methods (including Starmie).
+Figure 25: Comparing retrieval methods (including Starmie).
 """
 
 # %%
-# %cd ~/store3/retrieve-merge-predict/bench
-# %load_ext autoreload
-# %autoreload 2
-# %%
+import os
 
+os.chdir("../..")
 import matplotlib.pyplot as plt
 import polars as pl
 
-from src.utils import constants, plotting
+from src.utils import plotting
 
 
 # %%
@@ -27,57 +25,54 @@ def prep_difference(df, result_column):
     )
     return prepared_df
 
-
-# %%
-df = pl.read_csv("stats/stats_retrieval_plot.csv")
-df = df.rename({"index_name": "jd_method"}).filter(
-    pl.col("data_lake_version") != "wordnet_vldb_50"
-)
-# All this garbage is needed to aggregate properly the results
-_d = df.with_columns(
-    cat=pl.col("jd_method").cast(pl.Categorical).to_physical()
-).with_columns(
-    cat=pl.when((pl.col("cat") == 1) | (pl.col("cat") == 2))
-    .then(1)
-    .otherwise(pl.col("cat"))
-)
-_d = _d.join(
-    _d.group_by(["data_lake_version", "cat"]).agg(
-        pl.mean("time_create", "time_save", "time_load")
-    ),
-    on=["data_lake_version", "cat"],
-)
-
-# %%
-_df = (
-    _d.with_columns(
-        time_retrieval=pl.when(pl.col("jd_method") != "starmie")
-        .then(
-            pl.sum_horizontal(
-                [
-                    "time_create_right",
-                    "time_save_right",
-                    "time_load_right",
-                    "time_query",
-                ]
-            )
-        )
-        .otherwise("total_retrieval")
+def preprocess_data():
+    df = pl.read_csv("stats/stats_retrieval_plot.csv")
+    df = df.rename({"index_name": "jd_method"}).filter(
+        pl.col("data_lake_version") != "wordnet_vldb_50"
     )
-    .group_by(["data_lake_version", "jd_method"])
-    .agg(pl.mean("peak_memory"), pl.mean("time_retrieval"))
-)
-res_mem = prep_difference(_df, "peak_memory")
-res_time = prep_difference(_df, "time_retrieval")
+    # Aggregating results
+    _d = df.with_columns(
+        cat=pl.col("jd_method").cast(pl.Categorical).to_physical()
+    ).with_columns(
+        cat=pl.when((pl.col("cat") == 1) | (pl.col("cat") == 2))
+        .then(1)
+        .otherwise(pl.col("cat"))
+    )
+    _d = _d.join(
+        _d.group_by(["data_lake_version", "cat"]).agg(
+            pl.mean("time_create", "time_save", "time_load")
+        ),
+        on=["data_lake_version", "cat"],
+    )
+
+    _df = (
+        _d.with_columns(
+            time_retrieval=pl.when(pl.col("jd_method") != "starmie")
+            .then(
+                pl.sum_horizontal(
+                    [
+                        "time_create_right",
+                        "time_save_right",
+                        "time_load_right",
+                        "time_query",
+                    ]
+                )
+            )
+            .otherwise("total_retrieval")
+        )
+        .group_by(["data_lake_version", "jd_method"])
+        .agg(pl.mean("peak_memory"), pl.mean("time_retrieval"))
+    )
+    df_prep = _df.join(
+        _df.filter(pl.col("jd_method") == "exact_matching"), on="data_lake_version"
+    ).with_columns(
+        diff_ram=pl.col("peak_memory") / pl.col("peak_memory_right"),
+        diff_time=pl.col("time_retrieval") / pl.col("time_retrieval_right"),
+    )
+
+    return df_prep
 #%%
-df_prep = _df.join(
-    _df.filter(pl.col("jd_method") == "exact_matching"), on="data_lake_version"
-).with_columns(
-    diff_ram=pl.col("peak_memory") / pl.col("peak_memory_right"),
-    diff_time=pl.col("time_retrieval") / pl.col("time_retrieval_right"),
-)
-
-
+df_prep = preprocess_data()
 # %%
 fig, axs = plt.subplots(
     1, 2, squeeze=True, layout="constrained", figsize=(7, 3.5), sharey=True

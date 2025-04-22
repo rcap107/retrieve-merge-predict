@@ -1,8 +1,11 @@
-"""This script is used to prepare the Pareto plots that compare the performance 
-by value of top-k, considering both the run time and the peak RAM. 
+"""This script is used to prepare the Pareto plots that compare the performance
+by value of top-k, considering both the run time and the peak RAM.
 """
+
 # %%
-# %cd ~/bench
+import os
+
+os.chdir("../..")
 # %%
 import matplotlib.pyplot as plt
 import polars as pl
@@ -84,7 +87,15 @@ for idx, c in enumerate(colors):
         ecolor=c,
     )
 
-ax.legend(h, l, title="Value of k", loc="upper right", bbox_to_anchor=(1.35, 1.05), frameon=False)
+ax.legend(
+    h,
+    l,
+    title="Value of k",
+    loc="upper right",
+    bbox_to_anchor=(1.35, 1.05),
+    frameon=False,
+    title_fontsize="large",
+)
 _x, _y = df_pareto.filter(top_k=30).select("time_run", "prediction_metric")
 
 x_text = _x.item()
@@ -93,10 +104,10 @@ y_text = _y.item()
 ax.annotate(
     "k used in experiments",  # Annotation text
     xy=(x_text, y_text),  # Point to annotate
-    xytext=(x_text + 5, y_text - 0.03),  # Position of the text
+    xytext=(x_text - 3, y_text - 0.03),  # Position of the text
     arrowprops=dict(facecolor="black", arrowstyle="->"),  # Arrow style
-    fontsize=12,  # Text font size
-    color="red",  # Text color
+    fontsize=14,  # Text font size
+    color="black",  # Text color
 )
 
 fig.savefig("images/pareto_topk_time.png", bbox_inches="tight")
@@ -139,7 +150,15 @@ for idx, c in enumerate(colors):
         ecolor=c,
     )
 
-ax.legend(h, l, title="Value of k", loc="upper right", bbox_to_anchor=(1.35, 1.05), frameon=False)
+ax.legend(
+    h,
+    l,
+    title="Value of k",
+    loc="upper right",
+    bbox_to_anchor=(1.35, 1.05),
+    frameon=False,
+    title_fontsize="large",
+)
 fig.savefig("images/pareto_topk_ram.png", bbox_inches="tight")
 fig.savefig("images/pareto_topk_ram.pdf", bbox_inches="tight")
 
