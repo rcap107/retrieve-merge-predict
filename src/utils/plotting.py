@@ -899,6 +899,7 @@ def pareto_frontier_plot(
     ax,
     ax_title="",
     ax_xlabel="",
+    alpha=0.5
 ):
     if not isinstance(data, pd.DataFrame):
         raise ValueError()
@@ -921,7 +922,7 @@ def pareto_frontier_plot(
         palette=palette,
         hue_order=hue_order,
         # legend=False
-        alpha=0.5
+        alpha=alpha
     )
 
     xs_pareto = [xs[0], xs[0]]
